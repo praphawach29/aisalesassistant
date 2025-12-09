@@ -1,27 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { 
   Package, 
   ShoppingCart, 
   TrendingUp, 
   Clock,
-  LogOut,
-  MessageCircle,
-  RefreshCw,
-  ExternalLink,
-  HelpCircle,
-  Settings
+  RefreshCw
 } from 'lucide-react';
 import { Order } from '@/types';
 
 export default function AdminDashboard() {
-  const { user, isAdmin, isLoading, signOut } = useAuth();
+  const { user, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState({
@@ -96,11 +92,6 @@ export default function AdminDashboard() {
     setIsLoadingData(false);
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/admin');
-  };
-
   const getStatusBadge = (status: Order['status']) => {
     const variants: Record<Order['status'], { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string }> = {
       pending: { variant: 'secondary', label: 'รอดำเนินการ' },
@@ -141,9 +132,6 @@ export default function AdminDashboard() {
             <p className="text-muted-foreground mb-4">
               คุณยังไม่ได้รับสิทธิ์ Admin กรุณาติดต่อผู้ดูแลระบบ
             </p>
-            <Button onClick={handleSignOut} variant="outline">
-              ออกจากระบบ
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -151,161 +139,110 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold">Admin Dashboard</h1>
-          <div className="flex items-center gap-2">
-            <Link to="/admin/orders">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ShoppingCart className="w-4 h-4" />
-                ออเดอร์
-              </Button>
-            </Link>
-            <Link to="/admin/products">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Package className="w-4 h-4" />
-                สินค้า
-              </Button>
-            </Link>
-            <Link to="/admin/chats">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <MessageCircle className="w-4 h-4" />
-                แชท
-              </Button>
-            </Link>
-            <Link to="/admin/faqs">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <HelpCircle className="w-4 h-4" />
-                FAQ
-              </Button>
-            </Link>
-            <Link to="/admin/settings">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Settings className="w-4 h-4" />
-                ตั้งค่า
-              </Button>
-            </Link>
-            <Link to="/">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ExternalLink className="w-4 h-4" />
-                Chatbot
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-2">
-              <LogOut className="w-4 h-4" />
-              ออกจากระบบ
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-primary/10">
-                  <ShoppingCart className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">ออเดอร์ทั้งหมด</p>
-                  <p className="text-2xl font-bold">{stats.totalOrders}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-orange-500/10">
-                  <Clock className="w-5 h-5 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">รอดำเนินการ</p>
-                  <p className="text-2xl font-bold">{stats.pendingOrders}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-green-500/10">
-                  <Package className="w-5 h-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">วันนี้</p>
-                  <p className="text-2xl font-bold">{stats.todayOrders}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-blue-500/10">
-                  <TrendingUp className="w-5 h-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">รายได้</p>
-                  <p className="text-2xl font-bold">฿{stats.totalRevenue.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Orders */}
+    <AdminLayout title="Dashboard">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>ออเดอร์ล่าสุด</CardTitle>
-            <Button variant="ghost" size="sm" onClick={fetchData} disabled={isLoadingData}>
-              <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {orders.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>ยังไม่มีออเดอร์</p>
+          <CardContent className="p-4 lg:pt-6">
+            <div className="flex items-center gap-3 lg:gap-4">
+              <div className="p-2 lg:p-3 rounded-full bg-primary/10">
+                <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
               </div>
-            ) : (
-              <ScrollArea className="h-[400px]">
-                <div className="space-y-4">
-                  {orders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <span className="text-2xl">{getPlatformIcon(order.platform)}</span>
-                        <div>
-                          <p className="font-medium">{order.order_number}</p>
-                          <p className="text-sm text-muted-foreground">{order.customer_name}</p>
-                          <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        {getStatusBadge(order.status)}
-                        <p className="text-lg font-semibold mt-1">฿{Number(order.total_amount).toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(order.created_at).toLocaleDateString('th-TH')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
+              <div>
+                <p className="text-xs lg:text-sm text-muted-foreground">ออเดอร์ทั้งหมด</p>
+                <p className="text-xl lg:text-2xl font-bold">{stats.totalOrders}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+
+        <Card>
+          <CardContent className="p-4 lg:pt-6">
+            <div className="flex items-center gap-3 lg:gap-4">
+              <div className="p-2 lg:p-3 rounded-full bg-orange-500/10">
+                <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-xs lg:text-sm text-muted-foreground">รอดำเนินการ</p>
+                <p className="text-xl lg:text-2xl font-bold">{stats.pendingOrders}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 lg:pt-6">
+            <div className="flex items-center gap-3 lg:gap-4">
+              <div className="p-2 lg:p-3 rounded-full bg-green-500/10">
+                <Package className="w-4 h-4 lg:w-5 lg:h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-xs lg:text-sm text-muted-foreground">วันนี้</p>
+                <p className="text-xl lg:text-2xl font-bold">{stats.todayOrders}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 lg:pt-6">
+            <div className="flex items-center gap-3 lg:gap-4">
+              <div className="p-2 lg:p-3 rounded-full bg-blue-500/10">
+                <TrendingUp className="w-4 h-4 lg:w-5 lg:h-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-xs lg:text-sm text-muted-foreground">รายได้</p>
+                <p className="text-lg lg:text-2xl font-bold">฿{stats.totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Orders */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <CardTitle className="text-base lg:text-lg">ออเดอร์ล่าสุด</CardTitle>
+          <Button variant="ghost" size="sm" onClick={fetchData} disabled={isLoadingData}>
+            <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0 lg:p-6 lg:pt-0">
+          {orders.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>ยังไม่มีออเดอร์</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px] lg:h-[500px]">
+              <div className="space-y-2 lg:space-y-4 px-4 lg:px-0 pb-4">
+                {orders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between p-3 lg:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 lg:gap-4 min-w-0">
+                      <span className="text-xl lg:text-2xl flex-shrink-0">{getPlatformIcon(order.platform)}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm lg:text-base truncate">{order.order_number}</p>
+                        <p className="text-xs lg:text-sm text-muted-foreground truncate">{order.customer_name}</p>
+                        <p className="text-xs text-muted-foreground lg:hidden">{order.customer_phone}</p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-2">
+                      {getStatusBadge(order.status)}
+                      <p className="text-base lg:text-lg font-semibold mt-1">฿{Number(order.total_amount).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(order.created_at).toLocaleDateString('th-TH')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+    </AdminLayout>
   );
 }
