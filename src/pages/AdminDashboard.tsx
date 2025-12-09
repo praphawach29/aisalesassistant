@@ -15,7 +15,8 @@ import {
   MessageCircle,
   RefreshCw,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  Settings
 } from 'lucide-react';
 import { Order } from '@/types';
 
@@ -178,6 +179,12 @@ export default function AdminDashboard() {
               <Button variant="ghost" size="sm" className="gap-2">
                 <HelpCircle className="w-4 h-4" />
                 FAQ
+              </Button>
+            </Link>
+            <Link to="/admin/settings">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Settings className="w-4 h-4" />
+                ตั้งค่า
               </Button>
             </Link>
             <Link to="/">
