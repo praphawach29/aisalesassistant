@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from './NotificationBell';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -16,7 +17,8 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronLeft
+  ChevronLeft,
+  Plug
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -30,7 +32,7 @@ const menuItems = [
   { path: '/admin/products', label: 'สินค้า', icon: Package },
   { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
   { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
-  { path: '/admin/integrations', label: 'Integration', icon: MessageCircle },
+  { path: '/admin/integrations', label: 'Integration', icon: Plug },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];
 
@@ -153,7 +155,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           
           <h1 className="font-semibold text-lg">{title}</h1>
           
-          <div className="w-10" /> {/* Spacer for centering */}
+          <NotificationBell />
         </div>
       </header>
 
@@ -166,6 +168,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
         <header className="hidden lg:block sticky top-0 z-30 border-b bg-card/95 backdrop-blur-sm">
           <div className="flex items-center justify-between px-6 h-16">
             <h1 className="text-xl font-bold">{title}</h1>
+            <NotificationBell />
           </div>
         </header>
 
