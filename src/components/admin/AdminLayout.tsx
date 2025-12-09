@@ -16,9 +16,9 @@ import {
   ExternalLink,
   LogOut,
   Menu,
-  X,
   ChevronLeft,
-  Plug
+  Plug,
+  Bell
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -32,6 +32,7 @@ const menuItems = [
   { path: '/admin/products', label: 'สินค้า', icon: Package },
   { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
   { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
+  { path: '/admin/notifications', label: 'แจ้งเตือน', icon: Bell },
   { path: '/admin/integrations', label: 'Integration', icon: Plug },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];
