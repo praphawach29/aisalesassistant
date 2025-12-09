@@ -1,0 +1,444 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { 
+  MessageCircle, 
+  LogOut,
+  ArrowLeft,
+  RefreshCw,
+  Search,
+  User,
+  Phone,
+  Calendar,
+  Clock
+} from 'lucide-react';
+import { ChatConversation, ChatMessage } from '@/types';
+
+export default function AdminChats() {
+  const { user, isAdmin, isLoading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate('/admin');
+    }
+  }, [user, isLoading, navigate]);
+
+  useEffect(() => {
+    if (user && isAdmin) {
+      fetchConversations();
+      
+      // Subscribe to realtime updates
+      const channel = supabase
+        .channel('chats-admin-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chat_conversations' },
+          () => fetchConversations()
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user, isAdmin]);
+
+  const fetchConversations = async () => {
+    setIsLoadingData(true);
+    
+    const { data, error } = await supabase
+      .from('chat_conversations')
+      .select('*')
+      .order('last_message_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching conversations:', error);
+    } else {
+      const typedConversations = (data || []).map(conv => ({
+        ...conv,
+        platform: conv.platform as 'web' | 'line' | 'facebook'
+      }));
+      setConversations(typedConversations);
+    }
+    
+    setIsLoadingData(false);
+  };
+
+  const fetchMessages = async (conversationId: string) => {
+    setIsLoadingMessages(true);
+    
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+    } else {
+      setMessages(data as ChatMessage[] || []);
+    }
+    
+    setIsLoadingMessages(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/admin');
+  };
+
+  const openConversationDetail = async (conversation: ChatConversation) => {
+    setSelectedConversation(conversation);
+    setIsDetailOpen(true);
+    await fetchMessages(conversation.id);
+  };
+
+  const getPlatformIcon = (platform: ChatConversation['platform']) => {
+    switch (platform) {
+      case 'line': return '🟢';
+      case 'facebook': return '🔵';
+      default: return '🌐';
+    }
+  };
+
+  const getPlatformLabel = (platform: ChatConversation['platform']) => {
+    switch (platform) {
+      case 'line': return 'LINE';
+      case 'facebook': return 'Facebook';
+      default: return 'Web';
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('th-TH', {
+      day: 'numeric',
+      month: 'short',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getTimeAgo = (dateString: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'เมื่อสักครู่';
+    if (diffMins < 60) return `${diffMins} นาทีที่แล้ว`;
+    if (diffHours < 24) return `${diffHours} ชม.ที่แล้ว`;
+    if (diffDays < 7) return `${diffDays} วันที่แล้ว`;
+    return formatDate(dateString);
+  };
+
+  const filteredConversations = conversations.filter(conv => {
+    const matchesSearch = 
+      conv.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conv.customer_phone?.includes(searchQuery) ||
+      conv.last_message?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conv.platform_user_id?.includes(searchQuery);
+    
+    const matchesPlatform = platformFilter === 'all' || conv.platform === platformFilter;
+    
+    return matchesSearch && matchesPlatform;
+  });
+
+  const stats = {
+    total: conversations.length,
+    web: conversations.filter(c => c.platform === 'web').length,
+    line: conversations.filter(c => c.platform === 'line').length,
+    facebook: conversations.filter(c => c.platform === 'facebook').length,
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAdmin && !isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <MessageCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">ไม่มีสิทธิ์เข้าถึง</h2>
+            <p className="text-muted-foreground mb-4">
+              คุณยังไม่ได้รับสิทธิ์ Admin กรุณาติดต่อผู้ดูแลระบบ
+            </p>
+            <Button onClick={handleSignOut} variant="outline">
+              ออกจากระบบ
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Header */}
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link to="/admin/dashboard">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <h1 className="text-xl font-bold">ประวัติการสนทนา</h1>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-2">
+            <LogOut className="w-4 h-4" />
+            ออกจากระบบ
+          </Button>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-6">
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">การสนทนาทั้งหมด</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold">{stats.web}</p>
+                <p className="text-sm text-muted-foreground">🌐 Web</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{stats.line}</p>
+                <p className="text-sm text-muted-foreground">🟢 LINE</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">{stats.facebook}</p>
+                <p className="text-sm text-muted-foreground">🔵 Facebook</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="ค้นหาชื่อ, เบอร์โทร, ข้อความ..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={platformFilter} onValueChange={setPlatformFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="แพลตฟอร์มทั้งหมด" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกแพลตฟอร์ม</SelectItem>
+              <SelectItem value="web">🌐 Web</SelectItem>
+              <SelectItem value="line">🟢 LINE</SelectItem>
+              <SelectItem value="facebook">🔵 Facebook</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" onClick={fetchConversations} disabled={isLoadingData}>
+            <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Conversations List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>รายการสนทนา ({filteredConversations.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {filteredConversations.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>{searchQuery || platformFilter !== 'all' ? 'ไม่พบการสนทนาที่ค้นหา' : 'ยังไม่มีการสนทนา'}</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[500px]">
+                <div className="space-y-3">
+                  {filteredConversations.map((conversation) => (
+                    <div
+                      key={conversation.id}
+                      onClick={() => openConversationDetail(conversation)}
+                      className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
+                    >
+                      {/* Platform Icon */}
+                      <div className="text-2xl flex-shrink-0">
+                        {getPlatformIcon(conversation.platform)}
+                      </div>
+
+                      {/* Conversation Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">
+                            {conversation.customer_name || 'ไม่ระบุชื่อ'}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {getPlatformLabel(conversation.platform)}
+                          </Badge>
+                        </div>
+                        {conversation.customer_phone && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                            <Phone className="w-3 h-3" />
+                            {conversation.customer_phone}
+                          </div>
+                        )}
+                        {conversation.last_message && (
+                          <p className="text-sm text-muted-foreground mt-1 truncate">
+                            {conversation.last_message}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Time */}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs text-muted-foreground">
+                          {getTimeAgo(conversation.last_message_at)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+
+      {/* Conversation Detail Sheet */}
+      <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-hidden flex flex-col">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <span className="text-lg">{selectedConversation && getPlatformIcon(selectedConversation.platform)}</span>
+              <span>ประวัติการสนทนา</span>
+            </SheetTitle>
+          </SheetHeader>
+          
+          {selectedConversation && (
+            <div className="flex-1 flex flex-col overflow-hidden mt-4">
+              {/* Customer Info */}
+              <Card className="flex-shrink-0 mb-4">
+                <CardContent className="pt-4 space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedConversation.customer_name || 'ไม่ระบุชื่อ'}</span>
+                  </div>
+                  {selectedConversation.customer_phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-muted-foreground" />
+                      <span>{selectedConversation.customer_phone}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span>เริ่มสนทนา: {formatDate(selectedConversation.created_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span>ข้อความล่าสุด: {formatDate(selectedConversation.last_message_at)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-medium mb-2">ข้อความ ({messages.length})</p>
+                <ScrollArea className="h-[400px] pr-4">
+                  {isLoadingMessages ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">ไม่มีข้อความ</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-2xl px-4 py-2 ${
+                              message.role === 'user'
+                                ? 'bg-primary text-primary-foreground rounded-br-md'
+                                : 'bg-muted rounded-bl-md'
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                            <p className={`text-xs mt-1 ${
+                              message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                            }`}>
+                              {new Date(message.created_at).toLocaleTimeString('th-TH', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

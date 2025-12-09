@@ -167,9 +167,15 @@ export default function AdminDashboard() {
                 สินค้า
               </Button>
             </Link>
-            <Link to="/">
+            <Link to="/admin/chats">
               <Button variant="ghost" size="sm" className="gap-2">
                 <MessageCircle className="w-4 h-4" />
+                แชท
+              </Button>
+            </Link>
+            <Link to="/">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ExternalLink className="w-4 h-4" />
                 Chatbot
               </Button>
             </Link>
