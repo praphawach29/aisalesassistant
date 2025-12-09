@@ -1,0 +1,630 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { 
+  Package, 
+  LogOut,
+  ArrowLeft,
+  RefreshCw,
+  Search,
+  Eye,
+  Truck,
+  MapPin,
+  Phone,
+  User,
+  Calendar,
+  ShoppingCart,
+  FileText
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { Order, OrderItem } from '@/types';
+
+type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+
+const statusOptions: { value: OrderStatus; label: string; color: string }[] = [
+  { value: 'pending', label: 'รอดำเนินการ', color: 'bg-yellow-500' },
+  { value: 'confirmed', label: 'ยืนยันแล้ว', color: 'bg-blue-500' },
+  { value: 'shipped', label: 'จัดส่งแล้ว', color: 'bg-purple-500' },
+  { value: 'delivered', label: 'ส่งสำเร็จ', color: 'bg-green-500' },
+  { value: 'cancelled', label: 'ยกเลิก', color: 'bg-red-500' },
+];
+
+export default function AdminOrders() {
+  const { user, isAdmin, isLoading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    status: '' as OrderStatus,
+    tracking_number: '',
+    notes: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate('/admin');
+    }
+  }, [user, isLoading, navigate]);
+
+  useEffect(() => {
+    if (user && isAdmin) {
+      fetchOrders();
+      
+      // Subscribe to realtime updates
+      const channel = supabase
+        .channel('orders-admin-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'orders' },
+          () => fetchOrders()
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user, isAdmin]);
+
+  const fetchOrders = async () => {
+    setIsLoadingData(true);
+    
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching orders:', error);
+      toast.error('ไม่สามารถโหลดข้อมูลออเดอร์ได้');
+    } else {
+      const typedOrders = (data || []).map(order => ({
+        ...order,
+        platform: order.platform as 'web' | 'line' | 'facebook',
+        status: order.status as OrderStatus
+      }));
+      setOrders(typedOrders);
+    }
+    
+    setIsLoadingData(false);
+  };
+
+  const fetchOrderItems = async (orderId: string) => {
+    if (orderItems[orderId]) return;
+
+    const { data, error } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
+
+    if (error) {
+      console.error('Error fetching order items:', error);
+    } else {
+      setOrderItems(prev => ({ ...prev, [orderId]: data || [] }));
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/admin');
+  };
+
+  const openDetailSheet = async (order: Order) => {
+    setSelectedOrder(order);
+    setIsDetailOpen(true);
+    await fetchOrderItems(order.id);
+  };
+
+  const openEditDialog = (order: Order) => {
+    setSelectedOrder(order);
+    setEditData({
+      status: order.status,
+      tracking_number: order.tracking_number || '',
+      notes: order.notes || '',
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedOrder) return;
+
+    setIsSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: editData.status,
+          tracking_number: editData.tracking_number.trim() || null,
+          notes: editData.notes.trim() || null,
+        })
+        .eq('id', selectedOrder.id);
+
+      if (error) throw error;
+      
+      toast.success('อัพเดทออเดอร์สำเร็จ');
+      setIsEditOpen(false);
+      fetchOrders();
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัพเดท');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getStatusBadge = (status: OrderStatus) => {
+    const option = statusOptions.find(s => s.value === status);
+    const variants: Record<OrderStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+      pending: 'secondary',
+      confirmed: 'default',
+      shipped: 'outline',
+      delivered: 'default',
+      cancelled: 'destructive'
+    };
+    return <Badge variant={variants[status]}>{option?.label || status}</Badge>;
+  };
+
+  const getPlatformIcon = (platform: Order['platform']) => {
+    switch (platform) {
+      case 'line': return '🟢';
+      case 'facebook': return '🔵';
+      default: return '🌐';
+    }
+  };
+
+  const getPlatformLabel = (platform: Order['platform']) => {
+    switch (platform) {
+      case 'line': return 'LINE';
+      case 'facebook': return 'Facebook';
+      default: return 'Web';
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_phone.includes(searchQuery);
+    
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    shipped: orders.filter(o => o.status === 'shipped').length,
+    delivered: orders.filter(o => o.status === 'delivered').length,
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAdmin && !isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="pt-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <Package className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">ไม่มีสิทธิ์เข้าถึง</h2>
+            <p className="text-muted-foreground mb-4">
+              คุณยังไม่ได้รับสิทธิ์ Admin กรุณาติดต่อผู้ดูแลระบบ
+            </p>
+            <Button onClick={handleSignOut} variant="outline">
+              ออกจากระบบ
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Header */}
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link to="/admin/dashboard">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <h1 className="text-xl font-bold">จัดการออเดอร์</h1>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-2">
+            <LogOut className="w-4 h-4" />
+            ออกจากระบบ
+          </Button>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-6">
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">ออเดอร์ทั้งหมด</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+                <p className="text-sm text-muted-foreground">รอดำเนินการ</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">{stats.shipped}</p>
+                <p className="text-sm text-muted-foreground">จัดส่งแล้ว</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{stats.delivered}</p>
+                <p className="text-sm text-muted-foreground">ส่งสำเร็จ</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="ค้นหาออเดอร์, ชื่อ, เบอร์โทร..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="สถานะทั้งหมด" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">สถานะทั้งหมด</SelectItem>
+              {statusOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" onClick={fetchOrders} disabled={isLoadingData}>
+            <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Orders List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>รายการออเดอร์ ({filteredOrders.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {filteredOrders.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>{searchQuery || statusFilter !== 'all' ? 'ไม่พบออเดอร์ที่ค้นหา' : 'ยังไม่มีออเดอร์'}</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[500px]">
+                <div className="space-y-3">
+                  {filteredOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    >
+                      {/* Platform Icon */}
+                      <div className="text-2xl flex-shrink-0">
+                        {getPlatformIcon(order.platform)}
+                      </div>
+
+                      {/* Order Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-medium">{order.order_number}</span>
+                          {getStatusBadge(order.status)}
+                        </div>
+                        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {order.customer_name}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {order.customer_phone}
+                          </span>
+                        </div>
+                        {order.tracking_number && (
+                          <div className="flex items-center gap-1 mt-1 text-sm text-primary">
+                            <Truck className="w-3 h-3" />
+                            {order.tracking_number}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Amount & Date */}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-lg font-semibold">฿{Number(order.total_amount).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(order.created_at).toLocaleDateString('th-TH', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openDetailSheet(order)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="icon"
+                          onClick={() => openEditDialog(order)}
+                        >
+                          <Truck className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+
+      {/* Order Detail Sheet */}
+      <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>รายละเอียดออเดอร์</SheetTitle>
+          </SheetHeader>
+          
+          {selectedOrder && (
+            <div className="mt-6 space-y-6">
+              {/* Order Number & Status */}
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-lg font-bold">{selectedOrder.order_number}</span>
+                {getStatusBadge(selectedOrder.status)}
+              </div>
+
+              {/* Platform */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-lg">{getPlatformIcon(selectedOrder.platform)}</span>
+                <span>{getPlatformLabel(selectedOrder.platform)}</span>
+              </div>
+
+              {/* Customer Info */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">ข้อมูลลูกค้า</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedOrder.customer_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedOrder.customer_phone}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <span>{selectedOrder.customer_address}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Order Items */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">รายการสินค้า</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {orderItems[selectedOrder.id] ? (
+                    <div className="space-y-2">
+                      {orderItems[selectedOrder.id].map((item) => (
+                        <div key={item.id} className="flex justify-between text-sm">
+                          <span>
+                            {item.product_name} x{item.quantity}
+                          </span>
+                          <span className="font-medium">
+                            ฿{(Number(item.price) * item.quantity).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="border-t pt-2 flex justify-between font-semibold">
+                        <span>รวม</span>
+                        <span>฿{Number(selectedOrder.total_amount).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center py-4">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Tracking */}
+              {selectedOrder.tracking_number && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">เลข Tracking</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-primary" />
+                      <span className="font-mono">{selectedOrder.tracking_number}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Notes */}
+              {selectedOrder.notes && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">หมายเหตุ</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Dates */}
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3 h-3" />
+                  <span>สร้างเมื่อ: {new Date(selectedOrder.created_at).toLocaleString('th-TH')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3 h-3" />
+                  <span>อัพเดทล่าสุด: {new Date(selectedOrder.updated_at).toLocaleString('th-TH')}</span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <Button onClick={() => { setIsDetailOpen(false); openEditDialog(selectedOrder); }} className="w-full gap-2">
+                <Truck className="w-4 h-4" />
+                อัพเดทสถานะ / Tracking
+              </Button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>อัพเดทออเดอร์ {selectedOrder?.order_number}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>สถานะ</Label>
+              <Select value={editData.status} onValueChange={(v) => setEditData({ ...editData, status: v as OrderStatus })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tracking">เลข Tracking</Label>
+              <Input
+                id="tracking"
+                value={editData.tracking_number}
+                onChange={(e) => setEditData({ ...editData, tracking_number: e.target.value })}
+                placeholder="กรอกเลข Tracking"
+                maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">หมายเหตุ</Label>
+              <Textarea
+                id="notes"
+                value={editData.notes}
+                onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                placeholder="หมายเหตุเพิ่มเติม"
+                rows={3}
+                maxLength={500}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsEditOpen(false)}
+                className="flex-1"
+              >
+                ยกเลิก
+              </Button>
+              <Button onClick={handleUpdate} disabled={isSaving} className="flex-1">
+                {isSaving ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  'บันทึก'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

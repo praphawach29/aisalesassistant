@@ -155,6 +155,12 @@ export default function AdminDashboard() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold">Admin Dashboard</h1>
           <div className="flex items-center gap-2">
+            <Link to="/admin/orders">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                ออเดอร์
+              </Button>
+            </Link>
             <Link to="/admin/products">
               <Button variant="ghost" size="sm" className="gap-2">
                 <Package className="w-4 h-4" />
