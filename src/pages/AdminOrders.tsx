@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,18 +31,15 @@ import {
 } from '@/components/ui/sheet';
 import { 
   Package, 
-  LogOut,
-  ArrowLeft,
   RefreshCw,
   Search,
   Eye,
   Truck,
-  MapPin,
   Phone,
   User,
-  Calendar,
   ShoppingCart,
-  FileText
+  MapPin,
+  Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Order, OrderItem } from '@/types';
@@ -300,28 +298,9 @@ export default function AdminOrders() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/admin/dashboard">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <h1 className="text-xl font-bold">จัดการออเดอร์</h1>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            ออกจากระบบ
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <AdminLayout title="จัดการออเดอร์">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -471,7 +450,7 @@ export default function AdminOrders() {
             )}
           </CardContent>
         </Card>
-      </main>
+      
 
       {/* Order Detail Sheet */}
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
@@ -662,6 +641,6 @@ export default function AdminOrders() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminLayout>
   );
 }
