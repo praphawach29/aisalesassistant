@@ -16,6 +16,8 @@ import AdminIntegrations from "./pages/AdminIntegrations";
 import AdminSettings from "./pages/AdminSettings";
 import AdminNotifications from "./pages/AdminNotifications";
 import AdminTemplates from "./pages/AdminTemplates";
+import WidgetDemo from "./pages/WidgetDemo";
+import Embed from "./pages/Embed";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,8 @@ const App = () => (
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/admin/notifications" element={<AdminNotifications />} />
             <Route path="/admin/templates" element={<AdminTemplates />} />
+            <Route path="/widget-demo" element={<WidgetDemo />} />
+            <Route path="/embed" element={<Embed />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
