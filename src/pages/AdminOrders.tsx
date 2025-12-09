@@ -56,6 +56,39 @@ const statusOptions: { value: OrderStatus; label: string; color: string }[] = [
   { value: 'cancelled', label: 'ยกเลิก', color: 'bg-red-500' },
 ];
 
+const messageTemplates = [
+  { 
+    id: 'confirm', 
+    label: 'ยืนยันออเดอร์', 
+    template: 'สวัสดีค่ะ ทางร้านได้รับออเดอร์ของคุณเรียบร้อยแล้วค่ะ กำลังเตรียมจัดส่งให้นะคะ ขอบคุณที่อุดหนุนค่ะ 🙏'
+  },
+  { 
+    id: 'preparing', 
+    label: 'กำลังเตรียมสินค้า', 
+    template: 'สวัสดีค่ะ ออเดอร์ของคุณกำลังเตรียมจัดส่งค่ะ คาดว่าจะจัดส่งภายในวันนี้นะคะ'
+  },
+  { 
+    id: 'shipped', 
+    label: 'จัดส่งแล้ว', 
+    template: 'สวัสดีค่ะ ออเดอร์ของคุณถูกจัดส่งเรียบร้อยแล้วค่ะ สามารถติดตามพัสดุได้ที่เลข Tracking ที่แจ้งไว้นะคะ 📦'
+  },
+  { 
+    id: 'delay', 
+    label: 'แจ้งล่าช้า', 
+    template: 'สวัสดีค่ะ ขออภัยนะคะ ออเดอร์ของคุณอาจล่าช้ากว่าปกติเล็กน้อย ทางร้านกำลังเร่งดำเนินการให้เร็วที่สุดค่ะ'
+  },
+  { 
+    id: 'thanks', 
+    label: 'ขอบคุณลูกค้า', 
+    template: 'ขอบคุณที่อุดหนุนค่ะ 🙏 หวังว่าจะได้รับการอุดหนุนอีกนะคะ หากมีข้อสงสัยสามารถสอบถามได้ตลอดเวลาค่ะ'
+  },
+  { 
+    id: 'promo', 
+    label: 'แจ้งโปรโมชั่น', 
+    template: 'สวัสดีค่ะ ทางร้านมีโปรโมชั่นพิเศษสำหรับลูกค้าคนพิเศษอย่างคุณค่ะ สนใจสอบถามรายละเอียดเพิ่มเติมได้เลยนะคะ 🎉'
+  },
+];
+
 export default function AdminOrders() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -709,13 +742,31 @@ export default function AdminOrders() {
                 </div>
               ) : (
                 <>
+                  {/* Message Templates */}
+                  <div className="space-y-2">
+                    <Label>เทมเพลตข้อความ</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {messageTemplates.map((tpl) => (
+                        <Button
+                          key={tpl.id}
+                          type="button"
+                          variant={customMessage === tpl.template ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCustomMessage(tpl.template)}
+                        >
+                          {tpl.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="customMessage">ข้อความ</Label>
                     <Textarea
                       id="customMessage"
                       value={customMessage}
                       onChange={(e) => setCustomMessage(e.target.value)}
-                      placeholder="พิมพ์ข้อความที่ต้องการส่งถึงลูกค้า..."
+                      placeholder="พิมพ์ข้อความที่ต้องการส่งถึงลูกค้า หรือเลือกจากเทมเพลตด้านบน..."
                       rows={4}
                       maxLength={1000}
                     />
