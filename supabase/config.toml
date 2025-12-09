@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.facebook-webhook]
 verify_jwt = false
+
+[functions.send-order-notification]
+verify_jwt = false

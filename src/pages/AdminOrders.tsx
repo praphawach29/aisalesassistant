@@ -159,10 +159,39 @@ export default function AdminOrders() {
     setIsEditOpen(true);
   };
 
+  const sendNotification = async (orderId: string, notificationType: 'status_update' | 'tracking_update') => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-order-notification', {
+        body: {
+          order_id: orderId,
+          notification_type: notificationType,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success('ส่งการแจ้งเตือนสำเร็จ');
+      } else if (data?.results?.some((r: any) => r.error === 'Token not configured')) {
+        toast.warning('ยังไม่ได้ตั้งค่า API Token กรุณาตั้งค่าในหน้า Settings');
+      } else if (data?.results?.some((r: any) => r.error === 'Push notification not available for web')) {
+        toast.info('ออเดอร์นี้มาจาก Web ไม่สามารถส่ง Push Notification ได้');
+      } else {
+        toast.warning('ไม่สามารถส่งการแจ้งเตือนได้');
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      toast.error('เกิดข้อผิดพลาดในการส่งการแจ้งเตือน');
+    }
+  };
+
   const handleUpdate = async () => {
     if (!selectedOrder) return;
 
     setIsSaving(true);
+
+    const statusChanged = editData.status !== selectedOrder.status;
+    const trackingChanged = editData.tracking_number.trim() !== (selectedOrder.tracking_number || '');
 
     try {
       const { error } = await supabase
@@ -177,6 +206,14 @@ export default function AdminOrders() {
       if (error) throw error;
       
       toast.success('อัพเดทออเดอร์สำเร็จ');
+      
+      // Send notification based on what changed
+      if (trackingChanged && editData.tracking_number.trim()) {
+        await sendNotification(selectedOrder.id, 'tracking_update');
+      } else if (statusChanged) {
+        await sendNotification(selectedOrder.id, 'status_update');
+      }
+      
       setIsEditOpen(false);
       fetchOrders();
     } catch (error) {
