@@ -12,6 +12,7 @@ import AdminProducts from "./pages/AdminProducts";
 import AdminOrders from "./pages/AdminOrders";
 import AdminChats from "./pages/AdminChats";
 import AdminFAQs from "./pages/AdminFAQs";
+import AdminIntegrations from "./pages/AdminIntegrations";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/admin/orders" element={<AdminOrders />} />
             <Route path="/admin/chats" element={<AdminChats />} />
             <Route path="/admin/faqs" element={<AdminFAQs />} />
+            <Route path="/admin/integrations" element={<AdminIntegrations />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -30,6 +30,7 @@ const menuItems = [
   { path: '/admin/products', label: 'สินค้า', icon: Package },
   { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
   { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
+  { path: '/admin/integrations', label: 'Integration', icon: MessageCircle },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];
 
