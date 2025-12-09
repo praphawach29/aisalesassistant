@@ -1,15 +1,36 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatMessage } from '@/types';
 
+const CONVERSATION_STORAGE_KEY = 'chat_conversation_id';
+
 interface UseChatOptions {
   conversationId?: string;
+  autoLoadHistory?: boolean;
 }
 
-export function useChat(options: UseChatOptions = {}) {
+export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(options.conversationId || null);
+
+  // Load conversation from localStorage on mount
+  useEffect(() => {
+    if (options.autoLoadHistory !== false) {
+      const savedConversationId = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+      if (savedConversationId) {
+        loadMessages(savedConversationId);
+      }
+    }
+  }, []);
+
+  // Save conversationId to localStorage when it changes
+  useEffect(() => {
+    if (conversationId) {
+      localStorage.setItem(CONVERSATION_STORAGE_KEY, conversationId);
+    }
+  }, [conversationId]);
 
   const createConversation = async (platform: string = 'web') => {
     const { data, error } = await supabase
@@ -26,6 +47,46 @@ export function useChat(options: UseChatOptions = {}) {
     setConversationId(data.id);
     return data.id;
   };
+
+  const loadMessages = useCallback(async (convId: string) => {
+    setIsLoadingHistory(true);
+    
+    // First verify the conversation exists
+    const { data: conversation, error: convError } = await supabase
+      .from('chat_conversations')
+      .select('id')
+      .eq('id', convId)
+      .maybeSingle();
+
+    if (convError || !conversation) {
+      console.log('Conversation not found, starting fresh');
+      localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+      setIsLoadingHistory(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('conversation_id', convId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error loading messages:', error);
+      setIsLoadingHistory(false);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setMessages(data as ChatMessage[]);
+      setConversationId(convId);
+    } else {
+      // Conversation exists but has no messages, just set the ID
+      setConversationId(convId);
+    }
+    
+    setIsLoadingHistory(false);
+  }, []);
 
   const sendMessage = useCallback(async (userMessage: string) => {
     setIsLoading(true);
@@ -65,14 +126,16 @@ export function useChat(options: UseChatOptions = {}) {
         })
         .eq('id', currentConversationId);
 
-      // Get all messages for context
+      // Get all messages for context (full conversation history)
       const { data: allMessages } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('conversation_id', currentConversationId)
         .order('created_at', { ascending: true });
 
-      // Call AI edge function
+      console.log(`Sending ${allMessages?.length || 0} messages as context to AI`);
+
+      // Call AI edge function with full conversation history
       const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
       const response = await fetch(chatUrl, {
         method: 'POST',
@@ -181,30 +244,16 @@ export function useChat(options: UseChatOptions = {}) {
     }
   }, [conversationId]);
 
-  const loadMessages = useCallback(async (convId: string) => {
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('conversation_id', convId)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.error('Error loading messages:', error);
-      return;
-    }
-
-    setMessages(data as ChatMessage[]);
-    setConversationId(convId);
-  }, []);
-
   const clearChat = useCallback(() => {
     setMessages([]);
     setConversationId(null);
+    localStorage.removeItem(CONVERSATION_STORAGE_KEY);
   }, []);
 
   return {
     messages,
     isLoading,
+    isLoadingHistory,
     conversationId,
     sendMessage,
     loadMessages,

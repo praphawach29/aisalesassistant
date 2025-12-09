@@ -4,10 +4,10 @@ import { ChatBubble } from './ChatBubble';
 import { ChatInput } from './ChatInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, ShoppingBag, MessageCircle, Package } from 'lucide-react';
+import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw } from 'lucide-react';
 
 export function ChatWindow() {
-  const { messages, isLoading, sendMessage, clearChat } = useChat();
+  const { messages, isLoading, isLoadingHistory, sendMessage, clearChat } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,6 +22,15 @@ export function ChatWindow() {
     { label: 'สอบถามราคา', icon: MessageCircle, message: 'อยากสอบถามราคาสินค้า' },
   ];
 
+  if (isLoadingHistory) {
+    return (
+      <div className="flex flex-col h-full bg-background items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">กำลังโหลดประวัติการสนทนา...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
@@ -32,16 +41,20 @@ export function ChatWindow() {
           </div>
           <div>
             <h2 className="font-semibold text-foreground">Sales Assistant</h2>
-            <p className="text-xs text-muted-foreground">พร้อมให้บริการ 24 ชม.</p>
+            <p className="text-xs text-muted-foreground">
+              {messages.length > 0 ? `${messages.length} ข้อความ` : 'พร้อมให้บริการ 24 ชม.'}
+            </p>
           </div>
         </div>
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={clearChat}
           title="เริ่มสนทนาใหม่"
+          className="gap-2 text-muted-foreground hover:text-foreground"
         >
           <RotateCcw className="w-4 h-4" />
+          <span className="hidden sm:inline">เริ่มใหม่</span>
         </Button>
       </div>
 
@@ -74,9 +87,17 @@ export function ChatWindow() {
               </div>
             </div>
           ) : (
-            messages.map((message) => (
-              <ChatBubble key={message.id} message={message} />
-            ))
+            <>
+              {/* Show conversation history notice */}
+              <div className="text-center mb-4">
+                <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                  ประวัติการสนทนา
+                </span>
+              </div>
+              {messages.map((message) => (
+                <ChatBubble key={message.id} message={message} />
+              ))}
+            </>
           )}
         </div>
       </ScrollArea>
