@@ -1,20 +1,43 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { ChatBubble } from './ChatBubble';
 import { ChatInput } from './ChatInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Product } from './ProductCarousel';
 
 export function ChatWindow() {
   const { messages, isLoading, isLoadingHistory, sendMessage, clearChat } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // Fetch products for carousel display
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        setProducts(data as Product[]);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleSelectProduct = (product: Product) => {
+    sendMessage(`ต้องการสั่งซื้อ ${product.name} ครับ`);
+  };
 
   const quickActions = [
     { label: 'ดูสินค้า', icon: ShoppingBag, message: 'อยากดูสินค้าที่มีขายหน่อยครับ' },
@@ -95,7 +118,12 @@ export function ChatWindow() {
                 </span>
               </div>
               {messages.map((message) => (
-                <ChatBubble key={message.id} message={message} />
+                <ChatBubble 
+                  key={message.id} 
+                  message={message}
+                  products={products}
+                  onSelectProduct={handleSelectProduct}
+                />
               ))}
             </>
           )}

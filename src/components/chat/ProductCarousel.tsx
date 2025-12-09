@@ -1,0 +1,180 @@
+import { useState, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ChevronLeft, ChevronRight, ShoppingCart, ImageIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  promotion_price: number | null;
+  image_url: string | null;
+  category: string | null;
+  stock: number;
+}
+
+interface ProductCarouselProps {
+  products: Product[];
+  onSelectProduct?: (product: Product) => void;
+}
+
+export function ProductCarousel({ products, onSelectProduct }: ProductCarouselProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const updateScrollButtons = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 280;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+      setTimeout(updateScrollButtons, 300);
+    }
+  };
+
+  if (products.length === 0) return null;
+
+  return (
+    <div className="relative w-full max-w-[calc(100vw-120px)] sm:max-w-[500px]">
+      {/* Navigation Buttons */}
+      {canScrollLeft && (
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 z-10 h-8 w-8 rounded-full shadow-lg"
+          onClick={() => scroll('left')}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      )}
+      
+      {canScrollRight && products.length > 1 && (
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 z-10 h-8 w-8 rounded-full shadow-lg"
+          onClick={() => scroll('right')}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      )}
+
+      {/* Carousel Container */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
+        onScroll={updateScrollButtons}
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {products.map((product) => (
+          <Card
+            key={product.id}
+            className="flex-shrink-0 w-[200px] sm:w-[220px] overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+            onClick={() => onSelectProduct?.(product)}
+          >
+            {/* Product Image */}
+            <div className="relative h-32 bg-muted overflow-hidden">
+              {product.image_url ? (
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+                </div>
+              )}
+              
+              {/* Promotion Badge */}
+              {product.promotion_price && (
+                <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-xs">
+                  ลด {Math.round((1 - product.promotion_price / product.price) * 100)}%
+                </Badge>
+              )}
+              
+              {/* Out of Stock Overlay */}
+              {product.stock === 0 && (
+                <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                  <span className="text-sm font-medium text-muted-foreground">สินค้าหมด</span>
+                </div>
+              )}
+            </div>
+
+            <CardContent className="p-3">
+              {/* Category */}
+              {product.category && (
+                <span className="text-xs text-muted-foreground">{product.category}</span>
+              )}
+              
+              {/* Product Name */}
+              <h4 className="font-medium text-sm line-clamp-2 min-h-[40px] mt-1">
+                {product.name}
+              </h4>
+              
+              {/* Price */}
+              <div className="flex items-center gap-2 mt-2">
+                {product.promotion_price ? (
+                  <>
+                    <span className="text-base font-bold text-destructive">
+                      ฿{product.promotion_price.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-muted-foreground line-through">
+                      ฿{product.price.toLocaleString()}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-base font-bold">
+                    ฿{product.price.toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              {/* Action Button */}
+              <Button
+                size="sm"
+                className="w-full mt-3 gap-2"
+                disabled={product.stock === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectProduct?.(product);
+                }}
+              >
+                <ShoppingCart className="w-3 h-3" />
+                {product.stock === 0 ? 'สินค้าหมด' : 'สั่งซื้อ'}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Scroll Indicator */}
+      {products.length > 2 && (
+        <div className="flex justify-center gap-1 mt-2">
+          {products.map((_, index) => (
+            <div
+              key={index}
+              className={cn(
+                "w-1.5 h-1.5 rounded-full transition-colors",
+                index === 0 ? "bg-primary" : "bg-muted-foreground/30"
+              )}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
