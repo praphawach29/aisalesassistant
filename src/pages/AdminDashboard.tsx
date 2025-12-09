@@ -1,31 +1,93 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { 
   Package, 
   ShoppingCart, 
   TrendingUp, 
   Clock,
-  RefreshCw
+  RefreshCw,
+  Users,
+  MessageSquare,
+  ArrowUpRight,
+  ArrowDownRight,
+  DollarSign,
+  BoxIcon,
+  CheckCircle2,
+  Truck,
+  XCircle
 } from 'lucide-react';
 import { Order } from '@/types';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
+
+interface DashboardStats {
+  totalOrders: number;
+  pendingOrders: number;
+  confirmedOrders: number;
+  shippedOrders: number;
+  deliveredOrders: number;
+  cancelledOrders: number;
+  todayOrders: number;
+  thisWeekOrders: number;
+  thisMonthOrders: number;
+  totalRevenue: number;
+  todayRevenue: number;
+  thisWeekRevenue: number;
+  thisMonthRevenue: number;
+  totalProducts: number;
+  activeProducts: number;
+  lowStockProducts: number;
+  totalConversations: number;
+  todayConversations: number;
+}
+
+interface OrdersByPlatform {
+  platform: string;
+  count: number;
+  revenue: number;
+}
+
+interface DailyRevenue {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function AdminDashboard() {
   const { user, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalOrders: 0,
     pendingOrders: 0,
+    confirmedOrders: 0,
+    shippedOrders: 0,
+    deliveredOrders: 0,
+    cancelledOrders: 0,
     todayOrders: 0,
-    totalRevenue: 0
+    thisWeekOrders: 0,
+    thisMonthOrders: 0,
+    totalRevenue: 0,
+    todayRevenue: 0,
+    thisWeekRevenue: 0,
+    thisMonthRevenue: 0,
+    totalProducts: 0,
+    activeProducts: 0,
+    lowStockProducts: 0,
+    totalConversations: 0,
+    todayConversations: 0
   });
+  const [ordersByPlatform, setOrdersByPlatform] = useState<OrdersByPlatform[]>([]);
+  const [dailyRevenue, setDailyRevenue] = useState<DailyRevenue[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
@@ -38,14 +100,11 @@ export default function AdminDashboard() {
     if (user && isAdmin) {
       fetchData();
       
-      // Subscribe to realtime updates
       const channel = supabase
-        .channel('orders-changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'orders' },
-          () => fetchData()
-        )
+        .channel('dashboard-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => fetchData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_conversations' }, () => fetchData())
         .subscribe();
 
       return () => {
@@ -57,38 +116,103 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setIsLoadingData(true);
     
-    const { data: ordersData, error } = await supabase
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Fetch all orders
+    const { data: allOrders, error: ordersError } = await supabase
       .from('orders')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10);
+      .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching orders:', error);
+    if (ordersError) {
+      console.error('Error fetching orders:', ordersError);
       setIsLoadingData(false);
       return;
     }
 
-    const typedOrders = (ordersData || []).map(order => ({
+    const typedOrders = (allOrders || []).map(order => ({
       ...order,
       platform: order.platform as 'web' | 'line' | 'facebook',
       status: order.status as 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
     }));
-    setOrders(typedOrders);
+
+    // Fetch products
+    const { data: products } = await supabase.from('products').select('*');
+    
+    // Fetch conversations
+    const { data: conversations } = await supabase.from('chat_conversations').select('*');
 
     // Calculate stats
-    const today = new Date().toISOString().split('T')[0];
-    const todayOrders = typedOrders.filter(o => o.created_at.startsWith(today));
+    const todayOrders = typedOrders.filter(o => o.created_at.startsWith(todayStr));
+    const thisWeekOrders = typedOrders.filter(o => new Date(o.created_at) >= new Date(weekAgo));
+    const thisMonthOrders = typedOrders.filter(o => new Date(o.created_at) >= new Date(monthAgo));
+    
     const pendingOrders = typedOrders.filter(o => o.status === 'pending');
-    const totalRevenue = typedOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+    const confirmedOrders = typedOrders.filter(o => o.status === 'confirmed');
+    const shippedOrders = typedOrders.filter(o => o.status === 'shipped');
+    const deliveredOrders = typedOrders.filter(o => o.status === 'delivered');
+    const cancelledOrders = typedOrders.filter(o => o.status === 'cancelled');
+
+    const totalRevenue = typedOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
+    const todayRevenue = todayOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
+    const thisWeekRevenue = thisWeekOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
+    const thisMonthRevenue = thisMonthOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
+
+    const activeProducts = (products || []).filter(p => p.is_active);
+    const lowStockProducts = (products || []).filter(p => p.stock <= 5 && p.is_active);
+
+    const todayConversations = (conversations || []).filter(c => c.created_at.startsWith(todayStr));
 
     setStats({
       totalOrders: typedOrders.length,
       pendingOrders: pendingOrders.length,
+      confirmedOrders: confirmedOrders.length,
+      shippedOrders: shippedOrders.length,
+      deliveredOrders: deliveredOrders.length,
+      cancelledOrders: cancelledOrders.length,
       todayOrders: todayOrders.length,
-      totalRevenue
+      thisWeekOrders: thisWeekOrders.length,
+      thisMonthOrders: thisMonthOrders.length,
+      totalRevenue,
+      todayRevenue,
+      thisWeekRevenue,
+      thisMonthRevenue,
+      totalProducts: (products || []).length,
+      activeProducts: activeProducts.length,
+      lowStockProducts: lowStockProducts.length,
+      totalConversations: (conversations || []).length,
+      todayConversations: todayConversations.length
     });
 
+    // Orders by platform
+    const platformStats = ['web', 'line', 'facebook'].map(platform => {
+      const platformOrders = typedOrders.filter(o => o.platform === platform);
+      return {
+        platform: platform === 'web' ? 'เว็บไซต์' : platform === 'line' ? 'LINE' : 'Facebook',
+        count: platformOrders.length,
+        revenue: platformOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0)
+      };
+    });
+    setOrdersByPlatform(platformStats);
+
+    // Daily revenue for last 7 days
+    const last7Days: DailyRevenue[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      const dayOrders = typedOrders.filter(o => o.created_at.startsWith(dateStr) && o.status !== 'cancelled');
+      last7Days.push({
+        date: date.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric' }),
+        revenue: dayOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
+        orders: dayOrders.length
+      });
+    }
+    setDailyRevenue(last7Days);
+
+    setOrders(typedOrders.slice(0, 5));
     setIsLoadingData(false);
   };
 
@@ -111,6 +235,14 @@ export default function AdminDashboard() {
       default: return '🌐';
     }
   };
+
+  const orderStatusData = [
+    { name: 'รอดำเนินการ', value: stats.pendingOrders, color: '#f59e0b' },
+    { name: 'ยืนยันแล้ว', value: stats.confirmedOrders, color: '#3b82f6' },
+    { name: 'จัดส่งแล้ว', value: stats.shippedOrders, color: '#8b5cf6' },
+    { name: 'สำเร็จ', value: stats.deliveredOrders, color: '#10b981' },
+    { name: 'ยกเลิก', value: stats.cancelledOrders, color: '#ef4444' },
+  ].filter(d => d.value > 0);
 
   if (isLoading) {
     return (
@@ -140,109 +272,274 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout title="Dashboard">
-      {/* Stats */}
+      {/* Main Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
-        <Card>
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
           <CardContent className="p-4 lg:pt-6">
-            <div className="flex items-center gap-3 lg:gap-4">
-              <div className="p-2 lg:p-3 rounded-full bg-primary/10">
-                <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
-              </div>
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs lg:text-sm text-muted-foreground">ออเดอร์ทั้งหมด</p>
-                <p className="text-xl lg:text-2xl font-bold">{stats.totalOrders}</p>
+                <p className="text-xs lg:text-sm text-muted-foreground">รายได้วันนี้</p>
+                <p className="text-xl lg:text-2xl font-bold text-primary">฿{stats.todayRevenue.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.todayOrders} ออเดอร์
+                </p>
+              </div>
+              <div className="p-2 lg:p-3 rounded-full bg-primary/10">
+                <DollarSign className="w-5 h-5 lg:w-6 lg:h-6 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
           <CardContent className="p-4 lg:pt-6">
-            <div className="flex items-center gap-3 lg:gap-4">
-              <div className="p-2 lg:p-3 rounded-full bg-orange-500/10">
-                <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-orange-500" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs lg:text-sm text-muted-foreground">รายได้เดือนนี้</p>
+                <p className="text-xl lg:text-2xl font-bold text-green-600">฿{stats.thisMonthRevenue.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.thisMonthOrders} ออเดอร์
+                </p>
               </div>
+              <div className="p-2 lg:p-3 rounded-full bg-green-500/10">
+                <TrendingUp className="w-5 h-5 lg:w-6 lg:h-6 text-green-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20">
+          <CardContent className="p-4 lg:pt-6">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs lg:text-sm text-muted-foreground">รอดำเนินการ</p>
-                <p className="text-xl lg:text-2xl font-bold">{stats.pendingOrders}</p>
+                <p className="text-xl lg:text-2xl font-bold text-orange-600">{stats.pendingOrders}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ออเดอร์ใหม่
+                </p>
+              </div>
+              <div className="p-2 lg:p-3 rounded-full bg-orange-500/10">
+                <Clock className="w-5 h-5 lg:w-6 lg:h-6 text-orange-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
           <CardContent className="p-4 lg:pt-6">
-            <div className="flex items-center gap-3 lg:gap-4">
-              <div className="p-2 lg:p-3 rounded-full bg-green-500/10">
-                <Package className="w-4 h-4 lg:w-5 lg:h-5 text-green-500" />
-              </div>
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs lg:text-sm text-muted-foreground">วันนี้</p>
-                <p className="text-xl lg:text-2xl font-bold">{stats.todayOrders}</p>
+                <p className="text-xs lg:text-sm text-muted-foreground">แชทวันนี้</p>
+                <p className="text-xl lg:text-2xl font-bold text-blue-600">{stats.todayConversations}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ทั้งหมด {stats.totalConversations}
+                </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 lg:pt-6">
-            <div className="flex items-center gap-3 lg:gap-4">
               <div className="p-2 lg:p-3 rounded-full bg-blue-500/10">
-                <TrendingUp className="w-4 h-4 lg:w-5 lg:h-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-xs lg:text-sm text-muted-foreground">รายได้</p>
-                <p className="text-lg lg:text-2xl font-bold">฿{stats.totalRevenue.toLocaleString()}</p>
+                <MessageSquare className="w-5 h-5 lg:w-6 lg:h-6 text-blue-500" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Orders */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between py-4">
-          <CardTitle className="text-base lg:text-lg">ออเดอร์ล่าสุด</CardTitle>
-          <Button variant="ghost" size="sm" onClick={fetchData} disabled={isLoadingData}>
-            <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
-          </Button>
-        </CardHeader>
-        <CardContent className="p-0 lg:p-6 lg:pt-0">
-          {orders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>ยังไม่มีออเดอร์</p>
+      {/* Order Status Cards */}
+      <div className="grid grid-cols-5 gap-2 lg:gap-4 mb-6">
+        <Card className="p-3 lg:p-4 text-center">
+          <Clock className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-yellow-500 mb-1" />
+          <p className="text-lg lg:text-xl font-bold">{stats.pendingOrders}</p>
+          <p className="text-[10px] lg:text-xs text-muted-foreground">รอดำเนินการ</p>
+        </Card>
+        <Card className="p-3 lg:p-4 text-center">
+          <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-blue-500 mb-1" />
+          <p className="text-lg lg:text-xl font-bold">{stats.confirmedOrders}</p>
+          <p className="text-[10px] lg:text-xs text-muted-foreground">ยืนยันแล้ว</p>
+        </Card>
+        <Card className="p-3 lg:p-4 text-center">
+          <Truck className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-purple-500 mb-1" />
+          <p className="text-lg lg:text-xl font-bold">{stats.shippedOrders}</p>
+          <p className="text-[10px] lg:text-xs text-muted-foreground">จัดส่งแล้ว</p>
+        </Card>
+        <Card className="p-3 lg:p-4 text-center">
+          <Package className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-green-500 mb-1" />
+          <p className="text-lg lg:text-xl font-bold">{stats.deliveredOrders}</p>
+          <p className="text-[10px] lg:text-xs text-muted-foreground">สำเร็จ</p>
+        </Card>
+        <Card className="p-3 lg:p-4 text-center">
+          <XCircle className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-red-500 mb-1" />
+          <p className="text-lg lg:text-xl font-bold">{stats.cancelledOrders}</p>
+          <p className="text-[10px] lg:text-xs text-muted-foreground">ยกเลิก</p>
+        </Card>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid lg:grid-cols-3 gap-4 mb-6">
+        {/* Revenue Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base lg:text-lg">รายได้ 7 วันล่าสุด</CardTitle>
+            <CardDescription>ยอดขายรวม ฿{stats.thisWeekRevenue.toLocaleString()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[200px] lg:h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dailyRevenue}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 10 }} />
+                  <YAxis className="text-xs" tick={{ fontSize: 10 }} tickFormatter={(v) => `฿${v.toLocaleString()}`} />
+                  <Tooltip 
+                    formatter={(value: number) => [`฿${value.toLocaleString()}`, 'รายได้']}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          ) : (
-            <ScrollArea className="h-[400px] lg:h-[500px]">
-              <div className="space-y-2 lg:space-y-4 px-4 lg:px-0 pb-4">
+          </CardContent>
+        </Card>
+
+        {/* Platform Distribution */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base lg:text-lg">ออเดอร์ตามช่องทาง</CardTitle>
+            <CardDescription>รวม {stats.totalOrders} ออเดอร์</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {ordersByPlatform.map((item, index) => (
+                <div key={item.platform} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <span>{index === 0 ? '🌐' : index === 1 ? '🟢' : '🔵'}</span>
+                      {item.platform}
+                    </span>
+                    <span className="font-medium">{item.count} ออเดอร์</span>
+                  </div>
+                  <Progress 
+                    value={stats.totalOrders > 0 ? (item.count / stats.totalOrders) * 100 : 0} 
+                    className="h-2"
+                  />
+                  <p className="text-xs text-muted-foreground text-right">
+                    ฿{item.revenue.toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        {/* Recent Orders */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between py-4">
+            <div>
+              <CardTitle className="text-base lg:text-lg">ออเดอร์ล่าสุด</CardTitle>
+              <CardDescription>5 รายการล่าสุด</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={fetchData} disabled={isLoadingData}>
+                <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/admin/orders">ดูทั้งหมด</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 lg:p-6 lg:pt-0">
+            {orders.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>ยังไม่มีออเดอร์</p>
+              </div>
+            ) : (
+              <div className="space-y-2 px-4 lg:px-0 pb-4">
                 {orders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between p-3 lg:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3 lg:gap-4 min-w-0">
-                      <span className="text-xl lg:text-2xl flex-shrink-0">{getPlatformIcon(order.platform)}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xl flex-shrink-0">{getPlatformIcon(order.platform)}</span>
                       <div className="min-w-0">
-                        <p className="font-medium text-sm lg:text-base truncate">{order.order_number}</p>
-                        <p className="text-xs lg:text-sm text-muted-foreground truncate">{order.customer_name}</p>
-                        <p className="text-xs text-muted-foreground lg:hidden">{order.customer_phone}</p>
+                        <p className="font-medium text-sm truncate">{order.order_number}</p>
+                        <p className="text-xs text-muted-foreground truncate">{order.customer_name}</p>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0 ml-2">
                       {getStatusBadge(order.status)}
-                      <p className="text-base lg:text-lg font-semibold mt-1">฿{Number(order.total_amount).toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(order.created_at).toLocaleDateString('th-TH')}
-                      </p>
+                      <p className="text-sm font-semibold mt-1">฿{Number(order.total_amount).toLocaleString()}</p>
                     </div>
                   </div>
                 ))}
               </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Stats */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base lg:text-lg">สรุปข้อมูลสำคัญ</CardTitle>
+            <CardDescription>ภาพรวมระบบ</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <BoxIcon className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">สินค้า</span>
+                </div>
+                <p className="text-2xl font-bold">{stats.activeProducts}</p>
+                <p className="text-xs text-muted-foreground">สินค้าที่ใช้งาน</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="w-4 h-4 text-orange-500" />
+                  <span className="text-sm font-medium">สต็อกต่ำ</span>
+                </div>
+                <p className="text-2xl font-bold text-orange-500">{stats.lowStockProducts}</p>
+                <p className="text-xs text-muted-foreground">เหลือ ≤5 ชิ้น</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShoppingCart className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-medium">ออเดอร์ทั้งหมด</span>
+                </div>
+                <p className="text-2xl font-bold">{stats.totalOrders}</p>
+                <p className="text-xs text-muted-foreground">ตั้งแต่เริ่มต้น</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium">รายได้รวม</span>
+                </div>
+                <p className="text-xl font-bold">฿{(stats.totalRevenue / 1000).toFixed(1)}K</p>
+                <p className="text-xs text-muted-foreground">ยอดขายทั้งหมด</p>
+              </div>
+            </div>
+
+            {stats.lowStockProducts > 0 && (
+              <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <div className="flex items-center gap-2 text-orange-600">
+                  <Package className="w-4 h-4" />
+                  <span className="text-sm font-medium">แจ้งเตือน: มีสินค้า {stats.lowStockProducts} รายการที่สต็อกใกล้หมด</span>
+                </div>
+                <Button variant="link" className="p-0 h-auto text-orange-600 text-xs" asChild>
+                  <Link to="/admin/products">ดูรายละเอียด →</Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </AdminLayout>
   );
 }
