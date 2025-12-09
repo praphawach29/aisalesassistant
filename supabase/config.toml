@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.send-order-notification]
 verify_jwt = false
+
+[functions.test-line-connection]
+verify_jwt = false
+
+[functions.test-facebook-connection]
+verify_jwt = false
