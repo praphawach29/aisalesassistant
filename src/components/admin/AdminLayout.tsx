@@ -18,7 +18,8 @@ import {
   Menu,
   ChevronLeft,
   Plug,
-  Bell
+  Bell,
+  MessageSquareText
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -33,6 +34,7 @@ const menuItems = [
   { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
   { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
   { path: '/admin/notifications', label: 'แจ้งเตือน', icon: Bell },
+  { path: '/admin/templates', label: 'เทมเพลต', icon: MessageSquareText },
   { path: '/admin/integrations', label: 'Integration', icon: Plug },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];

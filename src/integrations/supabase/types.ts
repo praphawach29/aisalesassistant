@@ -136,6 +136,39 @@ export type Database = {
         }
         Relationships: []
       }
+      message_templates: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string

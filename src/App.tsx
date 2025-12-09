@@ -15,6 +15,7 @@ import AdminFAQs from "./pages/AdminFAQs";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import AdminSettings from "./pages/AdminSettings";
 import AdminNotifications from "./pages/AdminNotifications";
+import AdminTemplates from "./pages/AdminTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/admin/integrations" element={<AdminIntegrations />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
             <Route path="/admin/notifications" element={<AdminNotifications />} />
+            <Route path="/admin/templates" element={<AdminTemplates />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

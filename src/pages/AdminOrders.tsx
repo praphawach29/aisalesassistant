@@ -56,44 +56,18 @@ const statusOptions: { value: OrderStatus; label: string; color: string }[] = [
   { value: 'cancelled', label: 'ยกเลิก', color: 'bg-red-500' },
 ];
 
-const messageTemplates = [
-  { 
-    id: 'confirm', 
-    label: 'ยืนยันออเดอร์', 
-    template: 'สวัสดีค่ะ ทางร้านได้รับออเดอร์ของคุณเรียบร้อยแล้วค่ะ กำลังเตรียมจัดส่งให้นะคะ ขอบคุณที่อุดหนุนค่ะ 🙏'
-  },
-  { 
-    id: 'preparing', 
-    label: 'กำลังเตรียมสินค้า', 
-    template: 'สวัสดีค่ะ ออเดอร์ของคุณกำลังเตรียมจัดส่งค่ะ คาดว่าจะจัดส่งภายในวันนี้นะคะ'
-  },
-  { 
-    id: 'shipped', 
-    label: 'จัดส่งแล้ว', 
-    template: 'สวัสดีค่ะ ออเดอร์ของคุณถูกจัดส่งเรียบร้อยแล้วค่ะ สามารถติดตามพัสดุได้ที่เลข Tracking ที่แจ้งไว้นะคะ 📦'
-  },
-  { 
-    id: 'delay', 
-    label: 'แจ้งล่าช้า', 
-    template: 'สวัสดีค่ะ ขออภัยนะคะ ออเดอร์ของคุณอาจล่าช้ากว่าปกติเล็กน้อย ทางร้านกำลังเร่งดำเนินการให้เร็วที่สุดค่ะ'
-  },
-  { 
-    id: 'thanks', 
-    label: 'ขอบคุณลูกค้า', 
-    template: 'ขอบคุณที่อุดหนุนค่ะ 🙏 หวังว่าจะได้รับการอุดหนุนอีกนะคะ หากมีข้อสงสัยสามารถสอบถามได้ตลอดเวลาค่ะ'
-  },
-  { 
-    id: 'promo', 
-    label: 'แจ้งโปรโมชั่น', 
-    template: 'สวัสดีค่ะ ทางร้านมีโปรโมชั่นพิเศษสำหรับลูกค้าคนพิเศษอย่างคุณค่ะ สนใจสอบถามรายละเอียดเพิ่มเติมได้เลยนะคะ 🎉'
-  },
-];
+interface MessageTemplate {
+  id: string;
+  name: string;
+  content: string;
+}
 
 export default function AdminOrders() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -119,6 +93,7 @@ export default function AdminOrders() {
   useEffect(() => {
     if (user && isAdmin) {
       fetchOrders();
+      fetchTemplates();
       
       // Subscribe to realtime updates
       const channel = supabase
@@ -157,6 +132,20 @@ export default function AdminOrders() {
     }
     
     setIsLoadingData(false);
+  };
+
+  const fetchTemplates = async () => {
+    const { data, error } = await supabase
+      .from('message_templates')
+      .select('id, name, content')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching templates:', error);
+    } else {
+      setMessageTemplates(data || []);
+    }
   };
 
   const fetchOrderItems = async (orderId: string) => {
@@ -750,11 +739,11 @@ export default function AdminOrders() {
                         <Button
                           key={tpl.id}
                           type="button"
-                          variant={customMessage === tpl.template ? "default" : "outline"}
+                          variant={customMessage === tpl.content ? "default" : "outline"}
                           size="sm"
-                          onClick={() => setCustomMessage(tpl.template)}
+                          onClick={() => setCustomMessage(tpl.content)}
                         >
-                          {tpl.label}
+                          {tpl.name}
                         </Button>
                       ))}
                     </div>
