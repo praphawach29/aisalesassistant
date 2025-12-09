@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, ShoppingCart, ImageIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingCart, ImageIcon, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface Product {
@@ -82,37 +83,38 @@ export function ProductCarousel({ products, onSelectProduct }: ProductCarouselPr
         {products.map((product) => (
           <Card
             key={product.id}
-            className="flex-shrink-0 w-[200px] sm:w-[220px] overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
-            onClick={() => onSelectProduct?.(product)}
+            className="flex-shrink-0 w-[200px] sm:w-[220px] overflow-hidden hover:shadow-lg transition-shadow group"
           >
-            {/* Product Image */}
-            <div className="relative h-32 bg-muted overflow-hidden">
-              {product.image_url ? (
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
-                </div>
-              )}
-              
-              {/* Promotion Badge */}
-              {product.promotion_price && (
-                <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-xs">
-                  ลด {Math.round((1 - product.promotion_price / product.price) * 100)}%
-                </Badge>
-              )}
-              
-              {/* Out of Stock Overlay */}
-              {product.stock === 0 && (
-                <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                  <span className="text-sm font-medium text-muted-foreground">สินค้าหมด</span>
-                </div>
-              )}
-            </div>
+            {/* Product Image - Clickable */}
+            <Link to={`/products/${product.id}`}>
+              <div className="relative h-32 bg-muted overflow-hidden cursor-pointer">
+                {product.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+                  </div>
+                )}
+                
+                {/* Promotion Badge */}
+                {product.promotion_price && (
+                  <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-xs">
+                    ลด {Math.round((1 - product.promotion_price / product.price) * 100)}%
+                  </Badge>
+                )}
+                
+                {/* Out of Stock Overlay */}
+                {product.stock === 0 && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                    <span className="text-sm font-medium text-muted-foreground">สินค้าหมด</span>
+                  </div>
+                )}
+              </div>
+            </Link>
 
             <CardContent className="p-3">
               {/* Category */}
@@ -120,10 +122,12 @@ export function ProductCarousel({ products, onSelectProduct }: ProductCarouselPr
                 <span className="text-xs text-muted-foreground">{product.category}</span>
               )}
               
-              {/* Product Name */}
-              <h4 className="font-medium text-sm line-clamp-2 min-h-[40px] mt-1">
-                {product.name}
-              </h4>
+              {/* Product Name - Clickable */}
+              <Link to={`/products/${product.id}`}>
+                <h4 className="font-medium text-sm line-clamp-2 min-h-[40px] mt-1 hover:text-primary transition-colors cursor-pointer">
+                  {product.name}
+                </h4>
+              </Link>
               
               {/* Price */}
               <div className="flex items-center gap-2 mt-2">
@@ -143,19 +147,26 @@ export function ProductCarousel({ products, onSelectProduct }: ProductCarouselPr
                 )}
               </div>
 
-              {/* Action Button */}
-              <Button
-                size="sm"
-                className="w-full mt-3 gap-2"
-                disabled={product.stock === 0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectProduct?.(product);
-                }}
-              >
-                <ShoppingCart className="w-3 h-3" />
-                {product.stock === 0 ? 'สินค้าหมด' : 'สั่งซื้อ'}
-              </Button>
+              {/* Action Buttons */}
+              <div className="flex gap-1 mt-3">
+                <Button
+                  size="sm"
+                  className="flex-1 gap-1"
+                  disabled={product.stock === 0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectProduct?.(product);
+                  }}
+                >
+                  <ShoppingCart className="w-3 h-3" />
+                  {product.stock === 0 ? 'หมด' : 'สั่งซื้อ'}
+                </Button>
+                <Link to={`/products/${product.id}`}>
+                  <Button size="sm" variant="outline" className="px-2">
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         ))}
