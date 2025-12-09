@@ -39,7 +39,9 @@ import {
   User,
   ShoppingCart,
   MapPin,
-  Calendar
+  Calendar,
+  MessageCircle,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Order, OrderItem } from '@/types';
@@ -65,12 +67,15 @@ export default function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isMessageOpen, setIsMessageOpen] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
   const [editData, setEditData] = useState({
     status: '' as OrderStatus,
     tracking_number: '',
     notes: '',
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -157,12 +162,13 @@ export default function AdminOrders() {
     setIsEditOpen(true);
   };
 
-  const sendNotification = async (orderId: string, notificationType: 'status_update' | 'tracking_update') => {
+  const sendNotification = async (orderId: string, notificationType: 'status_update' | 'tracking_update' | 'custom', customMsg?: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('send-order-notification', {
         body: {
           order_id: orderId,
           notification_type: notificationType,
+          custom_message: customMsg,
         },
       });
 
@@ -170,6 +176,7 @@ export default function AdminOrders() {
 
       if (data?.success) {
         toast.success('ส่งการแจ้งเตือนสำเร็จ');
+        return true;
       } else if (data?.results?.some((r: any) => r.error === 'Token not configured')) {
         toast.warning('ยังไม่ได้ตั้งค่า API Token กรุณาตั้งค่าในหน้า Settings');
       } else if (data?.results?.some((r: any) => r.error === 'Push notification not available for web')) {
@@ -177,9 +184,30 @@ export default function AdminOrders() {
       } else {
         toast.warning('ไม่สามารถส่งการแจ้งเตือนได้');
       }
+      return false;
     } catch (error) {
       console.error('Error sending notification:', error);
       toast.error('เกิดข้อผิดพลาดในการส่งการแจ้งเตือน');
+      return false;
+    }
+  };
+
+  const openMessageDialog = (order: Order) => {
+    setSelectedOrder(order);
+    setCustomMessage('');
+    setIsMessageOpen(true);
+  };
+
+  const handleSendCustomMessage = async () => {
+    if (!selectedOrder || !customMessage.trim()) return;
+
+    setIsSendingMessage(true);
+    const success = await sendNotification(selectedOrder.id, 'custom', customMessage.trim());
+    setIsSendingMessage(false);
+
+    if (success) {
+      setIsMessageOpen(false);
+      setCustomMessage('');
     }
   };
 
@@ -432,13 +460,25 @@ export default function AdminOrders() {
                           variant="outline"
                           size="icon"
                           onClick={() => openDetailSheet(order)}
+                          title="ดูรายละเอียด"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
+                        {order.platform !== 'web' && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openMessageDialog(order)}
+                            title="ส่งข้อความ"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="default"
                           size="icon"
                           onClick={() => openEditDialog(order)}
+                          title="แก้ไขออเดอร์"
                         >
                           <Truck className="w-4 h-4" />
                         </Button>
@@ -639,6 +679,79 @@ export default function AdminOrders() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Message Dialog */}
+      <Dialog open={isMessageOpen} onOpenChange={setIsMessageOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
+              ส่งข้อความถึงลูกค้า
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="text-lg">{getPlatformIcon(selectedOrder.platform)}</span>
+                <span>{selectedOrder.customer_name}</span>
+                <span>•</span>
+                <span className="font-mono">{selectedOrder.order_number}</span>
+              </div>
+
+              {selectedOrder.platform === 'web' ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>ไม่สามารถส่งข้อความได้</p>
+                  <p className="text-sm">ออเดอร์นี้มาจาก Web ไม่มีช่องทางส่ง Push Notification</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="customMessage">ข้อความ</Label>
+                    <Textarea
+                      id="customMessage"
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      placeholder="พิมพ์ข้อความที่ต้องการส่งถึงลูกค้า..."
+                      rows={4}
+                      maxLength={1000}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">
+                      {customMessage.length}/1000
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsMessageOpen(false)}
+                      className="flex-1"
+                    >
+                      ยกเลิก
+                    </Button>
+                    <Button 
+                      onClick={handleSendCustomMessage} 
+                      disabled={isSendingMessage || !customMessage.trim()} 
+                      className="flex-1"
+                    >
+                      {isSendingMessage ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          ส่งข้อความ
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AdminLayout>
