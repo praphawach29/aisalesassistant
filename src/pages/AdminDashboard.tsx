@@ -14,7 +14,8 @@ import {
   LogOut,
   MessageCircle,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  HelpCircle
 } from 'lucide-react';
 import { Order } from '@/types';
 
@@ -171,6 +172,12 @@ export default function AdminDashboard() {
               <Button variant="ghost" size="sm" className="gap-2">
                 <MessageCircle className="w-4 h-4" />
                 แชท
+              </Button>
+            </Link>
+            <Link to="/admin/faqs">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <HelpCircle className="w-4 h-4" />
+                FAQ
               </Button>
             </Link>
             <Link to="/">
