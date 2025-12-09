@@ -26,12 +26,18 @@ export function ProductCarousel({ products, onSelectProduct }: ProductCarouselPr
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const updateScrollButtons = () => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
       setCanScrollLeft(scrollLeft > 0);
       setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+      
+      // Calculate active index based on scroll position
+      const cardWidth = 220 + 12; // card width + gap
+      const newIndex = Math.round(scrollLeft / cardWidth);
+      setActiveIndex(Math.min(newIndex, products.length - 1));
     }
   };
 
@@ -173,14 +179,16 @@ export function ProductCarousel({ products, onSelectProduct }: ProductCarouselPr
       </div>
 
       {/* Scroll Indicator */}
-      {products.length > 2 && (
-        <div className="flex justify-center gap-1 mt-2">
+      {products.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-2">
           {products.map((_, index) => (
             <div
               key={index}
               className={cn(
-                "w-1.5 h-1.5 rounded-full transition-colors",
-                index === 0 ? "bg-primary" : "bg-muted-foreground/30"
+                "w-2 h-2 rounded-full transition-all duration-300",
+                index === activeIndex 
+                  ? "bg-primary scale-110" 
+                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
               )}
             />
           ))}
