@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Save, Eye, EyeOff, MessageSquare, ExternalLink, CheckCircle2, AlertCircle } from "lucide-react";
+import { Save, Eye, EyeOff, MessageSquare, ExternalLink, CheckCircle2, AlertCircle, Loader2, Wifi } from "lucide-react";
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 interface Setting {
@@ -18,6 +18,13 @@ interface Setting {
   description: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+interface TestResult {
+  success: boolean;
+  message: string;
+  botInfo?: { displayName: string; userId?: string; pictureUrl?: string };
+  pageInfo?: { name: string; id: string };
 }
 
 const LINE_SETTINGS = [
@@ -39,6 +46,8 @@ const AdminIntegrations = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
+  const [isTesting, setIsTesting] = useState<{ line: boolean; facebook: boolean }>({ line: false, facebook: false });
+  const [testResults, setTestResults] = useState<{ line: TestResult | null; facebook: TestResult | null }>({ line: null, facebook: null });
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -143,6 +152,41 @@ const AdminIntegrations = () => {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestConnection = async (platform: 'line' | 'facebook') => {
+    setIsTesting(prev => ({ ...prev, [platform]: true }));
+    setTestResults(prev => ({ ...prev, [platform]: null }));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        platform === 'line' ? 'test-line-connection' : 'test-facebook-connection'
+      );
+      
+      if (error) throw error;
+      
+      setTestResults(prev => ({ ...prev, [platform]: data as TestResult }));
+      
+      toast({
+        title: data.success ? "ทดสอบสำเร็จ" : "ทดสอบล้มเหลว",
+        description: data.message,
+        variant: data.success ? "default" : "destructive",
+      });
+    } catch (error) {
+      console.error('Test connection error:', error);
+      const errorResult: TestResult = { 
+        success: false, 
+        message: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้' 
+      };
+      setTestResults(prev => ({ ...prev, [platform]: errorResult }));
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถทดสอบการเชื่อมต่อได้",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTesting(prev => ({ ...prev, [platform]: false }));
     }
   };
 
@@ -276,10 +320,44 @@ const AdminIntegrations = () => {
             <CardContent className="space-y-6">
               {LINE_SETTINGS.map(s => renderSettingInput(s.key, s.description))}
               
-              <div className="pt-4 border-t">
+              {/* Test Result */}
+              {testResults.line && (
+                <div className={`p-4 rounded-lg border ${testResults.line.success ? 'bg-green-500/10 border-green-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                  <div className="flex items-center gap-2">
+                    {testResults.line.success ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                    )}
+                    <span className={testResults.line.success ? 'text-green-600' : 'text-destructive'}>
+                      {testResults.line.message}
+                    </span>
+                  </div>
+                  {testResults.line.botInfo && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Bot Name: <strong>{testResults.line.botInfo.displayName}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="pt-4 border-t flex flex-wrap gap-3">
                 <Button onClick={() => handleSave('line')} disabled={isSaving} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {isSaving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า LINE"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleTestConnection('line')} 
+                  disabled={isTesting.line || !getSettingValue('LINE_CHANNEL_ACCESS_TOKEN')}
+                  className="w-full sm:w-auto"
+                >
+                  {isTesting.line ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Wifi className="h-4 w-4 mr-2" />
+                  )}
+                  {isTesting.line ? "กำลังทดสอบ..." : "ทดสอบการเชื่อมต่อ"}
                 </Button>
               </div>
             </CardContent>
@@ -318,10 +396,44 @@ const AdminIntegrations = () => {
             <CardContent className="space-y-6">
               {FACEBOOK_SETTINGS.map(s => renderSettingInput(s.key, s.description))}
               
-              <div className="pt-4 border-t">
+              {/* Test Result */}
+              {testResults.facebook && (
+                <div className={`p-4 rounded-lg border ${testResults.facebook.success ? 'bg-green-500/10 border-green-500/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                  <div className="flex items-center gap-2">
+                    {testResults.facebook.success ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                    )}
+                    <span className={testResults.facebook.success ? 'text-green-600' : 'text-destructive'}>
+                      {testResults.facebook.message}
+                    </span>
+                  </div>
+                  {testResults.facebook.pageInfo && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Page Name: <strong>{testResults.facebook.pageInfo.name}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="pt-4 border-t flex flex-wrap gap-3">
                 <Button onClick={() => handleSave('facebook')} disabled={isSaving} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {isSaving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า Facebook"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleTestConnection('facebook')} 
+                  disabled={isTesting.facebook || !getSettingValue('FACEBOOK_PAGE_ACCESS_TOKEN')}
+                  className="w-full sm:w-auto"
+                >
+                  {isTesting.facebook ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Wifi className="h-4 w-4 mr-2" />
+                  )}
+                  {isTesting.facebook ? "กำลังทดสอบ..." : "ทดสอบการเชื่อมต่อ"}
                 </Button>
               </div>
             </CardContent>
