@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { ChatMessage } from '@/types';
 import { Bot, User } from 'lucide-react';
 import { ProductCarousel, Product } from './ProductCarousel';
+import { SingleProductCard } from './SingleProductCard';
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -16,12 +17,34 @@ const hasProductMarker = (content: string): boolean => {
          content.includes('รายการสินค้า');
 };
 
+// Helper function to extract single product reference from message
+const extractProductReference = (content: string, products: Product[]): Product | null => {
+  // Pattern: [PRODUCT:product_name] or [SHOW_PRODUCT:product_name]
+  const productMatch = content.match(/\[(?:SHOW_)?PRODUCT:([^\]]+)\]/i);
+  if (productMatch) {
+    const productName = productMatch[1].trim().toLowerCase();
+    return products.find(p => 
+      p.name.toLowerCase().includes(productName) || 
+      productName.includes(p.name.toLowerCase())
+    ) || null;
+  }
+  return null;
+};
+
+// Clean message content by removing product markers
+const cleanContent = (content: string): string => {
+  return content
+    .replace(/\[SHOW_PRODUCTS?\]/gi, '')
+    .replace(/\[(?:SHOW_)?PRODUCT:[^\]]+\]/gi, '')
+    .trim();
+};
+
 export function ChatBubble({ message, products, onSelectProduct }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showCarousel = !isUser && products && products.length > 0 && hasProductMarker(message.content);
+  const singleProduct = !isUser && products ? extractProductReference(message.content, products) : null;
   
-  // Clean message content by removing product marker
-  const cleanContent = message.content.replace('[SHOW_PRODUCTS]', '').trim();
+  const displayContent = cleanContent(message.content);
 
   return (
     <div className={cn(
@@ -43,7 +66,7 @@ export function ChatBubble({ message, products, onSelectProduct }: ChatBubblePro
             : 'bg-muted text-foreground rounded-bl-md'
         )}>
           <p className="text-sm whitespace-pre-wrap leading-relaxed">
-            {cleanContent || (
+            {displayContent || (
               <span className="inline-flex gap-1">
                 <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -53,8 +76,16 @@ export function ChatBubble({ message, products, onSelectProduct }: ChatBubblePro
           </p>
         </div>
         
+        {/* Single Product Card */}
+        {singleProduct && (
+          <SingleProductCard 
+            product={singleProduct} 
+            onSelectProduct={onSelectProduct}
+          />
+        )}
+        
         {/* Product Carousel */}
-        {showCarousel && (
+        {showCarousel && !singleProduct && (
           <ProductCarousel 
             products={products} 
             onSelectProduct={onSelectProduct}
