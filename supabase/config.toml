@@ -1,1 +1,10 @@
 project_id = "mufevyjzslfskdzccoao"
+
+[functions.chat]
+verify_jwt = false
+
+[functions.line-webhook]
+verify_jwt = false
+
+[functions.facebook-webhook]
+verify_jwt = false
