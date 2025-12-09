@@ -36,7 +36,9 @@ import {
   ArrowLeft,
   RefreshCw,
   ImageIcon,
-  Search
+  Search,
+  Upload,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -87,6 +89,7 @@ export default function AdminProducts() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -147,6 +150,56 @@ export default function AdminProducts() {
   const openDeleteDialog = (product: Product) => {
     setSelectedProduct(product);
     setIsDeleteDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, image_url: publicUrl });
+      toast.success('อัพโหลดรูปภาพสำเร็จ');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData({ ...formData, image_url: '' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -384,14 +437,64 @@ export default function AdminProducts() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="image_url">URL รูปภาพ</Label>
-                    <Input
-                      id="image_url"
-                      type="url"
-                      value={formData.image_url}
-                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                      placeholder="https://example.com/image.jpg"
-                    />
+                    <Label>รูปภาพสินค้า</Label>
+                    
+                    {formData.image_url ? (
+                      <div className="relative inline-block">
+                        <img 
+                          src={formData.image_url} 
+                          alt="Product preview" 
+                          className="w-32 h-32 object-cover rounded-lg border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 w-6 h-6"
+                          onClick={removeImage}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <label className="cursor-pointer">
+                          <div className="flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
+                            {isUploading ? (
+                              <RefreshCw className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <>
+                                <Upload className="w-5 h-5 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">คลิกเพื่ออัพโหลดรูป</span>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            disabled={isUploading}
+                            className="hidden"
+                          />
+                        </label>
+                        <span className="text-xs text-muted-foreground text-center">
+                          รองรับ JPG, PNG, WEBP (ไม่เกิน 5MB)
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Alternative: URL input */}
+                    <div className="pt-2">
+                      <Label htmlFor="image_url" className="text-xs text-muted-foreground">หรือกรอก URL</Label>
+                      <Input
+                        id="image_url"
+                        type="url"
+                        value={formData.image_url}
+                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                        placeholder="https://example.com/image.jpg"
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">
