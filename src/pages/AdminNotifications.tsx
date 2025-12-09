@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -8,6 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Bell,
   RefreshCw,
   ShoppingCart,
@@ -15,12 +22,22 @@ import {
   AlertTriangle,
   Check,
   Trash2,
-  CheckCheck
+  CheckCheck,
+  Filter
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { th } from 'date-fns/locale';
 
+const typeOptions = [
+  { value: 'all', label: 'ทั้งหมด' },
+  { value: 'new_order', label: 'ออเดอร์ใหม่' },
+  { value: 'low_stock', label: 'สินค้าใกล้หมด' },
+  { value: 'out_of_stock', label: 'สินค้าหมด' },
+];
+
 export default function AdminNotifications() {
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [readFilter, setReadFilter] = useState('all');
   const { user, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const {
@@ -146,109 +163,148 @@ export default function AdminNotifications() {
         </Card>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 mb-6">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refetch}
-          disabled={isLoadingNotifications}
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
-          รีเฟรช
-        </Button>
-        {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={markAllAsRead}>
-            <CheckCheck className="w-4 h-4 mr-2" />
-            อ่านทั้งหมด
+      {/* Filters & Actions */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex gap-2 flex-1">
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="ประเภท" />
+            </SelectTrigger>
+            <SelectContent>
+              {typeOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={readFilter} onValueChange={setReadFilter}>
+            <SelectTrigger className="w-full sm:w-[150px]">
+              <SelectValue placeholder="สถานะ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทั้งหมด</SelectItem>
+              <SelectItem value="unread">ยังไม่อ่าน</SelectItem>
+              <SelectItem value="read">อ่านแล้ว</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refetch}
+            disabled={isLoadingNotifications}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+            รีเฟรช
           </Button>
-        )}
+          {unreadCount > 0 && (
+            <Button variant="outline" size="sm" onClick={markAllAsRead}>
+              <CheckCheck className="w-4 h-4 mr-2" />
+              อ่านทั้งหมด
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Notifications List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="w-5 h-5" />
-            ประวัติการแจ้งเตือน
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {notifications.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>ยังไม่มีการแจ้งเตือน</p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-3">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`flex items-start gap-4 p-4 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
-                      !notification.is_read ? 'bg-primary/5 border-primary/20' : 'bg-card'
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    {/* Icon */}
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                      {getNotificationIcon(notification.type)}
-                    </div>
+      {/* Filtered Notifications */}
+      {(() => {
+        const filteredNotifications = notifications.filter(n => {
+          const matchesType = typeFilter === 'all' || n.type === typeFilter;
+          const matchesRead = readFilter === 'all' || 
+            (readFilter === 'unread' && !n.is_read) || 
+            (readFilter === 'read' && n.is_read);
+          return matchesType && matchesRead;
+        });
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        {getNotificationBadge(notification.type)}
-                        {!notification.is_read && (
-                          <span className="w-2 h-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      <h4 className="font-medium">{notification.title}</h4>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {formatDistanceToNow(new Date(notification.created_at), {
-                          addSuffix: true,
-                          locale: th
-                        })}
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-1 flex-shrink-0">
-                      {!notification.is_read && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            markAsRead(notification.id);
-                          }}
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteNotification(notification.id);
-                        }}
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                ประวัติการแจ้งเตือน ({filteredNotifications.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredNotifications.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>{notifications.length === 0 ? 'ยังไม่มีการแจ้งเตือน' : 'ไม่พบการแจ้งเตือนที่ตรงกับตัวกรอง'}</p>
+                </div>
+              ) : (
+                <ScrollArea className="h-[600px]">
+                  <div className="space-y-3">
+                    {filteredNotifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`flex items-start gap-4 p-4 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
+                          !notification.is_read ? 'bg-primary/5 border-primary/20' : 'bg-card'
+                        }`}
+                        onClick={() => handleNotificationClick(notification)}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                        {/* Icon */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          {getNotificationIcon(notification.type)}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            {getNotificationBadge(notification.type)}
+                            {!notification.is_read && (
+                              <span className="w-2 h-2 rounded-full bg-primary" />
+                            )}
+                          </div>
+                          <h4 className="font-medium">{notification.title}</h4>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {formatDistanceToNow(new Date(notification.created_at), {
+                              addSuffix: true,
+                              locale: th
+                            })}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-1 flex-shrink-0">
+                          {!notification.is_read && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNotification(notification.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
     </AdminLayout>
   );
 }
