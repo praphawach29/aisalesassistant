@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,34 +18,43 @@ export function SingleProductCard({ product, onSelectProduct }: SingleProductCar
 
   return (
     <Card className="w-full max-w-[300px] overflow-hidden hover:shadow-lg transition-shadow">
-      {/* Product Image */}
-      <div className="relative h-40 bg-muted overflow-hidden">
-        {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="w-16 h-16 text-muted-foreground/30" />
+      {/* Product Image - Clickable */}
+      <Link to={`/products/${product.id}`}>
+        <div className="relative h-40 bg-muted overflow-hidden cursor-pointer group">
+          {product.image_url ? (
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ImageIcon className="w-16 h-16 text-muted-foreground/30" />
+            </div>
+          )}
+          
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+              ดูรายละเอียด
+            </span>
           </div>
-        )}
-        
-        {/* Promotion Badge */}
-        {hasPromotion && (
-          <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground">
-            ลด {discountPercent}%
-          </Badge>
-        )}
-        
-        {/* Out of Stock Overlay */}
-        {product.stock === 0 && (
-          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-            <span className="text-sm font-medium text-muted-foreground">สินค้าหมด</span>
-          </div>
-        )}
-      </div>
+          
+          {/* Promotion Badge */}
+          {hasPromotion && (
+            <Badge className="absolute top-2 left-2 bg-destructive text-destructive-foreground">
+              ลด {discountPercent}%
+            </Badge>
+          )}
+          
+          {/* Out of Stock Overlay */}
+          {product.stock === 0 && (
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+              <span className="text-sm font-medium text-muted-foreground">สินค้าหมด</span>
+            </div>
+          )}
+        </div>
+      </Link>
 
       <CardContent className="p-4">
         {/* Category */}
@@ -52,10 +62,12 @@ export function SingleProductCard({ product, onSelectProduct }: SingleProductCar
           <span className="text-xs text-muted-foreground">{product.category}</span>
         )}
         
-        {/* Product Name */}
-        <h4 className="font-semibold text-base mt-1 line-clamp-2">
-          {product.name}
-        </h4>
+        {/* Product Name - Clickable */}
+        <Link to={`/products/${product.id}`}>
+          <h4 className="font-semibold text-base mt-1 line-clamp-2 hover:text-primary transition-colors cursor-pointer">
+            {product.name}
+          </h4>
+        </Link>
 
         {/* Description */}
         {product.description && (
@@ -93,6 +105,11 @@ export function SingleProductCard({ product, onSelectProduct }: SingleProductCar
             <ShoppingCart className="w-4 h-4" />
             {product.stock === 0 ? 'สินค้าหมด' : 'สั่งซื้อ'}
           </Button>
+          <Link to={`/products/${product.id}`}>
+            <Button size="sm" variant="outline">
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>
