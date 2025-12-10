@@ -44,6 +44,119 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_personality_templates: {
+        Row: {
+          ai_name: string
+          closing_message: string | null
+          created_at: string
+          custom_rules: string | null
+          description: string | null
+          formality_level: number
+          gender: string
+          greeting_message: string | null
+          id: string
+          is_system: boolean
+          name: string
+          personality: string | null
+          response_length: string
+          updated_at: string
+          use_emoji: boolean
+        }
+        Insert: {
+          ai_name: string
+          closing_message?: string | null
+          created_at?: string
+          custom_rules?: string | null
+          description?: string | null
+          formality_level?: number
+          gender?: string
+          greeting_message?: string | null
+          id?: string
+          is_system?: boolean
+          name: string
+          personality?: string | null
+          response_length?: string
+          updated_at?: string
+          use_emoji?: boolean
+        }
+        Update: {
+          ai_name?: string
+          closing_message?: string | null
+          created_at?: string
+          custom_rules?: string | null
+          description?: string | null
+          formality_level?: number
+          gender?: string
+          greeting_message?: string | null
+          id?: string
+          is_system?: boolean
+          name?: string
+          personality?: string | null
+          response_length?: string
+          updated_at?: string
+          use_emoji?: boolean
+        }
+        Relationships: []
+      }
+      ai_settings: {
+        Row: {
+          ai_name: string
+          closing_message: string | null
+          created_at: string
+          custom_rules: string | null
+          formality_level: number
+          gender: string
+          greeting_message: string | null
+          id: string
+          is_active: boolean
+          personality: string | null
+          response_length: string
+          template_id: string | null
+          updated_at: string
+          use_emoji: boolean
+        }
+        Insert: {
+          ai_name?: string
+          closing_message?: string | null
+          created_at?: string
+          custom_rules?: string | null
+          formality_level?: number
+          gender?: string
+          greeting_message?: string | null
+          id?: string
+          is_active?: boolean
+          personality?: string | null
+          response_length?: string
+          template_id?: string | null
+          updated_at?: string
+          use_emoji?: boolean
+        }
+        Update: {
+          ai_name?: string
+          closing_message?: string | null
+          created_at?: string
+          custom_rules?: string | null
+          formality_level?: number
+          gender?: string
+          greeting_message?: string | null
+          id?: string
+          is_active?: boolean
+          personality?: string | null
+          response_length?: string
+          template_id?: string | null
+          updated_at?: string
+          use_emoji?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_settings_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ai_personality_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversations: {
         Row: {
           created_at: string
