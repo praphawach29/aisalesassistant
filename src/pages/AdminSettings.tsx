@@ -3,28 +3,42 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Save, Key, MessageCircle, Eye, EyeOff } from "lucide-react";
+import { Save, Store, Bell, Shield, Loader2 } from "lucide-react";
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
-interface Setting {
-  id: string;
+interface StoreSetting {
   key: string;
-  value: string | null;
-  description: string | null;
+  value: string;
+  description: string;
 }
+
+const DEFAULT_STORE_SETTINGS: StoreSetting[] = [
+  { key: 'STORE_NAME', value: '', description: 'ชื่อร้านค้า' },
+  { key: 'STORE_PHONE', value: '', description: 'เบอร์โทรติดต่อ' },
+  { key: 'STORE_ADDRESS', value: '', description: 'ที่อยู่ร้านค้า' },
+  { key: 'STORE_EMAIL', value: '', description: 'อีเมลติดต่อ' },
+  { key: 'RETURN_POLICY', value: '', description: 'นโยบายการคืนสินค้า' },
+  { key: 'SHIPPING_INFO', value: '', description: 'ข้อมูลการจัดส่ง' },
+];
 
 const AdminSettings = () => {
   const { toast } = useToast();
   const { isAdmin, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [settings, setSettings] = useState<Setting[]>([]);
+  const [settings, setSettings] = useState<StoreSetting[]>(DEFAULT_STORE_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [showTokens, setShowTokens] = useState<Record<string, boolean>>({});
+  
+  // Notification preferences
+  const [notifyNewOrders, setNotifyNewOrders] = useState(true);
+  const [notifyLowStock, setNotifyLowStock] = useState(true);
+  const [lowStockThreshold, setLowStockThreshold] = useState("5");
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -44,7 +58,27 @@ const AdminSettings = () => {
         .order("key");
 
       if (error) throw error;
-      setSettings(data || []);
+      
+      // Merge with defaults
+      const mergedSettings = DEFAULT_STORE_SETTINGS.map(defaultSetting => {
+        const dbSetting = data?.find(s => s.key === defaultSetting.key);
+        return {
+          ...defaultSetting,
+          value: dbSetting?.value || ''
+        };
+      });
+      
+      setSettings(mergedSettings);
+
+      // Load notification preferences
+      const notifyOrders = data?.find(s => s.key === 'NOTIFY_NEW_ORDERS');
+      const notifyStock = data?.find(s => s.key === 'NOTIFY_LOW_STOCK');
+      const stockThreshold = data?.find(s => s.key === 'LOW_STOCK_THRESHOLD');
+      
+      if (notifyOrders) setNotifyNewOrders(notifyOrders.value === 'true');
+      if (notifyStock) setNotifyLowStock(notifyStock.value === 'true');
+      if (stockThreshold) setLowStockThreshold(stockThreshold.value || '5');
+      
     } catch (error) {
       console.error("Error fetching settings:", error);
       toast({
@@ -63,17 +97,32 @@ const AdminSettings = () => {
     );
   };
 
+  const saveSetting = async (key: string, value: string, description?: string) => {
+    const { data: existing } = await supabase
+      .from("settings")
+      .select("id")
+      .eq("key", key)
+      .maybeSingle();
+    
+    if (existing) {
+      await supabase.from("settings").update({ value }).eq("key", key);
+    } else {
+      await supabase.from("settings").insert({ key, value, description });
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Save store settings
       for (const setting of settings) {
-        const { error } = await supabase
-          .from("settings")
-          .update({ value: setting.value })
-          .eq("key", setting.key);
-
-        if (error) throw error;
+        await saveSetting(setting.key, setting.value, setting.description);
       }
+
+      // Save notification preferences
+      await saveSetting('NOTIFY_NEW_ORDERS', String(notifyNewOrders), 'แจ้งเตือนออเดอร์ใหม่');
+      await saveSetting('NOTIFY_LOW_STOCK', String(notifyLowStock), 'แจ้งเตือนสินค้าใกล้หมด');
+      await saveSetting('LOW_STOCK_THRESHOLD', lowStockThreshold, 'จำนวนสินค้าที่ถือว่าใกล้หมด');
 
       toast({
         title: "บันทึกสำเร็จ",
@@ -91,113 +140,151 @@ const AdminSettings = () => {
     }
   };
 
-  const toggleShowToken = (key: string) => {
-    setShowTokens((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const getIcon = (key: string) => {
-    if (key.includes("LINE")) return <MessageCircle className="h-5 w-5 text-green-500" />;
-    if (key.includes("FACEBOOK")) return <MessageCircle className="h-5 w-5 text-blue-500" />;
-    return <Key className="h-5 w-5 text-muted-foreground" />;
-  };
-
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">กำลังโหลด...</div>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
     <AdminLayout title="ตั้งค่าระบบ">
-      <Card>
+      <div className="space-y-6">
+        {/* Store Information */}
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              API Tokens
+              <Store className="h-5 w-5" />
+              ข้อมูลร้านค้า
             </CardTitle>
             <CardDescription>
-              กรอก Access Token สำหรับเชื่อมต่อกับ LINE และ Facebook เพื่อส่งการแจ้งเตือนไปยังลูกค้า
+              ข้อมูลพื้นฐานของร้านค้าที่จะแสดงให้ลูกค้าเห็น และใช้ในการสนทนากับ AI
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {settings.slice(0, 4).map((setting) => (
+                <div key={setting.key} className="space-y-2">
+                  <Label>{setting.description}</Label>
+                  <Input
+                    value={setting.value}
+                    onChange={(e) => handleValueChange(setting.key, e.target.value)}
+                    placeholder={`กรอก${setting.description}...`}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            <div className="space-y-2">
+              <Label>{settings[4]?.description}</Label>
+              <Textarea
+                value={settings[4]?.value || ''}
+                onChange={(e) => handleValueChange('RETURN_POLICY', e.target.value)}
+                placeholder="เช่น: รับคืนสินค้าภายใน 7 วัน หากสินค้ามีปัญหาจากการผลิต..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{settings[5]?.description}</Label>
+              <Textarea
+                value={settings[5]?.value || ''}
+                onChange={(e) => handleValueChange('SHIPPING_INFO', e.target.value)}
+                placeholder="เช่น: จัดส่งทุกวันจันทร์-ศุกร์ ภายใน 1-3 วันทำการ..."
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notification Preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              การแจ้งเตือน
+            </CardTitle>
+            <CardDescription>
+              ตั้งค่าการแจ้งเตือนสำหรับผู้ดูแลระบบ
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {settings.map((setting) => (
-              <div key={setting.id} className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  {getIcon(setting.key)}
-                  {setting.key}
-                </Label>
-                {setting.description && (
-                  <p className="text-sm text-muted-foreground">{setting.description}</p>
-                )}
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      type={showTokens[setting.key] ? "text" : "password"}
-                      value={setting.value || ""}
-                      onChange={(e) => handleValueChange(setting.key, e.target.value)}
-                      placeholder="กรอก token ที่นี่..."
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => toggleShowToken(setting.key)}
-                    >
-                      {showTokens[setting.key] ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>แจ้งเตือนออเดอร์ใหม่</Label>
+                <p className="text-sm text-muted-foreground">
+                  รับการแจ้งเตือนเมื่อมีออเดอร์ใหม่เข้ามา
+                </p>
               </div>
-            ))}
-
-            <div className="pt-4 border-t">
-              <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
-                <Save className="h-4 w-4 mr-2" />
-                {isSaving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
-              </Button>
+              <Switch
+                checked={notifyNewOrders}
+                onCheckedChange={setNotifyNewOrders}
+              />
             </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>แจ้งเตือนสินค้าใกล้หมด</Label>
+                <p className="text-sm text-muted-foreground">
+                  รับการแจ้งเตือนเมื่อสินค้าเหลือน้อย
+                </p>
+              </div>
+              <Switch
+                checked={notifyLowStock}
+                onCheckedChange={setNotifyLowStock}
+              />
+            </div>
+
+            {notifyLowStock && (
+              <div className="space-y-2 pl-4 border-l-2 border-muted">
+                <Label>จำนวนสินค้าที่ถือว่าใกล้หมด</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={lowStockThreshold}
+                  onChange={(e) => setLowStockThreshold(e.target.value)}
+                  className="w-32"
+                />
+                <p className="text-sm text-muted-foreground">
+                  แจ้งเตือนเมื่อสินค้าเหลือน้อยกว่าหรือเท่ากับจำนวนนี้
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        {/* Security Notice */}
+        <Card className="border-blue-500/30 bg-blue-500/5">
           <CardHeader>
-            <CardTitle>วิธีการรับ Token</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-blue-600">
+              <Shield className="h-5 w-5" />
+              การตั้งค่า API Integration
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
-            <div>
-              <h4 className="font-medium text-foreground flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-green-500" />
-                LINE Channel Access Token
-              </h4>
-              <ol className="list-decimal list-inside mt-2 space-y-1">
-                <li>ไปที่ LINE Developers Console</li>
-                <li>เลือก Provider และ Channel ที่ต้องการ</li>
-                <li>ไปที่แท็บ "Messaging API"</li>
-                <li>คัดลอก "Channel access token"</li>
-              </ol>
-            </div>
-            <div>
-              <h4 className="font-medium text-foreground flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-blue-500" />
-                Facebook Page Access Token
-              </h4>
-              <ol className="list-decimal list-inside mt-2 space-y-1">
-                <li>ไปที่ Facebook for Developers</li>
-                <li>เลือก App ที่เชื่อมต่อกับ Page</li>
-                <li>ไปที่ "Tools" {">"} "Graph API Explorer"</li>
-                <li>เลือก Page และสร้าง Access Token</li>
-              </ol>
-            </div>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              การตั้งค่า LINE และ Facebook API tokens ได้ย้ายไปที่หน้า{" "}
+              <a href="/admin/integrations" className="text-primary hover:underline font-medium">
+                Integration
+              </a>{" "}
+              แล้ว เพื่อความปลอดภัยที่มากขึ้น (tokens จะถูกเข้ารหัสก่อนบันทึก)
+            </p>
           </CardContent>
         </Card>
+
+        {/* Save Button */}
+        <div className="flex justify-end">
+          <Button onClick={handleSave} disabled={isSaving} size="lg">
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {isSaving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
+          </Button>
+        </div>
+      </div>
     </AdminLayout>
   );
 };
