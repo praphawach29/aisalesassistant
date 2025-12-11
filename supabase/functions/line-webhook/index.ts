@@ -2120,13 +2120,12 @@ serve(async (req) => {
           messagesToSend.push({ type: "text", text: "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ กรุณาตรวจสอบชื่อสินค้าอีกครั้งนะคะ" });
         }
       } else {
-        // Add text response if there is one
-        if (aiResult.text) {
-          messagesToSend.push({ type: "text", text: aiResult.text });
-        }
-
-        // Add product cards if requested
+        // Add product cards if requested - with fallback text if AI didn't return text
         if (aiResult.showProducts) {
+          // Always add text message first
+          const textMsg = aiResult.text || "นี่คือสินค้าของเราค่ะ 😊";
+          messagesToSend.push({ type: "text", text: textMsg });
+          
           const { data: products } = await supabase
             .from("products")
             .select("*")
@@ -2138,6 +2137,10 @@ serve(async (req) => {
             messagesToSend.push(createProductFlexMessage(products));
           }
         } else if (aiResult.selectVariant) {
+          // Always add text message first
+          const textMsg = aiResult.text || "สินค้ามีหลายตัวเลือกค่ะ เลือกได้เลยนะคะ 😊";
+          messagesToSend.push({ type: "text", text: textMsg });
+          
           // Show variant selection card
           const { data: products } = await supabase
             .from("products")
@@ -2156,6 +2159,10 @@ serve(async (req) => {
             }
           }
         } else if (aiResult.specificProduct) {
+          // Always add text message first
+          const textMsg = aiResult.text || "นี่คือรายละเอียดสินค้าค่ะ 😊";
+          messagesToSend.push({ type: "text", text: textMsg });
+          
           const { data: products } = await supabase
             .from("products")
             .select("*")
@@ -2165,6 +2172,11 @@ serve(async (req) => {
 
           if (products && products.length > 0) {
             messagesToSend.push(createSingleProductCard(products[0]));
+          }
+        } else {
+          // No product action - just send text response
+          if (aiResult.text) {
+            messagesToSend.push({ type: "text", text: aiResult.text });
           }
         }
       }
