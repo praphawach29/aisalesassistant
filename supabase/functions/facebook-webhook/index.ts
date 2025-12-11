@@ -549,14 +549,9 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch Facebook settings from database
-    const { data: settings } = await supabase
-      .from("settings")
-      .select("key, value")
-      .in("key", ["FACEBOOK_PAGE_ACCESS_TOKEN", "FACEBOOK_APP_SECRET"]);
-
-    const FB_PAGE_ACCESS_TOKEN = settings?.find(s => s.key === "FACEBOOK_PAGE_ACCESS_TOKEN")?.value;
-    const FB_APP_SECRET = settings?.find(s => s.key === "FACEBOOK_APP_SECRET")?.value;
+    // Read Facebook tokens from environment variables (secure secrets)
+    const FB_PAGE_ACCESS_TOKEN = Deno.env.get("FACEBOOK_PAGE_ACCESS_TOKEN");
+    const FB_APP_SECRET = Deno.env.get("FACEBOOK_APP_SECRET");
 
     // Verify Facebook signature - MANDATORY for security
     const signature = req.headers.get("x-hub-signature-256");

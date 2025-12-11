@@ -12,28 +12,52 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Get LINE tokens from settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('settings')
-      .select('key, value')
-      .in('key', ['LINE_CHANNEL_ACCESS_TOKEN', 'LINE_CHANNEL_SECRET']);
-
-    if (settingsError) {
-      console.error('Error fetching settings:', settingsError);
+    // Verify user is authenticated and is an admin
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ success: false, message: 'ไม่สามารถโหลดการตั้งค่าได้' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ success: false, message: 'Missing authorization header' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
 
-    const channelAccessToken = settings?.find(s => s.key === 'LINE_CHANNEL_ACCESS_TOKEN')?.value;
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    // Check admin role
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .single();
+
+    if (!roleData) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Forbidden - Admin access required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
+    // Read LINE token from environment variable (secure secret)
+    const channelAccessToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
 
     if (!channelAccessToken) {
       return new Response(
-        JSON.stringify({ success: false, message: 'ยังไม่ได้ตั้งค่า LINE Channel Access Token' }),
+        JSON.stringify({ success: false, message: 'ยังไม่ได้ตั้งค่า LINE Channel Access Token ใน Secrets' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
