@@ -667,6 +667,116 @@ serve(async (req) => {
           }
         }
 
+        // Check for order cancellation request
+        const cancelKeywords = ['ยกเลิกออเดอร์', 'ยกเลิกคำสั่งซื้อ', 'ยกเลิก', 'cancel'];
+        const isCancelRequest = cancelKeywords.some(keyword => 
+          userMessage.toLowerCase().includes(keyword.toLowerCase())
+        );
+        const cancelOrderMatch = userMessage.match(/ORD-\d{8}-\d{4}/i);
+
+        if (isCancelRequest && cancelOrderMatch) {
+          const orderNumber = cancelOrderMatch[0].toUpperCase();
+          console.log("Order cancellation requested for:", orderNumber);
+
+          // Find order and verify it belongs to this customer
+          const { data: order } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("order_number", orderNumber)
+            .eq("customer_facebook_id", senderId)
+            .maybeSingle();
+
+          if (!order) {
+            await supabase.from("chat_messages").insert({
+              conversation_id: conversation.id,
+              role: "assistant",
+              content: `ไม่พบออเดอร์หมายเลข ${orderNumber}`,
+            });
+
+            await sendToFacebook(
+              senderId, 
+              `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบของคุณ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้งค่ะ`,
+              FB_PAGE_ACCESS_TOKEN
+            );
+            continue;
+          }
+
+          // Check if order can be cancelled (only pending or confirmed)
+          if (!['pending', 'confirmed'].includes(order.status)) {
+            const statusMessages: Record<string, string> = {
+              'shipped': 'ออเดอร์นี้จัดส่งแล้ว ไม่สามารถยกเลิกได้ค่ะ 📦',
+              'delivered': 'ออเดอร์นี้ส่งถึงแล้ว ไม่สามารถยกเลิกได้ค่ะ ✅',
+              'cancelled': 'ออเดอร์นี้ถูกยกเลิกไปแล้วค่ะ ❌'
+            };
+
+            await supabase.from("chat_messages").insert({
+              conversation_id: conversation.id,
+              role: "assistant",
+              content: `ไม่สามารถยกเลิกออเดอร์ ${orderNumber} ได้ (สถานะ: ${order.status})`,
+            });
+
+            await sendToFacebook(
+              senderId, 
+              `ขออภัยค่ะ ${statusMessages[order.status] || 'ไม่สามารถยกเลิกออเดอร์นี้ได้ค่ะ'}\n\nหากมีปัญหา กรุณาติดต่อเจ้าหน้าที่ค่ะ`,
+              FB_PAGE_ACCESS_TOKEN
+            );
+            continue;
+          }
+
+          // Get order items to return stock
+          const { data: orderItems } = await supabase
+            .from("order_items")
+            .select("*, products(*)")
+            .eq("order_id", order.id);
+
+          // Return stock for each item
+          if (orderItems) {
+            for (const item of orderItems) {
+              if (item.product_id && item.products) {
+                await supabase
+                  .from("products")
+                  .update({ stock: (item.products as any).stock + item.quantity })
+                  .eq("id", item.product_id);
+              }
+            }
+          }
+
+          // Update order status to cancelled
+          const { error: updateError } = await supabase
+            .from("orders")
+            .update({ status: 'cancelled' })
+            .eq("id", order.id);
+
+          if (updateError) {
+            console.error("Error cancelling order:", updateError);
+            await sendToFacebook(
+              senderId, 
+              `ขออภัยค่ะ เกิดข้อผิดพลาดในการยกเลิกออเดอร์ กรุณาลองใหม่อีกครั้งค่ะ`,
+              FB_PAGE_ACCESS_TOKEN
+            );
+            continue;
+          }
+
+          const cancelMessage = `❌ ยกเลิกออเดอร์สำเร็จ\n━━━━━━━━━━━━━━━\n\n📋 หมายเลข: ${orderNumber}\n💰 ยอดเงิน: ฿${Number(order.total_amount).toLocaleString()} (ยกเลิก)\n\nหากต้องการสั่งซื้อใหม่ พิมพ์ "ดูสินค้า" ค่ะ 😊`;
+
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: `ยกเลิกออเดอร์ ${orderNumber} สำเร็จ`,
+          });
+
+          await supabase
+            .from("chat_conversations")
+            .update({
+              last_message: `ยกเลิกออเดอร์ ${orderNumber}`,
+              last_message_at: new Date().toISOString(),
+            })
+            .eq("id", conversation.id);
+
+          await sendToFacebook(senderId, cancelMessage, FB_PAGE_ACCESS_TOKEN);
+          continue;
+        }
+
         // Get cart items count
         const { count: cartItemCount } = await supabase
           .from("shopping_carts")
