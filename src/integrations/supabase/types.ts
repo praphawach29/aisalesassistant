@@ -477,6 +477,60 @@ export type Database = {
         }
         Relationships: []
       }
+      shopping_carts: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          id: string
+          platform_user_id: string
+          price: number
+          product_id: string | null
+          product_name: string
+          quantity: number
+          updated_at: string
+          variants: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          platform_user_id: string
+          price: number
+          product_id?: string | null
+          product_name: string
+          quantity?: number
+          updated_at?: string
+          variants?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          platform_user_id?: string
+          price?: number
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          updated_at?: string
+          variants?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_carts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_carts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

@@ -470,6 +470,223 @@ function createOrderConfirmationCard(orderNumber: string, productName: string, q
   };
 }
 
+// Create cart summary card
+function createCartSummaryCard(cartItems: Array<{product_name: string; quantity: number; price: number; variants?: string}>, totalAmount: number) {
+  const itemContents = cartItems.map(item => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      { 
+        type: "text", 
+        text: `${item.product_name}${item.variants ? ` (${item.variants})` : ''} x${item.quantity}`, 
+        size: "sm", 
+        color: "#333333", 
+        flex: 7,
+        wrap: true 
+      },
+      { 
+        type: "text", 
+        text: `฿${(item.price * item.quantity).toLocaleString()}`, 
+        size: "sm", 
+        color: "#FF5551", 
+        flex: 3, 
+        align: "end" 
+      }
+    ]
+  }));
+
+  const bubble: any = {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: "🛒 ตะกร้าสินค้าของคุณ",
+          weight: "bold",
+          size: "lg",
+          color: "#333333"
+        },
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          margin: "lg",
+          spacing: "md",
+          contents: itemContents.length > 0 ? itemContents : [{
+            type: "text",
+            text: "ไม่มีสินค้าในตะกร้า",
+            size: "sm",
+            color: "#999999",
+            align: "center"
+          }]
+        },
+        ...(cartItems.length > 0 ? [
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            margin: "lg",
+            contents: [
+              { type: "text", text: "รวมทั้งหมด:", size: "md", color: "#333333", weight: "bold", flex: 5 },
+              { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "lg", color: "#FF5551", weight: "bold", flex: 5, align: "end" }
+            ]
+          }
+        ] : [])
+      ]
+    },
+    footer: cartItems.length > 0 ? {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          action: {
+            type: "message",
+            label: "สั่งซื้อทั้งหมด",
+            text: "ยืนยันสั่งซื้อตะกร้า"
+          },
+          color: "#00B900"
+        },
+        {
+          type: "button",
+          style: "secondary",
+          action: {
+            type: "message",
+            label: "ล้างตะกร้า",
+            text: "ล้างตะกร้า"
+          }
+        }
+      ]
+    } : undefined
+  };
+
+  return {
+    type: "flex",
+    altText: `ตะกร้าสินค้า (${cartItems.length} รายการ)`,
+    contents: bubble
+  };
+}
+
+// Create multi-item order confirmation card
+function createMultiItemOrderCard(orderNumber: string, items: Array<{product_name: string; quantity: number; price: number}>, totalAmount: number, customerName: string, customerAddress: string) {
+  const itemContents = items.map(item => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      { type: "text", text: `${item.product_name} x${item.quantity}`, size: "sm", color: "#333333", flex: 7, wrap: true },
+      { type: "text", text: `฿${(item.price * item.quantity).toLocaleString()}`, size: "sm", color: "#666666", flex: 3, align: "end" }
+    ]
+  }));
+
+  const bubble: any = {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: "✅ ยืนยันการสั่งซื้อสำเร็จ!",
+          weight: "bold",
+          size: "lg",
+          color: "#00B900"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          margin: "md",
+          contents: [
+            { type: "text", text: "หมายเลขออเดอร์:", size: "sm", color: "#666666", flex: 4 },
+            { type: "text", text: orderNumber, size: "sm", color: "#333333", weight: "bold", flex: 6, align: "end" }
+          ]
+        },
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: "📦 รายการสินค้า",
+          size: "sm",
+          color: "#333333",
+          weight: "bold",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          margin: "sm",
+          spacing: "sm",
+          contents: itemContents
+        },
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          margin: "md",
+          contents: [
+            { type: "text", text: "ยอดรวมทั้งหมด:", size: "md", color: "#333333", weight: "bold", flex: 5 },
+            { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "lg", color: "#FF5551", weight: "bold", flex: 5, align: "end" }
+          ]
+        },
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: "🚚 ข้อมูลจัดส่ง",
+          size: "sm",
+          color: "#333333",
+          weight: "bold",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: `ชื่อ: ${customerName}`,
+          size: "sm",
+          color: "#666666",
+          margin: "sm"
+        },
+        {
+          type: "text",
+          text: `ที่อยู่: ${customerAddress}`,
+          size: "sm",
+          color: "#666666",
+          wrap: true
+        },
+        {
+          type: "text",
+          text: "ขอบคุณที่ใช้บริการค่ะ 🙏",
+          size: "sm",
+          color: "#00B900",
+          margin: "lg",
+          align: "center"
+        }
+      ]
+    }
+  };
+
+  return {
+    type: "flex",
+    altText: `ยืนยันออเดอร์ ${orderNumber}`,
+    contents: bubble
+  };
+}
+
 async function replyToLine(replyToken: string, messages: Array<any>, accessToken: string) {
   if (!accessToken) {
     console.error("LINE_CHANNEL_ACCESS_TOKEN not configured");
@@ -507,11 +724,21 @@ interface OrderData {
   variants?: string;
 }
 
+interface CartAction {
+  action: 'add' | 'view' | 'clear' | 'checkout';
+  productName?: string;
+  quantity?: number;
+  variants?: string;
+  customerName?: string;
+  customerAddress?: string;
+  customerPhone?: string;
+}
+
 async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
-  customerContext: { isReturning: boolean; customerName?: string; messageCount: number; lastVisit?: string }
-): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData }> {
+  customerContext: { isReturning: boolean; customerName?: string; messageCount: number; lastVisit?: string; cartItemCount?: number }
+): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData; cartAction?: CartAction }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -530,10 +757,14 @@ async function getAIResponse(
     return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}`;
   }).join('\n') || 'ยังไม่มีสินค้า';
 
+  const cartInfo = customerContext.cartItemCount && customerContext.cartItemCount > 0 
+    ? `\n\n🛒 ลูกค้ามีสินค้าในตะกร้า ${customerContext.cartItemCount} รายการ`
+    : '';
+
   const customerGreeting = customerContext.isReturning 
     ? customerContext.customerName 
-      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น`
-      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น`
+      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น${cartInfo}`
+      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น${cartInfo}`
     : 'นี่คือลูกค้าใหม่ ทักทายสุภาพและแนะนำตัว';
 
   const systemPrompt = `คุณคือ "น้องช้อป" ผู้ช่วยขายอัจฉริยะทาง LINE พูดภาษาไทยสุภาพ น่ารัก ใช้อิโมจิบ้าง
@@ -553,25 +784,22 @@ ${productCatalog}
 - ถ้าลูกค้าถามข้อมูลสินค้าเฉพาะอย่าง (แต่ยังไม่สั่งซื้อ) → ตอบ [SHOW_PRODUCT:ชื่อสินค้า]
 - ถ้าลูกค้าบอกชื่อตัวเอง → ตอบ [NAME:ชื่อลูกค้า]
 
-**สำคัญมาก - การสั่งซื้อและตัวเลือกสินค้า:**
+**🛒 ระบบตะกร้าสินค้า:**
+- ถ้าลูกค้าต้องการ "เพิ่มลงตะกร้า" หรือ "ใส่ตะกร้า" → ตอบ [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]
+- ถ้าลูกค้าถาม "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ตอบ [VIEW_CART]
+- ถ้าลูกค้าต้องการ "ล้างตะกร้า" หรือ "เคลียร์ตะกร้า" → ตอบ [CLEAR_CART]
+- ถ้าลูกค้าพิมพ์ "ยืนยันสั่งซื้อตะกร้า" หรือ "สั่งซื้อทั้งหมด" พร้อมข้อมูลครบ (ชื่อ ที่อยู่ เบอร์) → ตอบ [CHECKOUT_CART:ชื่อลูกค้า|ที่อยู่|เบอร์โทร]
+
+ตัวอย่างการใช้ตะกร้า:
+- ลูกค้า: "เพิ่มเสื้อเชิ้ต 2 ตัว สีขาว ลงตะกร้า" → ตอบ "เพิ่มลงตะกร้าแล้วค่ะ 😊 [ADD_CART:เสื้อเชิ้ตแขนยาว|2|สี: ขาว]"
+- ลูกค้า: "ขอดูตะกร้า" → ตอบ "นี่คือตะกร้าของคุณค่ะ [VIEW_CART]"
+- ลูกค้า: "ยืนยันสั่งซื้อตะกร้า ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 081234567" → ตอบ "รับออเดอร์เรียบร้อยค่ะ 😊 [CHECKOUT_CART:สมชาย|123 ถ.สุขุมวิท|0812345678]"
+
+**การสั่งซื้อตรง (ไม่ผ่านตะกร้า):**
 - ถ้าลูกค้าพิมพ์ "สั่งซื้อ ชื่อสินค้า" และสินค้านั้น**มีตัวเลือก** (สี/ไซส์) → ตอบ [SELECT_VARIANT:ชื่อสินค้า] พร้อมข้อความถามว่าต้องการตัวเลือกไหน
-- ถ้าลูกค้าพิมพ์ "เลือก สี/ไซส์: ตัวเลือก สำหรับ ชื่อสินค้า" → บันทึกตัวเลือกและถามจำนวน ชื่อ ที่อยู่ เบอร์โทร สำหรับจัดส่ง
-- ถ้าลูกค้าสั่งซื้อสินค้าที่**ไม่มีตัวเลือก** → ถามจำนวน ชื่อ ที่อยู่ เบอร์โทร เลย
+- ถ้าลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร) → ตอบ [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก]
 - ห้ามส่งการ์ดสินค้าซ้ำเมื่อลูกค้าต้องการสั่งซื้อแล้ว
-- ห้ามบอกจำนวนสต็อกโดยตรง ยกเว้นลูกค้าจะสั่งเกินจำนวน
-
-**สำคัญที่สุด - สร้างออเดอร์อัตโนมัติ:**
-เมื่อลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร และตัวเลือก(ถ้ามี)) ให้สร้างคำสั่ง:
-[CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก]
-
-ตัวอย่างการสร้างออเดอร์:
-- ถ้าลูกค้าบอก "สั่งเสื้อเชิ้ต 2 ตัว สีขาว ไซส์ M ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 0812345678"
-→ ตอบ "รับออเดอร์เรียบร้อยค่ะ 😊 [CREATE_ORDER:เสื้อเชิ้ตแขนยาว|2|สมชาย|123 ถ.สุขุมวิท|0812345678|สี: ขาว, ไซส์: M]"
-
-- ถ้าลูกค้าบอก "สั่งกางเกงยีนส์ 1 ตัว ชื่อมานี ที่อยู่ 456 ถ.พหลโยธิน เบอร์ 0898765432"
-→ ตอบ "รับออเดอร์เรียบร้อยค่ะ 😊 [CREATE_ORDER:กางเกงยีนส์|1|มานี|456 ถ.พหลโยธิน|0898765432|]"
-
-**หมายเหตุ:** ถ้าข้อมูลยังไม่ครบ ให้ถามข้อมูลที่ขาดก่อน อย่าสร้าง [CREATE_ORDER]`;
+- ห้ามบอกจำนวนสต็อกโดยตรง ยกเว้นลูกค้าจะสั่งเกินจำนวน`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -603,6 +831,10 @@ ${productCatalog}
     const nameMatch = content.match(/\[NAME:([^\]]+)\]/);
     const selectVariantMatch = content.match(/\[SELECT_VARIANT:([^\]]+)\]/);
     const createOrderMatch = content.match(/\[CREATE_ORDER:([^\]]+)\]/);
+    const addCartMatch = content.match(/\[ADD_CART:([^\]]+)\]/);
+    const viewCartMatch = content.match(/\[VIEW_CART\]/);
+    const clearCartMatch = content.match(/\[CLEAR_CART\]/);
+    const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
 
     // Parse order data if present
     let createOrder: OrderData | undefined;
@@ -620,6 +852,30 @@ ${productCatalog}
       }
     }
 
+    // Parse cart action if present
+    let cartAction: CartAction | undefined;
+    if (addCartMatch) {
+      const parts = addCartMatch[1].split('|');
+      cartAction = {
+        action: 'add',
+        productName: parts[0]?.trim(),
+        quantity: parseInt(parts[1]?.trim()) || 1,
+        variants: parts[2]?.trim() || undefined
+      };
+    } else if (viewCartMatch) {
+      cartAction = { action: 'view' };
+    } else if (clearCartMatch) {
+      cartAction = { action: 'clear' };
+    } else if (checkoutCartMatch) {
+      const parts = checkoutCartMatch[1].split('|');
+      cartAction = {
+        action: 'checkout',
+        customerName: parts[0]?.trim(),
+        customerAddress: parts[1]?.trim(),
+        customerPhone: parts[2]?.trim()
+      };
+    }
+
     // Clean up the response
     content = content
       .replace(/\[SHOW_PRODUCTS\]/g, '')
@@ -627,6 +883,10 @@ ${productCatalog}
       .replace(/\[NAME:[^\]]+\]/g, '')
       .replace(/\[SELECT_VARIANT:[^\]]+\]/g, '')
       .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
+      .replace(/\[ADD_CART:[^\]]+\]/g, '')
+      .replace(/\[VIEW_CART\]/g, '')
+      .replace(/\[CLEAR_CART\]/g, '')
+      .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
       .trim();
 
     return {
@@ -635,7 +895,8 @@ ${productCatalog}
       specificProduct: specificProductMatch ? specificProductMatch[1] : undefined,
       detectedName: nameMatch ? nameMatch[1].trim() : undefined,
       selectVariant: selectVariantMatch ? selectVariantMatch[1].trim() : undefined,
-      createOrder
+      createOrder,
+      cartAction
     };
 
   } catch (error) {
@@ -762,12 +1023,19 @@ serve(async (req) => {
         content: m.content,
       })) || [{ role: "user", content: userMessage }];
 
+      // Get cart items count
+      const { count: cartItemCount } = await supabase
+        .from("shopping_carts")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", conversation.id);
+
       // Get AI response with customer context
       const customerContext = {
         isReturning: isReturningCustomer,
         customerName: conversation.customer_name || undefined,
         messageCount: messageCount,
-        lastVisit: conversation.last_message_at || undefined
+        lastVisit: conversation.last_message_at || undefined,
+        cartItemCount: cartItemCount || 0
       };
 
       const aiResult = await getAIResponse(messages, supabase, customerContext);
@@ -776,8 +1044,170 @@ serve(async (req) => {
       // Prepare messages to send
       const messagesToSend: any[] = [];
 
-      // Handle order creation if requested
-      if (aiResult.createOrder) {
+      // Handle cart actions first
+      if (aiResult.cartAction) {
+        const cartAction = aiResult.cartAction;
+        console.log("Cart action:", cartAction);
+
+        if (cartAction.action === 'add' && cartAction.productName) {
+          // Find product
+          const { data: products } = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true)
+            .ilike("name", `%${cartAction.productName}%`)
+            .limit(1);
+
+          if (products && products.length > 0) {
+            const product = products[0];
+            const price = product.promotion_price || product.price;
+
+            // Check if item already in cart
+            const { data: existingItem } = await supabase
+              .from("shopping_carts")
+              .select("*")
+              .eq("conversation_id", conversation.id)
+              .eq("product_id", product.id)
+              .eq("variants", cartAction.variants || '')
+              .maybeSingle();
+
+            if (existingItem) {
+              // Update quantity
+              await supabase
+                .from("shopping_carts")
+                .update({ quantity: existingItem.quantity + (cartAction.quantity || 1) })
+                .eq("id", existingItem.id);
+            } else {
+              // Add new item
+              await supabase.from("shopping_carts").insert({
+                conversation_id: conversation.id,
+                platform_user_id: userId,
+                product_id: product.id,
+                product_name: product.name,
+                quantity: cartAction.quantity || 1,
+                price: price,
+                variants: cartAction.variants || ''
+              });
+            }
+
+            if (aiResult.text) {
+              messagesToSend.push({ type: "text", text: aiResult.text });
+            }
+          } else {
+            messagesToSend.push({ type: "text", text: "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ" });
+          }
+        } else if (cartAction.action === 'view') {
+          // Get cart items
+          const { data: cartItems } = await supabase
+            .from("shopping_carts")
+            .select("*")
+            .eq("conversation_id", conversation.id);
+
+          const totalAmount = cartItems?.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) || 0;
+
+          if (aiResult.text) {
+            messagesToSend.push({ type: "text", text: aiResult.text });
+          }
+          messagesToSend.push(createCartSummaryCard(cartItems || [], totalAmount));
+        } else if (cartAction.action === 'clear') {
+          // Clear cart
+          await supabase
+            .from("shopping_carts")
+            .delete()
+            .eq("conversation_id", conversation.id);
+
+          if (aiResult.text) {
+            messagesToSend.push({ type: "text", text: aiResult.text });
+          } else {
+            messagesToSend.push({ type: "text", text: "ล้างตะกร้าเรียบร้อยแล้วค่ะ 🛒" });
+          }
+        } else if (cartAction.action === 'checkout' && cartAction.customerName && cartAction.customerAddress && cartAction.customerPhone) {
+          // Get cart items
+          const { data: cartItems } = await supabase
+            .from("shopping_carts")
+            .select("*, products(*)")
+            .eq("conversation_id", conversation.id);
+
+          if (cartItems && cartItems.length > 0) {
+            const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+
+            // Create order
+            const { data: order, error: orderError } = await supabase
+              .from("orders")
+              .insert({
+                customer_name: cartAction.customerName,
+                customer_address: cartAction.customerAddress,
+                customer_phone: cartAction.customerPhone,
+                customer_line_id: userId,
+                platform: "line",
+                total_amount: totalAmount
+              })
+              .select()
+              .single();
+
+            if (order && !orderError) {
+              // Create order items and update stock
+              for (const cartItem of cartItems) {
+                await supabase.from("order_items").insert({
+                  order_id: order.id,
+                  product_id: cartItem.product_id,
+                  product_name: cartItem.product_name + (cartItem.variants ? ` (${cartItem.variants})` : ''),
+                  quantity: cartItem.quantity,
+                  price: cartItem.price
+                });
+
+                // Update stock
+                if (cartItem.products) {
+                  await supabase
+                    .from("products")
+                    .update({ stock: cartItem.products.stock - cartItem.quantity })
+                    .eq("id", cartItem.product_id);
+                }
+              }
+
+              // Clear cart
+              await supabase
+                .from("shopping_carts")
+                .delete()
+                .eq("conversation_id", conversation.id);
+
+              // Update conversation
+              await supabase
+                .from("chat_conversations")
+                .update({
+                  customer_name: cartAction.customerName,
+                  customer_phone: cartAction.customerPhone
+                })
+                .eq("id", conversation.id);
+
+              console.log(`Cart order created: ${order.order_number}`);
+
+              if (aiResult.text) {
+                messagesToSend.push({ type: "text", text: aiResult.text });
+              }
+
+              // Add multi-item order confirmation
+              const orderItems = cartItems.map((item: any) => ({
+                product_name: item.product_name + (item.variants ? ` (${item.variants})` : ''),
+                quantity: item.quantity,
+                price: item.price
+              }));
+
+              messagesToSend.push(createMultiItemOrderCard(
+                order.order_number,
+                orderItems,
+                totalAmount,
+                cartAction.customerName,
+                cartAction.customerAddress
+              ));
+            } else {
+              messagesToSend.push({ type: "text", text: "ขออภัยค่ะ ไม่สามารถสร้างออเดอร์ได้ กรุณาลองใหม่อีกครั้ง" });
+            }
+          } else {
+            messagesToSend.push({ type: "text", text: "ไม่มีสินค้าในตะกร้าค่ะ กรุณาเพิ่มสินค้าก่อนนะคะ" });
+          }
+        }
+      } else if (aiResult.createOrder) {
         const orderData = aiResult.createOrder;
         console.log("Creating order:", orderData);
 
