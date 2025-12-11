@@ -18,6 +18,25 @@ const statusMap: Record<string, { text: string; emoji: string }> = {
   'cancelled': { text: 'ยกเลิก', emoji: '❌' }
 };
 
+interface OrderData {
+  productName: string;
+  quantity: number;
+  customerName: string;
+  customerAddress: string;
+  customerPhone: string;
+  variants?: string;
+}
+
+interface CartAction {
+  action: 'add' | 'view' | 'clear' | 'checkout';
+  productName?: string;
+  quantity?: number;
+  variants?: string;
+  customerName?: string;
+  customerAddress?: string;
+  customerPhone?: string;
+}
+
 // Format order status message
 function formatOrderStatusMessage(order: any, orderItems: any[]): string {
   const statusInfo = statusMap[order.status] || statusMap['pending'];
@@ -62,6 +81,50 @@ function formatOrderHistoryMessage(orders: any[]): string {
   return message;
 }
 
+// Format cart summary message
+function formatCartSummaryMessage(cartItems: Array<{product_name: string; quantity: number; price: number; variants?: string}>, totalAmount: number): string {
+  if (cartItems.length === 0) {
+    return `🛒 ตะกร้าว่างเปล่าค่ะ\n\nพิมพ์ "ดูสินค้า" เพื่อเลือกสินค้าได้เลยค่ะ 😊`;
+  }
+
+  let message = `🛒 ตะกร้าสินค้าของคุณ\n`;
+  message += `━━━━━━━━━━━━━━━\n\n`;
+  
+  for (const item of cartItems) {
+    message += `• ${item.product_name}`;
+    if (item.variants) message += ` (${item.variants})`;
+    message += ` x${item.quantity}\n`;
+    message += `   ฿${(item.price * item.quantity).toLocaleString()}\n\n`;
+  }
+  
+  message += `━━━━━━━━━━━━━━━\n`;
+  message += `💰 รวมทั้งหมด: ฿${totalAmount.toLocaleString()}\n\n`;
+  message += `📝 พิมพ์ "สั่งซื้อตะกร้า ชื่อ ที่อยู่ เบอร์โทร" เพื่อสั่งซื้อ\n`;
+  message += `🗑️ พิมพ์ "ล้างตะกร้า" เพื่อล้างตะกร้า`;
+  
+  return message;
+}
+
+// Format order confirmation message
+function formatOrderConfirmationMessage(orderNumber: string, items: Array<{product_name: string; quantity: number; price: number}>, totalAmount: number, customerName: string, customerAddress: string): string {
+  let message = `✅ ยืนยันการสั่งซื้อสำเร็จ!\n`;
+  message += `━━━━━━━━━━━━━━━\n\n`;
+  message += `📋 หมายเลขออเดอร์: ${orderNumber}\n\n`;
+  
+  message += `📦 รายการสินค้า:\n`;
+  for (const item of items) {
+    message += `• ${item.product_name} x${item.quantity} = ฿${(item.price * item.quantity).toLocaleString()}\n`;
+  }
+  
+  message += `\n💰 ยอดรวม: ฿${totalAmount.toLocaleString()}\n\n`;
+  message += `🚚 ข้อมูลจัดส่ง:\n`;
+  message += `   ชื่อ: ${customerName}\n`;
+  message += `   ที่อยู่: ${customerAddress}\n\n`;
+  message += `ขอบคุณที่ใช้บริการค่ะ 🙏`;
+  
+  return message;
+}
+
 async function sendToFacebook(recipientId: string, message: string, accessToken: string) {
   if (!accessToken) {
     console.error("FB_PAGE_ACCESS_TOKEN not configured");
@@ -86,9 +149,13 @@ async function sendToFacebook(recipientId: string, message: string, accessToken:
   }
 }
 
-async function getAIResponse(messages: Array<{ role: string; content: string }>, supabase: any): Promise<string> {
+async function getAIResponse(
+  messages: Array<{ role: string; content: string }>, 
+  supabase: any,
+  cartItemCount: number = 0
+): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction }> {
   if (!LOVABLE_API_KEY) {
-    return "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ";
+    return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
 
   // Fetch products for context
@@ -97,20 +164,39 @@ async function getAIResponse(messages: Array<{ role: string; content: string }>,
     .select("*")
     .eq("is_active", true);
 
-  const productCatalog = products?.map((p: any) => 
-    `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}`
-  ).join('\n') || 'ยังไม่มีสินค้า';
+  const productCatalog = products?.map((p: any) => {
+    let variantInfo = "";
+    if (p.variants && p.variants.length > 0) {
+      variantInfo = ` [ตัวเลือก: ${p.variants.map((v: any) => `${v.name}(${v.options.join('/')})`).join(', ')}]`;
+    }
+    return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}`;
+  }).join('\n') || 'ยังไม่มีสินค้า';
 
-  const systemPrompt = `คุณคือผู้ช่วยขายอัจฉริยะทาง Facebook Messenger พูดภาษาไทยสุภาพ ตอบสั้นกระชับ
+  const cartInfo = cartItemCount > 0 
+    ? `\n\n🛒 ลูกค้ามีสินค้าในตะกร้า ${cartItemCount} รายการ`
+    : '';
+
+  const systemPrompt = `คุณคือผู้ช่วยขายอัจฉริยะทาง Facebook Messenger พูดภาษาไทยสุภาพ ตอบสั้นกระชับ${cartInfo}
 
 สินค้าที่มี:
 ${productCatalog}
 
 หลักการ:
-- ตอบสั้น ได้ใจความ
+- ตอบสั้น ได้ใจความ ไม่เกิน 200 ตัวอักษร
 - ช่วยแนะนำสินค้าและรับออเดอร์
-- ถ้าลูกค้าสั่งซื้อ ให้เก็บข้อมูล: ชื่อ, ที่อยู่, เบอร์โทร
-- ถ้าลูกค้าถามเรื่องออเดอร์ แนะนำให้พิมพ์ "ประวัติออเดอร์" หรือพิมพ์เลขออเดอร์โดยตรง`;
+
+**🛒 ระบบตะกร้าสินค้า:**
+- ถ้าลูกค้าต้องการ "เพิ่มลงตะกร้า" หรือ "ใส่ตะกร้า" → ตอบ [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]
+- ถ้าลูกค้าถาม "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ตอบ [VIEW_CART]
+- ถ้าลูกค้าต้องการ "ล้างตะกร้า" → ตอบ [CLEAR_CART]
+- ถ้าลูกค้าพิมพ์ "สั่งซื้อตะกร้า" หรือ "ยืนยันสั่งซื้อ" พร้อมข้อมูลครบ (ชื่อ ที่อยู่ เบอร์) → ตอบ [CHECKOUT_CART:ชื่อลูกค้า|ที่อยู่|เบอร์โทร]
+
+**การสั่งซื้อตรง:**
+- ถ้าลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร) → ตอบ [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก]
+
+ตัวอย่าง:
+- "เพิ่มเสื้อ 2 ตัว ลงตะกร้า" → "เพิ่มลงตะกร้าแล้วค่ะ 😊 [ADD_CART:เสื้อ|2|]"
+- "สั่งซื้อตะกร้า ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 0812345678" → "รับออเดอร์แล้วค่ะ 😊 [CHECKOUT_CART:สมชาย|123 ถ.สุขุมวิท|0812345678]"`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -130,15 +216,73 @@ ${productCatalog}
 
     if (!response.ok) {
       console.error("AI error:", await response.text());
-      return "ขออภัยครับ ระบบมีปัญหาชั่วคราว กรุณาลองใหม่อีกครั้ง";
+      return { text: "ขออภัยครับ ระบบมีปัญหาชั่วคราว กรุณาลองใหม่อีกครั้ง" };
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || "ขออภัยครับ ไม่สามารถประมวลผลได้";
+    let content = data.choices?.[0]?.message?.content || "ขออภัยครับ ไม่สามารถประมวลผลได้";
+
+    // Parse special commands
+    const createOrderMatch = content.match(/\[CREATE_ORDER:([^\]]+)\]/);
+    const addCartMatch = content.match(/\[ADD_CART:([^\]]+)\]/);
+    const viewCartMatch = content.match(/\[VIEW_CART\]/);
+    const clearCartMatch = content.match(/\[CLEAR_CART\]/);
+    const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
+
+    // Parse order data if present
+    let createOrder: OrderData | undefined;
+    if (createOrderMatch) {
+      const orderParts = createOrderMatch[1].split('|');
+      if (orderParts.length >= 5) {
+        createOrder = {
+          productName: orderParts[0].trim(),
+          quantity: parseInt(orderParts[1].trim()) || 1,
+          customerName: orderParts[2].trim(),
+          customerAddress: orderParts[3].trim(),
+          customerPhone: orderParts[4].trim(),
+          variants: orderParts[5]?.trim() || undefined
+        };
+      }
+    }
+
+    // Parse cart action if present
+    let cartAction: CartAction | undefined;
+    if (addCartMatch) {
+      const parts = addCartMatch[1].split('|');
+      cartAction = {
+        action: 'add',
+        productName: parts[0]?.trim(),
+        quantity: parseInt(parts[1]?.trim()) || 1,
+        variants: parts[2]?.trim() || undefined
+      };
+    } else if (viewCartMatch) {
+      cartAction = { action: 'view' };
+    } else if (clearCartMatch) {
+      cartAction = { action: 'clear' };
+    } else if (checkoutCartMatch) {
+      const parts = checkoutCartMatch[1].split('|');
+      cartAction = {
+        action: 'checkout',
+        customerName: parts[0]?.trim(),
+        customerAddress: parts[1]?.trim(),
+        customerPhone: parts[2]?.trim()
+      };
+    }
+
+    // Clean up the response
+    content = content
+      .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
+      .replace(/\[ADD_CART:[^\]]+\]/g, '')
+      .replace(/\[VIEW_CART\]/g, '')
+      .replace(/\[CLEAR_CART\]/g, '')
+      .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
+      .trim();
+
+    return { text: content, createOrder, cartAction };
 
   } catch (error) {
     console.error("AI call error:", error);
-    return "ขออภัยครับ ระบบมีปัญหา กรุณาลองใหม่ภายหลัง";
+    return { text: "ขออภัยครับ ระบบมีปัญหา กรุณาลองใหม่ภายหลัง" };
   }
 }
 
@@ -248,7 +392,6 @@ serve(async (req) => {
           const orderNumber = orderNumberMatch[0].toUpperCase();
           console.log("Order status check requested for:", orderNumber);
 
-          // Find order by order number
           const { data: order } = await supabase
             .from("orders")
             .select("*")
@@ -256,7 +399,6 @@ serve(async (req) => {
             .maybeSingle();
 
           if (order) {
-            // Get order items
             const { data: orderItems } = await supabase
               .from("order_items")
               .select("*")
@@ -264,14 +406,12 @@ serve(async (req) => {
 
             const statusMessage = formatOrderStatusMessage(order, orderItems || []);
 
-            // Save bot response
             await supabase.from("chat_messages").insert({
               conversation_id: conversation.id,
               role: "assistant",
               content: `สถานะออเดอร์ ${orderNumber}: ${order.status}`,
             });
 
-            // Update last message
             await supabase
               .from("chat_conversations")
               .update({
@@ -283,7 +423,6 @@ serve(async (req) => {
             await sendToFacebook(senderId, statusMessage, FB_PAGE_ACCESS_TOKEN);
             continue;
           } else {
-            // Order not found
             await supabase.from("chat_messages").insert({
               conversation_id: conversation.id,
               role: "assistant",
@@ -292,7 +431,7 @@ serve(async (req) => {
 
             await sendToFacebook(
               senderId, 
-              `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้ง หรือติดต่อเจ้าหน้าที่ค่ะ`,
+              `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้งค่ะ`,
               FB_PAGE_ACCESS_TOKEN
             );
             continue;
@@ -308,7 +447,6 @@ serve(async (req) => {
         if (isOrderHistoryRequest) {
           console.log("Order history requested for Facebook user:", senderId);
 
-          // Find orders by customer Facebook ID
           const { data: orders } = await supabase
             .from("orders")
             .select("*")
@@ -319,14 +457,12 @@ serve(async (req) => {
           if (orders && orders.length > 0) {
             const historyMessage = formatOrderHistoryMessage(orders);
 
-            // Save bot response
             await supabase.from("chat_messages").insert({
               conversation_id: conversation.id,
               role: "assistant",
               content: `แสดงประวัติออเดอร์ ${orders.length} รายการ`,
             });
 
-            // Update last message
             await supabase
               .from("chat_conversations")
               .update({
@@ -338,7 +474,6 @@ serve(async (req) => {
             await sendToFacebook(senderId, historyMessage, FB_PAGE_ACCESS_TOKEN);
             continue;
           } else {
-            // No orders found
             await supabase.from("chat_messages").insert({
               conversation_id: conversation.id,
               role: "assistant",
@@ -347,12 +482,18 @@ serve(async (req) => {
 
             await sendToFacebook(
               senderId, 
-              `📋 ยังไม่มีประวัติออเดอร์ค่ะ\n\nหากต้องการสั่งซื้อสินค้า พิมพ์ "ดูสินค้า" หรือสอบถามได้เลยค่ะ 😊`,
+              `📋 ยังไม่มีประวัติออเดอร์ค่ะ\n\nพิมพ์ "ดูสินค้า" เพื่อเลือกสินค้าได้เลยค่ะ 😊`,
               FB_PAGE_ACCESS_TOKEN
             );
             continue;
           }
         }
+
+        // Get cart items count
+        const { count: cartItemCount } = await supabase
+          .from("shopping_carts")
+          .select("*", { count: "exact", head: true })
+          .eq("conversation_id", conversation.id);
 
         // Get conversation history
         const { data: history } = await supabase
@@ -368,26 +509,249 @@ serve(async (req) => {
         })) || [{ role: "user", content: userMessage }];
 
         // Get AI response
-        const aiResponse = await getAIResponse(messages, supabase);
+        const aiResult = await getAIResponse(messages, supabase, cartItemCount || 0);
+        console.log("AI response generated:", aiResult);
+
+        let responseMessage = aiResult.text;
+
+        // Handle cart actions
+        if (aiResult.cartAction) {
+          const cartAction = aiResult.cartAction;
+          console.log("Cart action:", cartAction);
+
+          if (cartAction.action === 'add' && cartAction.productName) {
+            // Find product
+            const { data: products } = await supabase
+              .from("products")
+              .select("*")
+              .eq("is_active", true)
+              .ilike("name", `%${cartAction.productName}%`)
+              .limit(1);
+
+            if (products && products.length > 0) {
+              const product = products[0];
+              const price = product.promotion_price || product.price;
+
+              // Check if item already in cart
+              const { data: existingItem } = await supabase
+                .from("shopping_carts")
+                .select("*")
+                .eq("conversation_id", conversation.id)
+                .eq("product_id", product.id)
+                .eq("variants", cartAction.variants || '')
+                .maybeSingle();
+
+              if (existingItem) {
+                await supabase
+                  .from("shopping_carts")
+                  .update({ quantity: existingItem.quantity + (cartAction.quantity || 1) })
+                  .eq("id", existingItem.id);
+              } else {
+                await supabase.from("shopping_carts").insert({
+                  conversation_id: conversation.id,
+                  platform_user_id: senderId,
+                  product_id: product.id,
+                  product_name: product.name,
+                  quantity: cartAction.quantity || 1,
+                  price: price,
+                  variants: cartAction.variants || ''
+                });
+              }
+            } else {
+              responseMessage = "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ";
+            }
+          } else if (cartAction.action === 'view') {
+            const { data: cartItems } = await supabase
+              .from("shopping_carts")
+              .select("*")
+              .eq("conversation_id", conversation.id);
+
+            const totalAmount = cartItems?.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) || 0;
+            responseMessage = formatCartSummaryMessage(cartItems || [], totalAmount);
+          } else if (cartAction.action === 'clear') {
+            await supabase
+              .from("shopping_carts")
+              .delete()
+              .eq("conversation_id", conversation.id);
+
+            responseMessage = "🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ";
+          } else if (cartAction.action === 'checkout' && cartAction.customerName && cartAction.customerAddress && cartAction.customerPhone) {
+            const { data: cartItems } = await supabase
+              .from("shopping_carts")
+              .select("*, products(*)")
+              .eq("conversation_id", conversation.id);
+
+            if (cartItems && cartItems.length > 0) {
+              const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+
+              // Create order
+              const { data: order, error: orderError } = await supabase
+                .from("orders")
+                .insert({
+                  customer_name: cartAction.customerName,
+                  customer_address: cartAction.customerAddress,
+                  customer_phone: cartAction.customerPhone,
+                  customer_facebook_id: senderId,
+                  platform: "facebook",
+                  total_amount: totalAmount
+                })
+                .select()
+                .single();
+
+              if (order && !orderError) {
+                // Create order items and update stock
+                const orderItems = [];
+                for (const cartItem of cartItems) {
+                  await supabase.from("order_items").insert({
+                    order_id: order.id,
+                    product_id: cartItem.product_id,
+                    product_name: cartItem.product_name + (cartItem.variants ? ` (${cartItem.variants})` : ''),
+                    quantity: cartItem.quantity,
+                    price: cartItem.price
+                  });
+
+                  orderItems.push({
+                    product_name: cartItem.product_name + (cartItem.variants ? ` (${cartItem.variants})` : ''),
+                    quantity: cartItem.quantity,
+                    price: cartItem.price
+                  });
+
+                  // Update stock
+                  if (cartItem.products) {
+                    await supabase
+                      .from("products")
+                      .update({ stock: cartItem.products.stock - cartItem.quantity })
+                      .eq("id", cartItem.product_id);
+                  }
+                }
+
+                // Clear cart
+                await supabase
+                  .from("shopping_carts")
+                  .delete()
+                  .eq("conversation_id", conversation.id);
+
+                // Update conversation
+                await supabase
+                  .from("chat_conversations")
+                  .update({
+                    customer_name: cartAction.customerName,
+                    customer_phone: cartAction.customerPhone
+                  })
+                  .eq("id", conversation.id);
+
+                console.log(`Facebook cart order created: ${order.order_number}`);
+
+                responseMessage = formatOrderConfirmationMessage(
+                  order.order_number,
+                  orderItems,
+                  totalAmount,
+                  cartAction.customerName,
+                  cartAction.customerAddress
+                );
+              } else {
+                console.error("Error creating order:", orderError);
+                responseMessage = "ขออภัยค่ะ เกิดข้อผิดพลาดในการสร้างออเดอร์ กรุณาลองใหม่อีกครั้ง";
+              }
+            } else {
+              responseMessage = "🛒 ตะกร้าว่างเปล่าค่ะ กรุณาเพิ่มสินค้าก่อนสั่งซื้อ";
+            }
+          }
+        }
+
+        // Handle direct order creation
+        if (aiResult.createOrder) {
+          const orderData = aiResult.createOrder;
+          console.log("Creating direct order:", orderData);
+
+          // Find product
+          const { data: products } = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true)
+            .ilike("name", `%${orderData.productName}%`)
+            .limit(1);
+
+          if (products && products.length > 0) {
+            const product = products[0];
+            const price = product.promotion_price || product.price;
+            const totalAmount = price * orderData.quantity;
+
+            // Create order
+            const { data: order, error: orderError } = await supabase
+              .from("orders")
+              .insert({
+                customer_name: orderData.customerName,
+                customer_address: orderData.customerAddress,
+                customer_phone: orderData.customerPhone,
+                customer_facebook_id: senderId,
+                platform: "facebook",
+                total_amount: totalAmount
+              })
+              .select()
+              .single();
+
+            if (order && !orderError) {
+              await supabase.from("order_items").insert({
+                order_id: order.id,
+                product_id: product.id,
+                product_name: product.name + (orderData.variants ? ` (${orderData.variants})` : ''),
+                quantity: orderData.quantity,
+                price: price
+              });
+
+              // Update stock
+              await supabase
+                .from("products")
+                .update({ stock: product.stock - orderData.quantity })
+                .eq("id", product.id);
+
+              // Update conversation
+              await supabase
+                .from("chat_conversations")
+                .update({
+                  customer_name: orderData.customerName,
+                  customer_phone: orderData.customerPhone
+                })
+                .eq("id", conversation.id);
+
+              console.log(`Facebook direct order created: ${order.order_number}`);
+
+              responseMessage = formatOrderConfirmationMessage(
+                order.order_number,
+                [{
+                  product_name: product.name + (orderData.variants ? ` (${orderData.variants})` : ''),
+                  quantity: orderData.quantity,
+                  price: price
+                }],
+                totalAmount,
+                orderData.customerName,
+                orderData.customerAddress
+              );
+            }
+          } else {
+            responseMessage = "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ";
+          }
+        }
 
         // Save AI response
         await supabase.from("chat_messages").insert({
           conversation_id: conversation.id,
           role: "assistant",
-          content: aiResponse,
+          content: responseMessage,
         });
 
         // Update conversation
         await supabase
           .from("chat_conversations")
           .update({
-            last_message: aiResponse.slice(0, 100),
+            last_message: responseMessage.slice(0, 100),
             last_message_at: new Date().toISOString(),
           })
           .eq("id", conversation.id);
 
         // Send response to Facebook
-        await sendToFacebook(senderId, aiResponse, FB_PAGE_ACCESS_TOKEN);
+        await sendToFacebook(senderId, responseMessage, FB_PAGE_ACCESS_TOKEN);
       }
     }
 
