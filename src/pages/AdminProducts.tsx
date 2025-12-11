@@ -41,6 +41,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface ProductVariant {
+  name: string;
+  options: string[];
+}
+
 interface Product {
   id: string;
   name: string;
@@ -51,6 +56,7 @@ interface Product {
   category: string | null;
   image_url: string | null;
   is_active: boolean;
+  variants: ProductVariant[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +70,7 @@ interface ProductFormData {
   category: string;
   image_url: string;
   is_active: boolean;
+  variants: ProductVariant[];
 }
 
 const initialFormData: ProductFormData = {
@@ -75,6 +82,7 @@ const initialFormData: ProductFormData = {
   category: '',
   image_url: '',
   is_active: true,
+  variants: [],
 };
 
 export default function AdminProducts() {
@@ -114,7 +122,12 @@ export default function AdminProducts() {
       console.error('Error fetching products:', error);
       toast.error('ไม่สามารถโหลดข้อมูลสินค้าได้');
     } else {
-      setProducts(data || []);
+      // Cast variants from Json to ProductVariant[]
+      const productsWithVariants = (data || []).map(p => ({
+        ...p,
+        variants: (p.variants as unknown as ProductVariant[]) || []
+      }));
+      setProducts(productsWithVariants);
     }
     
     setIsLoadingData(false);
@@ -138,6 +151,7 @@ export default function AdminProducts() {
       category: product.category || '',
       image_url: product.image_url || '',
       is_active: product.is_active,
+      variants: (product.variants as ProductVariant[]) || [],
     });
     setIsDialogOpen(true);
   };
@@ -221,6 +235,7 @@ export default function AdminProducts() {
       category: formData.category.trim() || null,
       image_url: formData.image_url.trim() || null,
       is_active: formData.is_active,
+      variants: formData.variants.length > 0 ? JSON.parse(JSON.stringify(formData.variants)) : [],
     };
 
     try {
@@ -468,6 +483,108 @@ export default function AdminProducts() {
                       className="mt-1"
                     />
                   </div>
+                </div>
+
+                {/* Product Variants Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>ตัวเลือกสินค้า (สี, ไซส์, ขนาด)</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          variants: [...formData.variants, { name: '', options: [''] }]
+                        });
+                      }}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      เพิ่มตัวเลือก
+                    </Button>
+                  </div>
+                  
+                  {formData.variants.map((variant, variantIndex) => (
+                    <div key={variantIndex} className="p-3 border rounded-lg space-y-2 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={variant.name}
+                          onChange={(e) => {
+                            const newVariants = [...formData.variants];
+                            newVariants[variantIndex].name = e.target.value;
+                            setFormData({ ...formData, variants: newVariants });
+                          }}
+                          placeholder="ชื่อตัวเลือก (เช่น สี, ไซส์)"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            const newVariants = formData.variants.filter((_, i) => i !== variantIndex);
+                            setFormData({ ...formData, variants: newVariants });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {variant.options.map((option, optionIndex) => (
+                          <div key={optionIndex} className="flex items-center gap-1">
+                            <Input
+                              value={option}
+                              onChange={(e) => {
+                                const newVariants = [...formData.variants];
+                                newVariants[variantIndex].options[optionIndex] = e.target.value;
+                                setFormData({ ...formData, variants: newVariants });
+                              }}
+                              placeholder="ค่า"
+                              className="w-24"
+                            />
+                            {variant.options.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => {
+                                  const newVariants = [...formData.variants];
+                                  newVariants[variantIndex].options = variant.options.filter((_, i) => i !== optionIndex);
+                                  setFormData({ ...formData, variants: newVariants });
+                                }}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => {
+                            const newVariants = [...formData.variants];
+                            newVariants[variantIndex].options.push('');
+                            setFormData({ ...formData, variants: newVariants });
+                          }}
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          เพิ่ม
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {formData.variants.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      ยังไม่มีตัวเลือกสินค้า คลิก "เพิ่มตัวเลือก" เพื่อเพิ่ม
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
