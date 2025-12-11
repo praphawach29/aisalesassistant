@@ -7,6 +7,59 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-hub-signature-256",
 };
 
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || '';
+
+// Decryption utilities
+async function getKey(): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
+  return await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decrypt(encryptedText: string): Promise<string> {
+  if (!encryptedText) return '';
+  
+  try {
+    const key = await getKey();
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encrypted
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return encryptedText;
+  }
+}
+
+async function getDecryptedSetting(supabase: any, key: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  
+  if (error || !data?.value) return null;
+  
+  return await decrypt(data.value);
+}
+
 // Verify Facebook webhook signature
 async function verifyFacebookSignature(body: string, signature: string, appSecret: string): Promise<boolean> {
   try {
@@ -19,10 +72,6 @@ async function verifyFacebookSignature(body: string, signature: string, appSecre
     return false;
   }
 }
-
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 const statusMap: Record<string, { text: string; emoji: string }> = {
   'pending': { text: 'รอยืนยัน', emoji: '⏳' },
@@ -549,9 +598,9 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Read Facebook tokens from environment variables (secure secrets)
-    const FB_PAGE_ACCESS_TOKEN = Deno.env.get("FACEBOOK_PAGE_ACCESS_TOKEN");
-    const FB_APP_SECRET = Deno.env.get("FACEBOOK_APP_SECRET");
+    // Read and decrypt Facebook tokens from database
+    const FB_PAGE_ACCESS_TOKEN = await getDecryptedSetting(supabase, 'FACEBOOK_PAGE_ACCESS_TOKEN');
+    const FB_APP_SECRET = await getDecryptedSetting(supabase, 'FACEBOOK_APP_SECRET');
 
     // Verify Facebook signature - MANDATORY for security
     const signature = req.headers.get("x-hub-signature-256");

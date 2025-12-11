@@ -10,6 +10,55 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || '';
+
+// Decryption utilities
+async function getKey(): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
+  return await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decrypt(encryptedText: string): Promise<string> {
+  if (!encryptedText) return '';
+  
+  try {
+    const key = await getKey();
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encrypted
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return encryptedText;
+  }
+}
+
+async function getDecryptedSetting(supabase: any, key: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  
+  if (error || !data?.value) return null;
+  
+  return await decrypt(data.value);
+}
 
 interface ProductVariant {
   name: string;
@@ -1303,11 +1352,11 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Read LINE tokens from environment variables (secure secrets)
-    const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
-    const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET");
+    // Read and decrypt LINE tokens from database
+    const LINE_CHANNEL_ACCESS_TOKEN = await getDecryptedSetting(supabase, 'LINE_CHANNEL_ACCESS_TOKEN');
+    const LINE_CHANNEL_SECRET = await getDecryptedSetting(supabase, 'LINE_CHANNEL_SECRET');
 
-    console.log("LINE tokens loaded from environment:", {
+    console.log("LINE tokens loaded from database:", {
       hasAccessToken: !!LINE_CHANNEL_ACCESS_TOKEN,
       hasChannelSecret: !!LINE_CHANNEL_SECRET
     });
