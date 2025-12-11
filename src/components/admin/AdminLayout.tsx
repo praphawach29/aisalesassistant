@@ -20,7 +20,8 @@ import {
   Plug,
   Bell,
   MessageSquareText,
-  Bot
+  Bot,
+  Ticket
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -37,6 +38,7 @@ const menuItems = [
   { path: '/admin/notifications', label: 'แจ้งเตือน', icon: Bell },
   { path: '/admin/templates', label: 'เทมเพลต', icon: MessageSquareText },
   { path: '/admin/ai-settings', label: 'ตั้งค่า AI', icon: Bot },
+  { path: '/admin/coupons', label: 'คูปอง', icon: Ticket },
   { path: '/admin/integrations', label: 'Integration', icon: Plug },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];
