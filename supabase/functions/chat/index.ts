@@ -40,7 +40,7 @@ interface StoreSettings {
   termsConditions: string;
 }
 
-function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings): string {
+function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean): string {
   const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
 
   // Gender-specific particles
@@ -75,6 +75,11 @@ function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqLis
     ? "ใช้ emoji เล็กน้อยเพื่อความเป็นกันเอง เช่น 😊 🙏 ✨ 🔥 💕" 
     : "ไม่ใช้ emoji ในการสนทนา";
 
+  // Greeting instruction based on whether it's first message
+  const greetingInstruction = isFirstMessage && greeting_message
+    ? `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น เพราะเป็นการสนทนาใหม่):\nเริ่มต้นด้วย: "${greeting_message}"`
+    : `## 👋 หมายเหตุ:\nนี่ไม่ใช่ข้อความแรกของการสนทนา ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
+
   return `คุณคือ "${ai_name}" ผู้ช่วยขายอัจฉริยะที่พูดภาษาไทยได้อย่างเป็นธรรมชาติ
 
 ## 🎭 บุคลิกภาพ:
@@ -108,9 +113,9 @@ ${storeSettings.returnPolicy ? `## 📋 นโยบายการคืนส�
 
 ${storeSettings.shippingInfo ? `## 🚚 ข้อมูลการจัดส่ง:\n${storeSettings.shippingInfo}` : ''}
 
-${storeSettings.bankAccounts ? `## 🏦 บัญชีธนาคาร:\n${storeSettings.bankAccounts}` : ''}
+${storeSettings.bankAccounts ? `## 🏦 บัญชีธนาคาร (สำคัญ - ใช้ข้อมูลนี้เท่านั้น):\n${storeSettings.bankAccounts}` : ''}
 
-${storeSettings.paymentMethods ? `## 💳 วิธีการชำระเงิน:\n${storeSettings.paymentMethods}` : ''}
+${storeSettings.paymentMethods ? `## 💳 วิธีการชำระเงิน (สำคัญ - ใช้ข้อมูลนี้เท่านั้น):\n${storeSettings.paymentMethods}` : ''}
 
 ${storeSettings.warrantyInfo ? `## 🛡️ การรับประกัน:\n${storeSettings.warrantyInfo}` : ''}
 
@@ -123,6 +128,11 @@ ${storeSettings.termsConditions ? `## 📜 ข้อกำหนดและเ�
 - หากสั่งเกินสต็อก → แจ้งว่า "ขออภัย${particleEnd} สินค้านี้เหลือเพียง X ชิ้น" (เฉพาะกรณีนี้)
 - หากหมดสต็อก (0) → แจ้ง "ขออภัย${particleEnd} สินค้าหมดชั่วคราว" และแนะนำสินค้าใกล้เคียง
 
+## ⚠️ กฎสำคัญที่สุด - ห้ามแต่งข้อมูลเอง:
+- **ห้ามแต่งเลขบัญชีธนาคาร PromptPay หรือวิธีชำระเงินเอง** - ใช้เฉพาะข้อมูลที่ให้ไว้ด้านบนเท่านั้น
+- ห้ามสร้างข้อมูลใหม่ที่ไม่มีใน context นี้ เช่น เลขโทรศัพท์ ที่อยู่ ราคา ที่ไม่ได้ระบุไว้
+- ถ้าไม่มีข้อมูล ให้ตอบว่า "ขออภัย${particleEnd} ไม่มีข้อมูลในส่วนนี้ รบกวนติดต่อทางร้านโดยตรงนะ${particleQuestion}"
+
 ## 💬 สไตล์การสื่อสาร:
 - **ความเป็นทางการ**: ${formalityDescriptions[formality_level] || formalityDescriptions[3]}
 - **คำลงท้าย**: ใช้ "${particleEnd}" และ "${particleQuestion}" อย่างสม่ำเสมอ
@@ -131,7 +141,7 @@ ${storeSettings.termsConditions ? `## 📜 ข้อกำหนดและเ�
 - ถามความต้องการก่อนแนะนำ เช่น "ไม่ทราบว่าสนใจสินค้าประเภทไหนเป็นพิเศษ${particleQuestion}?"
 - ไม่พูดซ้ำซาก หรือแนะนำสินค้าซ้ำๆ
 
-${greeting_message ? `## 👋 ข้อความทักทาย (ใช้เมื่อเริ่มสนทนาหรือมีคนทักมาใหม่):\n"${greeting_message}"` : ''}
+${greetingInstruction}
 
 ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิดท้าย:\n"${closing_message}"` : ''}
 
@@ -266,8 +276,14 @@ serve(async (req) => {
       `Q: ${f.question}\nA: ${f.answer}`
     ).join('\n\n') || '';
 
+    // Determine if this is the first message in the conversation
+    const userMessages = messages.filter((m: { role: string }) => m.role === 'user');
+    const isFirstMessage = userMessages.length <= 1;
+
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage);
+    
+    console.log("Is first message:", isFirstMessage);
 
     console.log("Calling Lovable AI Gateway...");
     
