@@ -7,23 +7,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-line-signature",
 };
 
-const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
-const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET");
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-async function verifySignature(body: string, signature: string): Promise<boolean> {
-  if (!LINE_CHANNEL_SECRET) return false;
+async function verifySignature(body: string, signature: string, channelSecret: string): Promise<boolean> {
+  if (!channelSecret) return false;
   
-  const hmac = createHmac("sha256", LINE_CHANNEL_SECRET);
+  const hmac = createHmac("sha256", channelSecret);
   hmac.update(body);
   const digest = hmac.digest("base64");
   return digest === signature;
 }
 
-async function replyToLine(replyToken: string, messages: Array<{ type: string; text?: string; template?: any }>) {
-  if (!LINE_CHANNEL_ACCESS_TOKEN) {
+async function replyToLine(replyToken: string, messages: Array<{ type: string; text?: string; template?: any }>, accessToken: string) {
+  if (!accessToken) {
     console.error("LINE_CHANNEL_ACCESS_TOKEN not configured");
     return;
   }
@@ -32,7 +30,7 @@ async function replyToLine(replyToken: string, messages: Array<{ type: string; t
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
       replyToken,
@@ -43,6 +41,8 @@ async function replyToLine(replyToken: string, messages: Array<{ type: string; t
   if (!response.ok) {
     const error = await response.text();
     console.error("LINE reply error:", error);
+  } else {
+    console.log("LINE reply sent successfully");
   }
 }
 
@@ -110,19 +110,42 @@ serve(async (req) => {
     const body = await req.text();
     const signature = req.headers.get("x-line-signature");
 
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Fetch LINE tokens from database settings
+    const { data: settings, error: settingsError } = await supabase
+      .from("settings")
+      .select("key, value")
+      .in("key", ["LINE_CHANNEL_ACCESS_TOKEN", "LINE_CHANNEL_SECRET"]);
+
+    if (settingsError) {
+      console.error("Error fetching LINE settings:", settingsError);
+      return new Response(JSON.stringify({ error: "Failed to load settings" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const LINE_CHANNEL_ACCESS_TOKEN = settings?.find(s => s.key === "LINE_CHANNEL_ACCESS_TOKEN")?.value;
+    const LINE_CHANNEL_SECRET = settings?.find(s => s.key === "LINE_CHANNEL_SECRET")?.value;
+
+    console.log("LINE tokens loaded from database:", {
+      hasAccessToken: !!LINE_CHANNEL_ACCESS_TOKEN,
+      hasChannelSecret: !!LINE_CHANNEL_SECRET
+    });
+
     // Verify LINE signature
     if (signature && LINE_CHANNEL_SECRET) {
-      const isValid = await verifySignature(body, signature);
+      const isValid = await verifySignature(body, signature, LINE_CHANNEL_SECRET);
       if (!isValid) {
         console.error("Invalid LINE signature");
         return new Response("Unauthorized", { status: 401 });
       }
+      console.log("LINE signature verified successfully");
     }
 
     const data = JSON.parse(body);
     console.log("LINE webhook received:", JSON.stringify(data, null, 2));
-
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
     // Process each event
     for (const event of data.events || []) {
@@ -159,7 +182,10 @@ serve(async (req) => {
       }
 
       if (!conversation) {
-        await replyToLine(replyToken, [{ type: "text", text: "ขออภัยครับ เกิดข้อผิดพลาด" }]);
+        console.error("Failed to create conversation");
+        if (LINE_CHANNEL_ACCESS_TOKEN) {
+          await replyToLine(replyToken, [{ type: "text", text: "ขออภัยครับ เกิดข้อผิดพลาด" }], LINE_CHANNEL_ACCESS_TOKEN);
+        }
         continue;
       }
 
@@ -185,6 +211,7 @@ serve(async (req) => {
 
       // Get AI response
       const aiResponse = await getAIResponse(messages, supabase);
+      console.log("AI response generated:", aiResponse.slice(0, 100));
 
       // Save AI response
       await supabase.from("chat_messages").insert({
@@ -203,7 +230,12 @@ serve(async (req) => {
         .eq("id", conversation.id);
 
       // Reply to LINE
-      await replyToLine(replyToken, [{ type: "text", text: aiResponse }]);
+      if (LINE_CHANNEL_ACCESS_TOKEN) {
+        console.log("Sending reply to LINE...");
+        await replyToLine(replyToken, [{ type: "text", text: aiResponse }], LINE_CHANNEL_ACCESS_TOKEN);
+      } else {
+        console.error("Cannot reply - LINE_CHANNEL_ACCESS_TOKEN not configured");
+      }
     }
 
     return new Response(JSON.stringify({ success: true }), {
