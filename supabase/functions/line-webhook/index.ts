@@ -1833,8 +1833,30 @@ serve(async (req) => {
         cartItemCount: cartItemCount || 0
       };
 
-      const aiResult = await getAIResponse(messages, supabase, customerContext);
+      let aiResult = await getAIResponse(messages, supabase, customerContext);
       console.log("AI response generated:", aiResult);
+
+      // CRITICAL: Force text-only response for greetings - override any product flags
+      if (isGreeting) {
+        console.log("Greeting detected - forcing text-only response, clearing all product flags");
+        // Generate default greeting if AI didn't provide text
+        const defaultGreeting = customerContext.isReturning && customerContext.customerName
+          ? `สวัสดีค่ะ คุณ${customerContext.customerName}! ยินดีต้อนรับกลับมาค่ะ 😊 มีอะไรให้ช่วยไหมคะ?`
+          : `สวัสดีค่ะ! ยินดีต้อนรับค่ะ 😊 มีอะไรให้ช่วยไหมคะ? สามารถสอบถามเกี่ยวกับสินค้าหรือพิมพ์ "ดูสินค้า" เพื่อดูสินค้าทั้งหมดได้เลยค่ะ`;
+        
+        // Override AI result to text-only
+        aiResult = {
+          text: aiResult.text || defaultGreeting,
+          showProducts: false,
+          specificProduct: undefined,
+          selectVariant: undefined,
+          createOrder: undefined,
+          cartAction: undefined,
+          applyCoupon: undefined,
+          detectedName: aiResult.detectedName // Keep detected name if any
+        };
+        console.log("Overridden AI result for greeting:", aiResult);
+      }
 
       // Prepare messages to send
       const messagesToSend: any[] = [];
