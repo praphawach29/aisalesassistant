@@ -18,6 +18,18 @@ const statusMap: Record<string, { text: string; emoji: string }> = {
   'cancelled': { text: 'ยกเลิก', emoji: '❌' }
 };
 
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  promotion_price?: number;
+  description?: string;
+  image_url?: string;
+  category?: string;
+  stock: number;
+  variants?: { name: string; options: string[] }[] | null;
+}
+
 interface OrderData {
   productName: string;
   quantity: number;
@@ -35,6 +47,11 @@ interface CartAction {
   customerName?: string;
   customerAddress?: string;
   customerPhone?: string;
+}
+
+interface ProductAction {
+  action: 'show_all' | 'show_single';
+  productName?: string;
 }
 
 // Format order status message
@@ -125,6 +142,7 @@ function formatOrderConfirmationMessage(orderNumber: string, items: Array<{produ
   return message;
 }
 
+// Send text message to Facebook
 async function sendToFacebook(recipientId: string, message: string, accessToken: string) {
   if (!accessToken) {
     console.error("FB_PAGE_ACCESS_TOKEN not configured");
@@ -149,11 +167,150 @@ async function sendToFacebook(recipientId: string, message: string, accessToken:
   }
 }
 
+// Send Product Carousel (Generic Template) to Facebook
+async function sendProductCarouselToFacebook(recipientId: string, products: Product[], accessToken: string) {
+  if (!accessToken || products.length === 0) return;
+
+  const elements = products.slice(0, 10).map(product => {
+    const price = product.promotion_price || product.price;
+    const originalPrice = product.promotion_price ? product.price : null;
+    
+    let subtitle = product.description?.slice(0, 80) || '';
+    if (originalPrice) {
+      subtitle = `💰 ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n${subtitle}`;
+    } else {
+      subtitle = `💰 ฿${price.toLocaleString()}\n${subtitle}`;
+    }
+    subtitle += product.stock > 0 ? `\n✅ มีสินค้า ${product.stock} ชิ้น` : `\n❌ สินค้าหมด`;
+
+    const element: any = {
+      title: product.name.slice(0, 80),
+      subtitle: subtitle.slice(0, 80),
+      buttons: [
+        {
+          type: "postback",
+          title: "🛒 สั่งซื้อ",
+          payload: `ORDER_${product.id}`
+        },
+        {
+          type: "postback", 
+          title: "📦 ดูรายละเอียด",
+          payload: `DETAIL_${product.id}`
+        }
+      ]
+    };
+
+    if (product.image_url) {
+      element.image_url = product.image_url;
+    }
+
+    return element;
+  });
+
+  const response = await fetch(
+    `https://graph.facebook.com/v18.0/me/messages?access_token=${accessToken}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "generic",
+              elements: elements
+            }
+          }
+        }
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Facebook carousel send error:", error);
+  }
+}
+
+// Send Single Product Card to Facebook
+async function sendSingleProductToFacebook(recipientId: string, product: Product, accessToken: string) {
+  if (!accessToken) return;
+
+  const price = product.promotion_price || product.price;
+  const originalPrice = product.promotion_price ? product.price : null;
+
+  let subtitle = "";
+  if (originalPrice) {
+    subtitle += `💰 ราคา: ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n`;
+  } else {
+    subtitle += `💰 ราคา: ฿${price.toLocaleString()}\n`;
+  }
+  
+  if (product.description) {
+    subtitle += `${product.description.slice(0, 50)}...\n`;
+  }
+  
+  subtitle += product.stock > 0 ? `✅ มีสินค้า ${product.stock} ชิ้น` : `❌ สินค้าหมด`;
+
+  // Add variant info if exists
+  if (product.variants && product.variants.length > 0) {
+    const variantText = product.variants.map(v => `${v.name}: ${v.options.join(', ')}`).join(' | ');
+    subtitle += `\n🎨 ${variantText}`;
+  }
+
+  const element: any = {
+    title: product.name.slice(0, 80),
+    subtitle: subtitle.slice(0, 80),
+    buttons: [
+      {
+        type: "postback",
+        title: "🛒 สั่งซื้อเลย",
+        payload: `ORDER_${product.id}`
+      },
+      {
+        type: "postback",
+        title: "🛍️ เพิ่มลงตะกร้า",
+        payload: `ADD_CART_${product.id}`
+      }
+    ]
+  };
+
+  if (product.image_url) {
+    element.image_url = product.image_url;
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/v18.0/me/messages?access_token=${accessToken}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "generic",
+              elements: [element]
+            }
+          }
+        }
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Facebook single product send error:", error);
+  }
+}
+
 async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
   cartItemCount: number = 0
-): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction }> {
+): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction; productAction?: ProductAction }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -185,6 +342,10 @@ ${productCatalog}
 - ตอบสั้น ได้ใจความ ไม่เกิน 200 ตัวอักษร
 - ช่วยแนะนำสินค้าและรับออเดอร์
 
+**📦 แสดงสินค้าพร้อมรูป:**
+- ถ้าลูกค้าถาม "ดูสินค้า", "มีสินค้าอะไรบ้าง", "แนะนำสินค้า" → ตอบ [SHOW_PRODUCTS]
+- ถ้าลูกค้าถามเกี่ยวกับสินค้าเฉพาะตัว เช่น "มีเสื้อไหม", "ขอดูกระเป๋า" → ตอบ [SHOW_PRODUCT:ชื่อสินค้า]
+
 **🛒 ระบบตะกร้าสินค้า:**
 - ถ้าลูกค้าต้องการ "เพิ่มลงตะกร้า" หรือ "ใส่ตะกร้า" → ตอบ [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]
 - ถ้าลูกค้าถาม "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ตอบ [VIEW_CART]
@@ -195,6 +356,8 @@ ${productCatalog}
 - ถ้าลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร) → ตอบ [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก]
 
 ตัวอย่าง:
+- "ดูสินค้า" → "นี่คือสินค้าของเราค่ะ 😊 [SHOW_PRODUCTS]"
+- "มีเสื้อยืดไหม" → "มีค่ะ ดูรายละเอียดได้เลยค่ะ 😊 [SHOW_PRODUCT:เสื้อยืด]"
 - "เพิ่มเสื้อ 2 ตัว ลงตะกร้า" → "เพิ่มลงตะกร้าแล้วค่ะ 😊 [ADD_CART:เสื้อ|2|]"
 - "สั่งซื้อตะกร้า ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 0812345678" → "รับออเดอร์แล้วค่ะ 😊 [CHECKOUT_CART:สมชาย|123 ถ.สุขุมวิท|0812345678]"`;
 
@@ -228,6 +391,8 @@ ${productCatalog}
     const viewCartMatch = content.match(/\[VIEW_CART\]/);
     const clearCartMatch = content.match(/\[CLEAR_CART\]/);
     const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
+    const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
+    const showSingleProductMatch = content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
 
     // Parse order data if present
     let createOrder: OrderData | undefined;
@@ -269,6 +434,17 @@ ${productCatalog}
       };
     }
 
+    // Parse product action if present
+    let productAction: ProductAction | undefined;
+    if (showProductsMatch) {
+      productAction = { action: 'show_all' };
+    } else if (showSingleProductMatch) {
+      productAction = { 
+        action: 'show_single', 
+        productName: showSingleProductMatch[1].trim() 
+      };
+    }
+
     // Clean up the response
     content = content
       .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
@@ -276,9 +452,11 @@ ${productCatalog}
       .replace(/\[VIEW_CART\]/g, '')
       .replace(/\[CLEAR_CART\]/g, '')
       .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
+      .replace(/\[SHOW_PRODUCTS\]/g, '')
+      .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
       .trim();
 
-    return { text: content, createOrder, cartAction };
+    return { text: content, createOrder, cartAction, productAction };
 
   } catch (error) {
     console.error("AI call error:", error);
@@ -734,6 +912,52 @@ serve(async (req) => {
           }
         }
 
+        // Handle product actions (show products with images)
+        let productCarouselSent = false;
+        if (aiResult.productAction) {
+          const productAction = aiResult.productAction;
+          console.log("Product action:", productAction);
+
+          if (productAction.action === 'show_all') {
+            // Fetch all active products
+            const { data: products } = await supabase
+              .from("products")
+              .select("*")
+              .eq("is_active", true)
+              .limit(10);
+
+            if (products && products.length > 0) {
+              // Send text message first
+              if (responseMessage) {
+                await sendToFacebook(senderId, responseMessage, FB_PAGE_ACCESS_TOKEN);
+              }
+              // Then send product carousel
+              await sendProductCarouselToFacebook(senderId, products, FB_PAGE_ACCESS_TOKEN);
+              productCarouselSent = true;
+            }
+          } else if (productAction.action === 'show_single' && productAction.productName) {
+            // Find specific product
+            const { data: products } = await supabase
+              .from("products")
+              .select("*")
+              .eq("is_active", true)
+              .ilike("name", `%${productAction.productName}%`)
+              .limit(1);
+
+            if (products && products.length > 0) {
+              // Send text message first
+              if (responseMessage) {
+                await sendToFacebook(senderId, responseMessage, FB_PAGE_ACCESS_TOKEN);
+              }
+              // Then send single product card
+              await sendSingleProductToFacebook(senderId, products[0], FB_PAGE_ACCESS_TOKEN);
+              productCarouselSent = true;
+            } else {
+              responseMessage = `ขออภัยค่ะ ไม่พบสินค้า "${productAction.productName}" ในระบบ 😔\n\nพิมพ์ "ดูสินค้า" เพื่อดูสินค้าทั้งหมดค่ะ`;
+            }
+          }
+        }
+
         // Save AI response
         await supabase.from("chat_messages").insert({
           conversation_id: conversation.id,
@@ -750,8 +974,10 @@ serve(async (req) => {
           })
           .eq("id", conversation.id);
 
-        // Send response to Facebook
-        await sendToFacebook(senderId, responseMessage, FB_PAGE_ACCESS_TOKEN);
+        // Send response to Facebook (only if not already sent with product carousel)
+        if (!productCarouselSent) {
+          await sendToFacebook(senderId, responseMessage, FB_PAGE_ACCESS_TOKEN);
+        }
       }
     }
 
