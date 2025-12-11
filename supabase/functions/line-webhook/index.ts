@@ -11,6 +11,11 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
+interface ProductVariant {
+  name: string;
+  options: string[];
+}
+
 interface Product {
   id: string;
   name: string;
@@ -20,6 +25,7 @@ interface Product {
   image_url?: string;
   category?: string;
   stock: number;
+  variants?: ProductVariant[] | null;
 }
 
 async function verifySignature(body: string, signature: string, channelSecret: string): Promise<boolean> {
@@ -138,6 +144,17 @@ function createSingleProductCard(product: Product) {
   const price = product.promotion_price || product.price;
   const originalPrice = product.promotion_price ? product.price : null;
 
+  // Check if product has variants
+  const hasVariants = product.variants && product.variants.length > 0;
+
+  // Build variant info text
+  let variantInfoText = "";
+  if (hasVariants) {
+    variantInfoText = product.variants!.map(v => 
+      `${v.name}: ${v.options.join(", ")}`
+    ).join("\n");
+  }
+
   const bubble: any = {
     type: "bubble",
     body: {
@@ -179,6 +196,26 @@ function createSingleProductCard(product: Product) {
           size: "sm",
           color: "#666666",
           margin: "lg",
+          wrap: true
+        }] : []),
+        ...(hasVariants ? [{
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: "ตัวเลือกสินค้า:",
+          size: "sm",
+          color: "#333333",
+          weight: "bold",
+          margin: "md"
+        },
+        {
+          type: "text",
+          text: variantInfoText,
+          size: "sm",
+          color: "#666666",
+          margin: "sm",
           wrap: true
         }] : []),
         {
@@ -243,6 +280,77 @@ function createSingleProductCard(product: Product) {
   };
 }
 
+// Create variant selection card with Quick Reply buttons
+function createVariantSelectionCard(product: Product, variantType: string, options: string[]) {
+  const price = product.promotion_price || product.price;
+
+  const optionButtons = options.slice(0, 4).map(option => ({
+    type: "button",
+    style: "secondary",
+    action: {
+      type: "message",
+      label: option,
+      text: `เลือก ${variantType}: ${option} สำหรับ ${product.name}`
+    },
+    height: "sm"
+  }));
+
+  const bubble: any = {
+    type: "bubble",
+    size: "kilo",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: `🎨 เลือก${variantType}`,
+          weight: "bold",
+          size: "lg",
+          color: "#333333"
+        },
+        {
+          type: "text",
+          text: product.name,
+          size: "md",
+          color: "#666666",
+          margin: "sm"
+        },
+        {
+          type: "text",
+          text: `ราคา ฿${price.toLocaleString()}`,
+          size: "sm",
+          color: "#FF5551",
+          margin: "sm"
+        },
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: `กรุณาเลือก${variantType}:`,
+          size: "sm",
+          color: "#333333",
+          margin: "md"
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: optionButtons
+    }
+  };
+
+  return {
+    type: "flex",
+    altText: `เลือก${variantType}สำหรับ ${product.name}`,
+    contents: bubble
+  };
+}
+
 async function replyToLine(replyToken: string, messages: Array<any>, accessToken: string) {
   if (!accessToken) {
     console.error("LINE_CHANNEL_ACCESS_TOKEN not configured");
@@ -275,20 +383,24 @@ async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
   customerContext: { isReturning: boolean; customerName?: string; messageCount: number; lastVisit?: string }
-): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; startOrder?: string }> {
+): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
 
-  // Fetch products for context
+  // Fetch products for context with variants
   const { data: products } = await supabase
     .from("products")
     .select("*")
     .eq("is_active", true);
 
-  const productCatalog = products?.map((p: any) => 
-    `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} [หมวด: ${p.category || 'ทั่วไป'}]`
-  ).join('\n') || 'ยังไม่มีสินค้า';
+  const productCatalog = products?.map((p: any) => {
+    let variantInfo = "";
+    if (p.variants && p.variants.length > 0) {
+      variantInfo = ` [ตัวเลือก: ${p.variants.map((v: any) => `${v.name}(${v.options.join('/')})`).join(', ')}]`;
+    }
+    return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}`;
+  }).join('\n') || 'ยังไม่มีสินค้า';
 
   const customerGreeting = customerContext.isReturning 
     ? customerContext.customerName 
@@ -313,15 +425,17 @@ ${productCatalog}
 - ถ้าลูกค้าถามข้อมูลสินค้าเฉพาะอย่าง (แต่ยังไม่สั่งซื้อ) → ตอบ [SHOW_PRODUCT:ชื่อสินค้า]
 - ถ้าลูกค้าบอกชื่อตัวเอง → ตอบ [NAME:ชื่อลูกค้า]
 
-**สำคัญมาก - การสั่งซื้อ:**
-- ถ้าลูกค้าพิมพ์ "สั่งซื้อ ชื่อสินค้า" หรือ "เอา ชื่อสินค้า" หรือต้องการสั่งซื้อสินค้า → ตอบยืนยันราคาและถามจำนวน ชื่อ ที่อยู่ เบอร์โทร สำหรับจัดส่ง (ไม่ต้องใส่ [SHOW_PRODUCT])
+**สำคัญมาก - การสั่งซื้อและตัวเลือกสินค้า:**
+- ถ้าลูกค้าพิมพ์ "สั่งซื้อ ชื่อสินค้า" และสินค้านั้น**มีตัวเลือก** (สี/ไซส์) → ตอบ [SELECT_VARIANT:ชื่อสินค้า] พร้อมข้อความถามว่าต้องการตัวเลือกไหน
+- ถ้าลูกค้าพิมพ์ "เลือก สี/ไซส์: ตัวเลือก สำหรับ ชื่อสินค้า" → บันทึกตัวเลือกและถามจำนวน ชื่อ ที่อยู่ เบอร์โทร สำหรับจัดส่ง
+- ถ้าลูกค้าสั่งซื้อสินค้าที่**ไม่มีตัวเลือก** → ถามจำนวน ชื่อ ที่อยู่ เบอร์โทร เลย
 - ห้ามส่งการ์ดสินค้าซ้ำเมื่อลูกค้าต้องการสั่งซื้อแล้ว
 - ห้ามบอกจำนวนสต็อกโดยตรง ยกเว้นลูกค้าจะสั่งเกินจำนวน
 
 ตัวอย่าง:
-- ลูกค้า: "สั่งซื้อ เสื้อยืดคอกลม" → ตอบ "ได้เลยค่ะ เสื้อยืดคอกลม ราคา ฿249 นะคะ รับกี่ตัวดีคะ 😊 และรบกวนขอชื่อ ที่อยู่ และเบอร์โทร สำหรับจัดส่งด้วยนะคะ"
-- ลูกค้า: "มีสินค้าอะไรบ้าง" → ตอบแนะนำสั้นๆ แล้วลงท้าย [SHOW_PRODUCTS]
-- ลูกค้า: "ขอดูกระเป๋า" → ตอบ "นี่คือกระเป๋าที่มีค่ะ [SHOW_PRODUCT:กระเป๋า]"`;
+- ลูกค้า: "สั่งซื้อ เสื้อเชิ้ตแขนยาว" (มีตัวเลือกสี/ไซส์) → ตอบ "ได้เลยค่ะ 😊 เสื้อเชิ้ตแขนยาวมีหลายสี/ไซส์ให้เลือกค่ะ รบกวนเลือกตัวเลือกที่ต้องการด้วยนะคะ [SELECT_VARIANT:เสื้อเชิ้ตแขนยาว]"
+- ลูกค้า: "เลือก สี: ขาว สำหรับ เสื้อเชิ้ตแขนยาว" → ตอบ "เลือกสีขาวนะคะ รับไซส์อะไรดีคะ?"
+- ลูกค้า: "สั่งซื้อ กางเกงยีนส์" (ไม่มีตัวเลือก) → ตอบ "ได้เลยค่ะ กางเกงยีนส์ ราคา ฿890 นะคะ รับกี่ตัวดีคะ 😊 และรบกวนขอชื่อ ที่อยู่ และเบอร์โทร สำหรับจัดส่งด้วยนะคะ"`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -351,19 +465,22 @@ ${productCatalog}
     const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
     const specificProductMatch = content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
     const nameMatch = content.match(/\[NAME:([^\]]+)\]/);
+    const selectVariantMatch = content.match(/\[SELECT_VARIANT:([^\]]+)\]/);
 
     // Clean up the response
     content = content
       .replace(/\[SHOW_PRODUCTS\]/g, '')
       .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
       .replace(/\[NAME:[^\]]+\]/g, '')
+      .replace(/\[SELECT_VARIANT:[^\]]+\]/g, '')
       .trim();
 
     return {
       text: content,
       showProducts: !!showProductsMatch,
       specificProduct: specificProductMatch ? specificProductMatch[1] : undefined,
-      detectedName: nameMatch ? nameMatch[1].trim() : undefined
+      detectedName: nameMatch ? nameMatch[1].trim() : undefined,
+      selectVariant: selectVariantMatch ? selectVariantMatch[1].trim() : undefined
     };
 
   } catch (error) {
@@ -520,6 +637,24 @@ serve(async (req) => {
 
         if (products && products.length > 0) {
           messagesToSend.push(createProductFlexMessage(products));
+        }
+      } else if (aiResult.selectVariant) {
+        // Show variant selection card
+        const { data: products } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true)
+          .ilike("name", `%${aiResult.selectVariant}%`)
+          .limit(1);
+
+        if (products && products.length > 0) {
+          const product = products[0] as Product;
+          if (product.variants && product.variants.length > 0) {
+            // Send variant selection cards for each variant type
+            for (const variant of product.variants.slice(0, 2)) {
+              messagesToSend.push(createVariantSelectionCard(product, variant.name, variant.options));
+            }
+          }
         }
       } else if (aiResult.specificProduct) {
         const { data: products } = await supabase
