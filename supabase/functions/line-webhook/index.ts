@@ -1380,6 +1380,9 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
     const data = await response.json();
     let content = data.choices?.[0]?.message?.content || "ขออภัยครับ ไม่สามารถประมวลผลได้";
 
+    // Log raw AI response for debugging
+    console.log("Raw AI response content:", content);
+
     // Parse special commands
     const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
     const specificProductMatch = content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
