@@ -803,6 +803,100 @@ function createOrderStatusCard(order: any, orderItems: Array<{product_name: stri
   };
 }
 
+// Create order history carousel
+function createOrderHistoryCarousel(orders: any[]) {
+  const statusMap: Record<string, { text: string; color: string; emoji: string }> = {
+    'pending': { text: 'รอยืนยัน', color: '#FFA500', emoji: '⏳' },
+    'confirmed': { text: 'ยืนยันแล้ว', color: '#00B900', emoji: '✅' },
+    'shipped': { text: 'จัดส่งแล้ว', color: '#1E90FF', emoji: '🚚' },
+    'delivered': { text: 'ได้รับแล้ว', color: '#32CD32', emoji: '📦' },
+    'cancelled': { text: 'ยกเลิก', color: '#FF0000', emoji: '❌' }
+  };
+
+  const bubbles = orders.slice(0, 10).map(order => {
+    const statusInfo = statusMap[order.status] || statusMap['pending'];
+    
+    return {
+      type: "bubble",
+      size: "kilo",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: order.order_number,
+            weight: "bold",
+            size: "md",
+            color: "#333333"
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            margin: "md",
+            contents: [
+              { type: "text", text: "สถานะ:", size: "sm", color: "#666666", flex: 3 },
+              { type: "text", text: `${statusInfo.emoji} ${statusInfo.text}`, size: "sm", color: statusInfo.color, weight: "bold", flex: 7, align: "end" }
+            ]
+          },
+          {
+            type: "box",
+            layout: "horizontal",
+            margin: "sm",
+            contents: [
+              { type: "text", text: "ยอดรวม:", size: "sm", color: "#666666", flex: 3 },
+              { type: "text", text: `฿${Number(order.total_amount).toLocaleString()}`, size: "sm", color: "#FF5551", weight: "bold", flex: 7, align: "end" }
+            ]
+          },
+          ...(order.tracking_number ? [{
+            type: "box",
+            layout: "horizontal",
+            margin: "sm",
+            contents: [
+              { type: "text", text: "เลขพัสดุ:", size: "xs", color: "#666666", flex: 3 },
+              { type: "text", text: order.tracking_number, size: "xs", color: "#1E90FF", flex: 7, align: "end" }
+            ]
+          }] : []),
+          {
+            type: "text",
+            text: new Date(order.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }),
+            size: "xs",
+            color: "#999999",
+            margin: "md",
+            align: "center"
+          }
+        ]
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            height: "sm",
+            action: {
+              type: "message",
+              label: "ดูรายละเอียด",
+              text: order.order_number
+            },
+            color: "#00B900"
+          }
+        ]
+      }
+    };
+  });
+
+  return {
+    type: "flex",
+    altText: `ประวัติออเดอร์ ${orders.length} รายการ`,
+    contents: {
+      type: "carousel",
+      contents: bubbles
+    }
+  };
+}
+
 async function replyToLine(replyToken: string, messages: Array<any>, accessToken: string) {
   if (!accessToken) {
     console.error("LINE_CHANNEL_ACCESS_TOKEN not configured");
@@ -1179,6 +1273,62 @@ serve(async (req) => {
 
           await replyToLine(replyToken, [
             { type: "text", text: `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้ง หรือติดต่อเจ้าหน้าที่ค่ะ` }
+          ], LINE_CHANNEL_ACCESS_TOKEN);
+          continue;
+        }
+      }
+
+      // Check for order history request
+      const orderHistoryKeywords = ['ประวัติออเดอร์', 'ประวัติคำสั่งซื้อ', 'ออเดอร์ทั้งหมด', 'ดูออเดอร์', 'รายการสั่งซื้อ'];
+      const isOrderHistoryRequest = orderHistoryKeywords.some(keyword => 
+        userMessage.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      if (isOrderHistoryRequest) {
+        console.log("Order history requested for LINE user:", userId);
+
+        // Find orders by customer LINE ID
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("customer_line_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (orders && orders.length > 0) {
+          const historyCarousel = createOrderHistoryCarousel(orders);
+
+          // Save bot response
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: `แสดงประวัติออเดอร์ ${orders.length} รายการ`,
+          });
+
+          // Update last message
+          await supabase
+            .from("chat_conversations")
+            .update({
+              last_message: `ประวัติออเดอร์ ${orders.length} รายการ`,
+              last_message_at: new Date().toISOString(),
+            })
+            .eq("id", conversation.id);
+
+          await replyToLine(replyToken, [
+            { type: "text", text: `📋 ประวัติออเดอร์ของคุณ (${orders.length} รายการล่าสุด)\n\nกดดูรายละเอียดหรือพิมพ์เลขออเดอร์เพื่อเช็คสถานะค่ะ` },
+            historyCarousel
+          ], LINE_CHANNEL_ACCESS_TOKEN);
+          continue;
+        } else {
+          // No orders found
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: "ไม่พบประวัติออเดอร์",
+          });
+
+          await replyToLine(replyToken, [
+            { type: "text", text: `📋 ยังไม่มีประวัติออเดอร์ค่ะ\n\nหากต้องการสั่งซื้อสินค้า พิมพ์ "ดูสินค้า" หรือสอบถามได้เลยค่ะ 😊` }
           ], LINE_CHANNEL_ACCESS_TOKEN);
           continue;
         }
