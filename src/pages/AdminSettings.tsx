@@ -23,6 +23,11 @@ const DEFAULT_STORE_SETTINGS: StoreSetting[] = [
   { key: 'STORE_PHONE', value: '', description: 'เบอร์โทรติดต่อ' },
   { key: 'STORE_ADDRESS', value: '', description: 'ที่อยู่ร้านค้า' },
   { key: 'STORE_EMAIL', value: '', description: 'อีเมลติดต่อ' },
+  { key: 'BUSINESS_HOURS', value: '', description: 'เวลาทำการ' },
+  { key: 'LINE_ID', value: '', description: 'LINE ID' },
+  { key: 'FACEBOOK_PAGE', value: '', description: 'Facebook Page' },
+  { key: 'INSTAGRAM', value: '', description: 'Instagram' },
+  { key: 'BANK_ACCOUNTS', value: '', description: 'บัญชีธนาคาร' },
   { key: 'RETURN_POLICY', value: '', description: 'นโยบายการคืนสินค้า' },
   { key: 'SHIPPING_INFO', value: '', description: 'ข้อมูลการจัดส่ง' },
 ];
@@ -162,9 +167,10 @@ const AdminSettings = () => {
               ข้อมูลพื้นฐานของร้านค้าที่จะแสดงให้ลูกค้าเห็น และใช้ในการสนทนากับ AI
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            {/* Basic Info */}
             <div className="grid gap-4 md:grid-cols-2">
-              {settings.slice(0, 4).map((setting) => (
+              {settings.filter(s => ['STORE_NAME', 'STORE_PHONE', 'STORE_ADDRESS', 'STORE_EMAIL'].includes(s.key)).map((setting) => (
                 <div key={setting.key} className="space-y-2">
                   <Label>{setting.description}</Label>
                   <Input
@@ -176,20 +182,74 @@ const AdminSettings = () => {
               ))}
             </div>
             
+            {/* Business Hours */}
             <div className="space-y-2">
-              <Label>{settings[4]?.description}</Label>
+              <Label>เวลาทำการ</Label>
+              <Input
+                value={settings.find(s => s.key === 'BUSINESS_HOURS')?.value || ''}
+                onChange={(e) => handleValueChange('BUSINESS_HOURS', e.target.value)}
+                placeholder="เช่น: จันทร์-ศุกร์ 09:00-18:00, เสาร์ 10:00-16:00"
+              />
+            </div>
+
+            {/* Other Contact Channels */}
+            <div>
+              <Label className="text-base font-medium">ช่องทางติดต่ออื่นๆ</Label>
+              <div className="grid gap-4 md:grid-cols-3 mt-3">
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">LINE ID</Label>
+                  <Input
+                    value={settings.find(s => s.key === 'LINE_ID')?.value || ''}
+                    onChange={(e) => handleValueChange('LINE_ID', e.target.value)}
+                    placeholder="@yourlineid"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Facebook Page</Label>
+                  <Input
+                    value={settings.find(s => s.key === 'FACEBOOK_PAGE')?.value || ''}
+                    onChange={(e) => handleValueChange('FACEBOOK_PAGE', e.target.value)}
+                    placeholder="facebook.com/yourpage"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Instagram</Label>
+                  <Input
+                    value={settings.find(s => s.key === 'INSTAGRAM')?.value || ''}
+                    onChange={(e) => handleValueChange('INSTAGRAM', e.target.value)}
+                    placeholder="@yourinstagram"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Accounts */}
+            <div className="space-y-2">
+              <Label>บัญชีธนาคาร</Label>
               <Textarea
-                value={settings[4]?.value || ''}
+                value={settings.find(s => s.key === 'BANK_ACCOUNTS')?.value || ''}
+                onChange={(e) => handleValueChange('BANK_ACCOUNTS', e.target.value)}
+                placeholder="เช่น: ธนาคารกสิกรไทย 123-4-56789-0 ชื่อบัญชี&#10;ธนาคารไทยพาณิชย์ 987-6-54321-0 ชื่อบัญชี"
+                rows={3}
+              />
+            </div>
+            
+            {/* Return Policy */}
+            <div className="space-y-2">
+              <Label>นโยบายการคืนสินค้า</Label>
+              <Textarea
+                value={settings.find(s => s.key === 'RETURN_POLICY')?.value || ''}
                 onChange={(e) => handleValueChange('RETURN_POLICY', e.target.value)}
                 placeholder="เช่น: รับคืนสินค้าภายใน 7 วัน หากสินค้ามีปัญหาจากการผลิต..."
                 rows={3}
               />
             </div>
 
+            {/* Shipping Info */}
             <div className="space-y-2">
-              <Label>{settings[5]?.description}</Label>
+              <Label>ข้อมูลการจัดส่ง</Label>
               <Textarea
-                value={settings[5]?.value || ''}
+                value={settings.find(s => s.key === 'SHIPPING_INFO')?.value || ''}
                 onChange={(e) => handleValueChange('SHIPPING_INFO', e.target.value)}
                 placeholder="เช่น: จัดส่งทุกวันจันทร์-ศุกร์ ภายใน 1-3 วันทำการ..."
                 rows={3}
