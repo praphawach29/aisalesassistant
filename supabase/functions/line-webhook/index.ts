@@ -1175,6 +1175,18 @@ async function getAIResponse(
     .select("*")
     .eq("is_active", true);
 
+  // Fetch store settings
+  const { data: settingsData } = await supabase
+    .from("settings")
+    .select("key, value")
+    .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO"]);
+
+  const settingsMap = new Map(settingsData?.map((s: any) => [s.key, s.value]) || []);
+  const storeName = settingsMap.get("STORE_NAME") || "";
+  const storePhone = settingsMap.get("STORE_PHONE") || "";
+  const returnPolicy = settingsMap.get("RETURN_POLICY") || "";
+  const shippingInfo = settingsMap.get("SHIPPING_INFO") || "";
+
   const productCatalog = products?.map((p: any) => {
     let variantInfo = "";
     if (p.variants && p.variants.length > 0) {
@@ -1193,6 +1205,16 @@ async function getAIResponse(
       : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น${cartInfo}`
     : 'นี่คือลูกค้าใหม่ ทักทายสุภาพและแนะนำตัว';
 
+  // Build store info section
+  const storeInfoSection = `
+${storeName ? `🏪 ร้าน: ${storeName}` : ''}
+${storePhone ? `📞 ติดต่อ: ${storePhone}` : ''}
+
+${returnPolicy ? `📋 นโยบายคืนสินค้า: ${returnPolicy}` : ''}
+
+${shippingInfo ? `🚚 การจัดส่ง: ${shippingInfo}` : ''}
+`.trim();
+
   const systemPrompt = `คุณคือ "น้องช้อป" ผู้ช่วยขายอัจฉริยะทาง LINE พูดภาษาไทยสุภาพ น่ารัก ใช้อิโมจิบ้าง
 
 ${customerGreeting}
@@ -1200,10 +1222,13 @@ ${customerGreeting}
 สินค้าที่มี:
 ${productCatalog}
 
+${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSection}` : ''}
+
 หลักการ:
 - ตอบสั้น ได้ใจความ ไม่เกิน 200 ตัวอักษร
 - ใช้ภาษาเป็นกันเอง แต่สุภาพ
 - ช่วยแนะนำสินค้าและรับออเดอร์
+- ถ้าลูกค้าถามเรื่องการคืนสินค้าหรือการจัดส่ง ให้ตอบจากข้อมูลร้านค้าด้านบน
 
 การจัดการคำสั่ง:
 - ถ้าลูกค้าถามเกี่ยวกับสินค้าหลายรายการ หรือขอดูสินค้า → ตอบ [SHOW_PRODUCTS]

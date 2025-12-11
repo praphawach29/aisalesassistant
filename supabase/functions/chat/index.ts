@@ -22,7 +22,16 @@ interface AISettings {
   custom_rules: string | null;
 }
 
-function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string): string {
+interface StoreSettings {
+  storeName: string;
+  storePhone: string;
+  storeAddress: string;
+  storeEmail: string;
+  returnPolicy: string;
+  shippingInfo: string;
+}
+
+function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings): string {
   const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
 
   // Gender-specific particles
@@ -73,6 +82,16 @@ ${personality || "สุภาพ เป็นมิตร พร้อมให
 ${productCatalog}
 
 ${faqList ? `## ❓ คำถามที่พบบ่อย:\n${faqList}` : ''}
+
+## 🏪 ข้อมูลร้านค้า:
+${storeSettings.storeName ? `- ชื่อร้าน: ${storeSettings.storeName}` : ''}
+${storeSettings.storePhone ? `- เบอร์โทร: ${storeSettings.storePhone}` : ''}
+${storeSettings.storeAddress ? `- ที่อยู่: ${storeSettings.storeAddress}` : ''}
+${storeSettings.storeEmail ? `- อีเมล: ${storeSettings.storeEmail}` : ''}
+
+${storeSettings.returnPolicy ? `## 📋 นโยบายการคืนสินค้า:\n${storeSettings.returnPolicy}` : ''}
+
+${storeSettings.shippingInfo ? `## 🚚 ข้อมูลการจัดส่ง:\n${storeSettings.shippingInfo}` : ''}
 
 ## 🚫 กฎเรื่องสต็อก (สำคัญมาก):
 - ห้ามบอกจำนวนสต็อกเด็ดขาด ถ้าถามให้ตอบว่า "สินค้ามีพร้อมจำหน่าย${particleEnd}"
@@ -180,6 +199,29 @@ serve(async (req) => {
       .select("*")
       .eq("is_active", true);
 
+    // Fetch store settings
+    const { data: settingsData } = await supabase
+      .from("settings")
+      .select("key, value")
+      .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO"]);
+
+    // Build store settings object
+    const storeSettingsMap = new Map(settingsData?.map(s => [s.key, s.value]) || []);
+    const storeSettings: StoreSettings = {
+      storeName: storeSettingsMap.get("STORE_NAME") || "",
+      storePhone: storeSettingsMap.get("STORE_PHONE") || "",
+      storeAddress: storeSettingsMap.get("STORE_ADDRESS") || "",
+      storeEmail: storeSettingsMap.get("STORE_EMAIL") || "",
+      returnPolicy: storeSettingsMap.get("RETURN_POLICY") || "",
+      shippingInfo: storeSettingsMap.get("SHIPPING_INFO") || "",
+    };
+
+    console.log("Store settings loaded:", { 
+      hasStoreName: !!storeSettings.storeName,
+      hasReturnPolicy: !!storeSettings.returnPolicy,
+      hasShippingInfo: !!storeSettings.shippingInfo
+    });
+
     // Build product catalog with image URLs
     const productCatalog = products?.map(p => 
       `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}]`
@@ -191,7 +233,7 @@ serve(async (req) => {
     ).join('\n\n') || '';
 
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings);
 
     console.log("Calling Lovable AI Gateway...");
     
