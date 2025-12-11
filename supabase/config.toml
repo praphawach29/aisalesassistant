@@ -10,7 +10,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-order-notification]
-verify_jwt = false
+verify_jwt = true
 
 [functions.test-line-connection]
 verify_jwt = false
