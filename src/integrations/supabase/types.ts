@@ -391,6 +391,7 @@ export type Database = {
           promotion_price: number | null
           stock: number
           updated_at: string
+          variants: Json | null
         }
         Insert: {
           category?: string | null
@@ -404,6 +405,7 @@ export type Database = {
           promotion_price?: number | null
           stock?: number
           updated_at?: string
+          variants?: Json | null
         }
         Update: {
           category?: string | null
@@ -417,6 +419,7 @@ export type Database = {
           promotion_price?: number | null
           stock?: number
           updated_at?: string
+          variants?: Json | null
         }
         Relationships: []
       }
