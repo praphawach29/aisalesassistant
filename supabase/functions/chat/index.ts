@@ -29,6 +29,11 @@ interface StoreSettings {
   storeEmail: string;
   returnPolicy: string;
   shippingInfo: string;
+  businessHours: string;
+  lineId: string;
+  facebookPage: string;
+  instagram: string;
+  bankAccounts: string;
 }
 
 function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings): string {
@@ -88,10 +93,18 @@ ${storeSettings.storeName ? `- ชื่อร้าน: ${storeSettings.storeNa
 ${storeSettings.storePhone ? `- เบอร์โทร: ${storeSettings.storePhone}` : ''}
 ${storeSettings.storeAddress ? `- ที่อยู่: ${storeSettings.storeAddress}` : ''}
 ${storeSettings.storeEmail ? `- อีเมล: ${storeSettings.storeEmail}` : ''}
+${storeSettings.businessHours ? `- เวลาทำการ: ${storeSettings.businessHours}` : ''}
+
+${storeSettings.lineId || storeSettings.facebookPage || storeSettings.instagram ? `## 📱 ช่องทางติดต่อเพิ่มเติม:
+${storeSettings.lineId ? `- LINE: ${storeSettings.lineId}` : ''}
+${storeSettings.facebookPage ? `- Facebook: ${storeSettings.facebookPage}` : ''}
+${storeSettings.instagram ? `- Instagram: ${storeSettings.instagram}` : ''}` : ''}
 
 ${storeSettings.returnPolicy ? `## 📋 นโยบายการคืนสินค้า:\n${storeSettings.returnPolicy}` : ''}
 
 ${storeSettings.shippingInfo ? `## 🚚 ข้อมูลการจัดส่ง:\n${storeSettings.shippingInfo}` : ''}
+
+${storeSettings.bankAccounts ? `## 🏦 บัญชีธนาคาร:\n${storeSettings.bankAccounts}` : ''}
 
 ## 🚫 กฎเรื่องสต็อก (สำคัญมาก):
 - ห้ามบอกจำนวนสต็อกเด็ดขาด ถ้าถามให้ตอบว่า "สินค้ามีพร้อมจำหน่าย${particleEnd}"
@@ -203,7 +216,7 @@ serve(async (req) => {
     const { data: settingsData } = await supabase
       .from("settings")
       .select("key, value")
-      .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO"]);
+      .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS"]);
 
     // Build store settings object
     const storeSettingsMap = new Map(settingsData?.map(s => [s.key, s.value]) || []);
@@ -214,6 +227,11 @@ serve(async (req) => {
       storeEmail: storeSettingsMap.get("STORE_EMAIL") || "",
       returnPolicy: storeSettingsMap.get("RETURN_POLICY") || "",
       shippingInfo: storeSettingsMap.get("SHIPPING_INFO") || "",
+      businessHours: storeSettingsMap.get("BUSINESS_HOURS") || "",
+      lineId: storeSettingsMap.get("LINE_ID") || "",
+      facebookPage: storeSettingsMap.get("FACEBOOK_PAGE") || "",
+      instagram: storeSettingsMap.get("INSTAGRAM") || "",
+      bankAccounts: storeSettingsMap.get("BANK_ACCOUNTS") || "",
     };
 
     console.log("Store settings loaded:", { 

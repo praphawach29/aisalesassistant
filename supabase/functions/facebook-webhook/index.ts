@@ -413,13 +413,18 @@ async function getAIResponse(
   const { data: settingsData } = await supabase
     .from("settings")
     .select("key, value")
-    .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO"]);
+    .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS"]);
 
   const settingsMap = new Map(settingsData?.map((s: any) => [s.key, s.value]) || []);
   const storeName = settingsMap.get("STORE_NAME") || "";
   const storePhone = settingsMap.get("STORE_PHONE") || "";
   const returnPolicy = settingsMap.get("RETURN_POLICY") || "";
   const shippingInfo = settingsMap.get("SHIPPING_INFO") || "";
+  const businessHours = settingsMap.get("BUSINESS_HOURS") || "";
+  const lineId = settingsMap.get("LINE_ID") || "";
+  const facebookPage = settingsMap.get("FACEBOOK_PAGE") || "";
+  const instagram = settingsMap.get("INSTAGRAM") || "";
+  const bankAccounts = settingsMap.get("BANK_ACCOUNTS") || "";
 
   const productCatalog = products?.map((p: any) => {
     let variantInfo = "";
@@ -437,8 +442,13 @@ async function getAIResponse(
   const storeInfoSection = `
 ${storeName ? `🏪 ร้าน: ${storeName}` : ''}
 ${storePhone ? `📞 ติดต่อ: ${storePhone}` : ''}
+${businessHours ? `🕐 เวลาทำการ: ${businessHours}` : ''}
+${lineId ? `💬 LINE: ${lineId}` : ''}
+${facebookPage ? `📘 Facebook: ${facebookPage}` : ''}
+${instagram ? `📸 Instagram: ${instagram}` : ''}
 ${returnPolicy ? `📋 นโยบายคืนสินค้า: ${returnPolicy}` : ''}
 ${shippingInfo ? `🚚 การจัดส่ง: ${shippingInfo}` : ''}
+${bankAccounts ? `🏦 บัญชีธนาคาร: ${bankAccounts}` : ''}
 `.trim();
 
   const systemPrompt = `คุณคือผู้ช่วยขายอัจฉริยะทาง Facebook Messenger พูดภาษาไทยสุภาพ ตอบสั้นกระชับ${cartInfo}
