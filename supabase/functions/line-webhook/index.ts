@@ -687,6 +687,122 @@ function createMultiItemOrderCard(orderNumber: string, items: Array<{product_nam
   };
 }
 
+// Create order status card
+function createOrderStatusCard(order: any, orderItems: Array<{product_name: string; quantity: number; price: number}>) {
+  const statusMap: Record<string, { text: string; color: string; emoji: string }> = {
+    'pending': { text: 'รอยืนยัน', color: '#FFA500', emoji: '⏳' },
+    'confirmed': { text: 'ยืนยันแล้ว', color: '#00B900', emoji: '✅' },
+    'shipped': { text: 'จัดส่งแล้ว', color: '#1E90FF', emoji: '🚚' },
+    'delivered': { text: 'ได้รับสินค้าแล้ว', color: '#32CD32', emoji: '📦' },
+    'cancelled': { text: 'ยกเลิก', color: '#FF0000', emoji: '❌' }
+  };
+
+  const statusInfo = statusMap[order.status] || statusMap['pending'];
+
+  const itemContents = orderItems.map(item => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      { type: "text", text: `${item.product_name} x${item.quantity}`, size: "sm", color: "#333333", flex: 7, wrap: true },
+      { type: "text", text: `฿${(item.price * item.quantity).toLocaleString()}`, size: "sm", color: "#666666", flex: 3, align: "end" }
+    ]
+  }));
+
+  const bubble: any = {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: `${statusInfo.emoji} สถานะออเดอร์`,
+          weight: "bold",
+          size: "lg",
+          color: "#333333"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          margin: "md",
+          contents: [
+            { type: "text", text: "หมายเลข:", size: "sm", color: "#666666", flex: 3 },
+            { type: "text", text: order.order_number, size: "sm", color: "#333333", weight: "bold", flex: 7, align: "end" }
+          ]
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          margin: "sm",
+          contents: [
+            { type: "text", text: "สถานะ:", size: "sm", color: "#666666", flex: 3 },
+            { type: "text", text: statusInfo.text, size: "sm", color: statusInfo.color, weight: "bold", flex: 7, align: "end" }
+          ]
+        },
+        ...(order.tracking_number ? [{
+          type: "box",
+          layout: "horizontal",
+          margin: "sm",
+          contents: [
+            { type: "text", text: "เลขพัสดุ:", size: "sm", color: "#666666", flex: 3 },
+            { type: "text", text: order.tracking_number, size: "sm", color: "#1E90FF", weight: "bold", flex: 7, align: "end" }
+          ]
+        }] : []),
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: "📦 รายการสินค้า",
+          size: "sm",
+          color: "#333333",
+          weight: "bold",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          margin: "sm",
+          spacing: "sm",
+          contents: itemContents
+        },
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          margin: "md",
+          contents: [
+            { type: "text", text: "ยอดรวม:", size: "md", color: "#333333", weight: "bold", flex: 5 },
+            { type: "text", text: `฿${Number(order.total_amount).toLocaleString()}`, size: "lg", color: "#FF5551", weight: "bold", flex: 5, align: "end" }
+          ]
+        },
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "text",
+          text: `🕐 สั่งเมื่อ ${new Date(order.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+          size: "xs",
+          color: "#999999",
+          margin: "md",
+          align: "center"
+        }
+      ]
+    }
+  };
+
+  return {
+    type: "flex",
+    altText: `สถานะออเดอร์ ${order.order_number}: ${statusInfo.text}`,
+    contents: bubble
+  };
+}
+
 async function replyToLine(replyToken: string, messages: Array<any>, accessToken: string) {
   if (!accessToken) {
     console.error("LINE_CHANNEL_ACCESS_TOKEN not configured");
@@ -1009,6 +1125,64 @@ serve(async (req) => {
         role: "user",
         content: userMessage,
       });
+
+      // Check for order number pattern to check order status
+      const orderNumberMatch = userMessage.match(/ORD-\d{8}-\d{4}/i);
+      if (orderNumberMatch) {
+        const orderNumber = orderNumberMatch[0].toUpperCase();
+        console.log("Order status check requested for:", orderNumber);
+
+        // Find order by order number
+        const { data: order } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("order_number", orderNumber)
+          .maybeSingle();
+
+        if (order) {
+          // Get order items
+          const { data: orderItems } = await supabase
+            .from("order_items")
+            .select("*")
+            .eq("order_id", order.id);
+
+          const orderStatusCard = createOrderStatusCard(order, orderItems || []);
+
+          // Save bot response
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: `สถานะออเดอร์ ${orderNumber}: ${order.status}`,
+          });
+
+          // Update last message
+          await supabase
+            .from("chat_conversations")
+            .update({
+              last_message: `สถานะ: ${order.status}`,
+              last_message_at: new Date().toISOString(),
+            })
+            .eq("id", conversation.id);
+
+          await replyToLine(replyToken, [
+            { type: "text", text: `นี่คือสถานะออเดอร์ของคุณค่ะ 📋` },
+            orderStatusCard
+          ], LINE_CHANNEL_ACCESS_TOKEN);
+          continue;
+        } else {
+          // Order not found
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: `ไม่พบออเดอร์หมายเลข ${orderNumber}`,
+          });
+
+          await replyToLine(replyToken, [
+            { type: "text", text: `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้ง หรือติดต่อเจ้าหน้าที่ค่ะ` }
+          ], LINE_CHANNEL_ACCESS_TOKEN);
+          continue;
+        }
+      }
 
       // Get conversation history
       const { data: history } = await supabase
