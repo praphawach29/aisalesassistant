@@ -28,6 +28,100 @@ interface Product {
   variants?: ProductVariant[] | null;
 }
 
+interface Coupon {
+  id: string;
+  code: string;
+  name: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  min_order_amount: number;
+  max_uses: number | null;
+  used_count: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  is_active: boolean;
+}
+
+interface CouponValidationResult {
+  valid: boolean;
+  coupon?: Coupon;
+  discountAmount?: number;
+  errorMessage?: string;
+}
+
+// Validate and apply coupon
+async function validateCoupon(code: string, orderAmount: number, supabase: any): Promise<CouponValidationResult> {
+  const { data: coupon, error } = await supabase
+    .from("coupons")
+    .select("*")
+    .eq("code", code.toUpperCase())
+    .maybeSingle();
+
+  if (error || !coupon) {
+    return { valid: false, errorMessage: `ไม่พบโค้ดส่วนลด "${code}" ค่ะ` };
+  }
+
+  if (!coupon.is_active) {
+    return { valid: false, errorMessage: "โค้ดส่วนลดนี้ถูกปิดใช้งานแล้วค่ะ" };
+  }
+
+  const now = new Date();
+  if (coupon.valid_from && new Date(coupon.valid_from) > now) {
+    return { valid: false, errorMessage: "โค้ดส่วนลดนี้ยังไม่เริ่มใช้งานค่ะ" };
+  }
+
+  if (coupon.valid_until && new Date(coupon.valid_until) < now) {
+    return { valid: false, errorMessage: "โค้ดส่วนลดนี้หมดอายุแล้วค่ะ" };
+  }
+
+  if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
+    return { valid: false, errorMessage: "โค้ดส่วนลดนี้ถูกใช้ครบจำนวนแล้วค่ะ" };
+  }
+
+  if (coupon.min_order_amount && orderAmount < coupon.min_order_amount) {
+    return { valid: false, errorMessage: `ยอดสั่งซื้อขั้นต่ำสำหรับโค้ดนี้คือ ฿${coupon.min_order_amount.toLocaleString()} ค่ะ` };
+  }
+
+  // Calculate discount
+  let discountAmount = 0;
+  if (coupon.discount_type === 'percentage') {
+    discountAmount = (orderAmount * coupon.discount_value) / 100;
+  } else {
+    discountAmount = coupon.discount_value;
+  }
+
+  // Discount cannot exceed order amount
+  discountAmount = Math.min(discountAmount, orderAmount);
+
+  return { valid: true, coupon, discountAmount };
+}
+
+// Update coupon usage count
+async function updateCouponUsage(couponId: string, supabase: any): Promise<void> {
+  await supabase
+    .from("coupons")
+    .update({ used_count: supabase.rpc ? undefined : 1 })
+    .eq("id", couponId);
+  
+  // Use raw increment
+  await supabase.rpc('increment_coupon_usage', { coupon_id: couponId }).catch(() => {
+    // Fallback: direct update
+    supabase
+      .from("coupons")
+      .select("used_count")
+      .eq("id", couponId)
+      .single()
+      .then(({ data }: any) => {
+        if (data) {
+          supabase
+            .from("coupons")
+            .update({ used_count: data.used_count + 1 })
+            .eq("id", couponId);
+        }
+      });
+  });
+}
+
 async function verifySignature(body: string, signature: string, channelSecret: string): Promise<boolean> {
   if (!channelSecret) return false;
   
@@ -352,7 +446,47 @@ function createVariantSelectionCard(product: Product, variantType: string, optio
 }
 
 // Create order confirmation card
-function createOrderConfirmationCard(orderNumber: string, productName: string, quantity: number, totalAmount: number, customerName: string, customerAddress: string, variants?: string) {
+function createOrderConfirmationCard(
+  orderNumber: string, 
+  productName: string, 
+  quantity: number, 
+  totalAmount: number, 
+  customerName: string, 
+  customerAddress: string, 
+  variants?: string,
+  discountInfo?: { code: string; discount: number; originalTotal: number }
+) {
+  // Build price contents with optional discount
+  const priceContents: any[] = [];
+  
+  if (discountInfo) {
+    priceContents.push({
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        { type: "text", text: "ราคาสินค้า:", size: "sm", color: "#666666", flex: 4 },
+        { type: "text", text: `฿${discountInfo.originalTotal.toLocaleString()}`, size: "sm", color: "#666666", flex: 5, align: "end" }
+      ]
+    });
+    priceContents.push({
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        { type: "text", text: `🎟️ ${discountInfo.code}:`, size: "sm", color: "#00B900", flex: 4 },
+        { type: "text", text: `-฿${discountInfo.discount.toLocaleString()}`, size: "sm", color: "#00B900", flex: 5, align: "end" }
+      ]
+    });
+  }
+  
+  priceContents.push({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      { type: "text", text: "ยอดชำระ:", size: "sm", color: "#666666", flex: 4 },
+      { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "sm", color: "#FF5551", weight: "bold", flex: 5, align: "end" }
+    ]
+  });
+
   const bubble: any = {
     type: "bubble",
     body: {
@@ -408,14 +542,7 @@ function createOrderConfirmationCard(orderNumber: string, productName: string, q
                 { type: "text", text: `${quantity} ชิ้น`, size: "sm", color: "#333333", flex: 5, align: "end" }
               ]
             },
-            {
-              type: "box",
-              layout: "horizontal",
-              contents: [
-                { type: "text", text: "ยอดรวม:", size: "sm", color: "#666666", flex: 4 },
-                { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "sm", color: "#FF5551", weight: "bold", flex: 5, align: "end" }
-              ]
-            }
+            ...priceContents
           ]
         },
         {
@@ -578,7 +705,14 @@ function createCartSummaryCard(cartItems: Array<{product_name: string; quantity:
 }
 
 // Create multi-item order confirmation card
-function createMultiItemOrderCard(orderNumber: string, items: Array<{product_name: string; quantity: number; price: number}>, totalAmount: number, customerName: string, customerAddress: string) {
+function createMultiItemOrderCard(
+  orderNumber: string, 
+  items: Array<{product_name: string; quantity: number; price: number}>, 
+  totalAmount: number, 
+  customerName: string, 
+  customerAddress: string,
+  discountInfo?: { code: string; discount: number; originalTotal: number }
+) {
   const itemContents = items.map(item => ({
     type: "box",
     layout: "horizontal",
@@ -587,6 +721,40 @@ function createMultiItemOrderCard(orderNumber: string, items: Array<{product_nam
       { type: "text", text: `฿${(item.price * item.quantity).toLocaleString()}`, size: "sm", color: "#666666", flex: 3, align: "end" }
     ]
   }));
+
+  // Add discount row if applicable
+  const priceContents: any[] = [];
+  
+  if (discountInfo) {
+    priceContents.push({
+      type: "box",
+      layout: "horizontal",
+      margin: "sm",
+      contents: [
+        { type: "text", text: "ยอดรวมสินค้า:", size: "sm", color: "#666666", flex: 5 },
+        { type: "text", text: `฿${discountInfo.originalTotal.toLocaleString()}`, size: "sm", color: "#666666", flex: 5, align: "end" }
+      ]
+    });
+    priceContents.push({
+      type: "box",
+      layout: "horizontal",
+      margin: "sm",
+      contents: [
+        { type: "text", text: `🎟️ โค้ด ${discountInfo.code}:`, size: "sm", color: "#00B900", flex: 5 },
+        { type: "text", text: `-฿${discountInfo.discount.toLocaleString()}`, size: "sm", color: "#00B900", flex: 5, align: "end" }
+      ]
+    });
+  }
+  
+  priceContents.push({
+    type: "box",
+    layout: "horizontal",
+    margin: "md",
+    contents: [
+      { type: "text", text: "ยอดชำระ:", size: "md", color: "#333333", weight: "bold", flex: 5 },
+      { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "lg", color: "#FF5551", weight: "bold", flex: 5, align: "end" }
+    ]
+  });
 
   const bubble: any = {
     type: "bubble",
@@ -635,12 +803,9 @@ function createMultiItemOrderCard(orderNumber: string, items: Array<{product_nam
         },
         {
           type: "box",
-          layout: "horizontal",
+          layout: "vertical",
           margin: "md",
-          contents: [
-            { type: "text", text: "ยอดรวมทั้งหมด:", size: "md", color: "#333333", weight: "bold", flex: 5 },
-            { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "lg", color: "#FF5551", weight: "bold", flex: 5, align: "end" }
-          ]
+          contents: priceContents
         },
         {
           type: "separator",
@@ -932,6 +1097,7 @@ interface OrderData {
   customerAddress: string;
   customerPhone: string;
   variants?: string;
+  couponCode?: string;
 }
 
 interface CartAction {
@@ -942,13 +1108,14 @@ interface CartAction {
   customerName?: string;
   customerAddress?: string;
   customerPhone?: string;
+  couponCode?: string;
 }
 
 async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
   customerContext: { isReturning: boolean; customerName?: string; messageCount: number; lastVisit?: string; cartItemCount?: number }
-): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData; cartAction?: CartAction }> {
+): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData; cartAction?: CartAction; applyCoupon?: string }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -994,20 +1161,25 @@ ${productCatalog}
 - ถ้าลูกค้าถามข้อมูลสินค้าเฉพาะอย่าง (แต่ยังไม่สั่งซื้อ) → ตอบ [SHOW_PRODUCT:ชื่อสินค้า]
 - ถ้าลูกค้าบอกชื่อตัวเอง → ตอบ [NAME:ชื่อลูกค้า]
 
+**🎟️ ระบบคูปอง/โค้ดส่วนลด:**
+- ถ้าลูกค้าพิมพ์โค้ดส่วนลด เช่น "ใช้โค้ด ABC123" หรือ "โค้ดส่วนลด SALE50" → ตอบ [APPLY_COUPON:โค้ด]
+- ลูกค้าสามารถใส่โค้ดพร้อมการสั่งซื้อได้ เช่น "สั่งซื้อตะกร้า ชื่อสมชาย ... โค้ด SAVE10" → ตอบ [CHECKOUT_CART:สมชาย|ที่อยู่|เบอร์|SAVE10]
+
 **🛒 ระบบตะกร้าสินค้า:**
 - ถ้าลูกค้าต้องการ "เพิ่มลงตะกร้า" หรือ "ใส่ตะกร้า" → ตอบ [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]
 - ถ้าลูกค้าถาม "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ตอบ [VIEW_CART]
 - ถ้าลูกค้าต้องการ "ล้างตะกร้า" หรือ "เคลียร์ตะกร้า" → ตอบ [CLEAR_CART]
-- ถ้าลูกค้าพิมพ์ "ยืนยันสั่งซื้อตะกร้า" หรือ "สั่งซื้อทั้งหมด" พร้อมข้อมูลครบ (ชื่อ ที่อยู่ เบอร์) → ตอบ [CHECKOUT_CART:ชื่อลูกค้า|ที่อยู่|เบอร์โทร]
+- ถ้าลูกค้าพิมพ์ "ยืนยันสั่งซื้อตะกร้า" หร้อ "สั่งซื้อทั้งหมด" พร้อมข้อมูลครบ (ชื่อ ที่อยู่ เบอร์ และอาจมีโค้ดส่วนลด) → ตอบ [CHECKOUT_CART:ชื่อลูกค้า|ที่อยู่|เบอร์โทร|โค้ดส่วนลด]
 
-ตัวอย่างการใช้ตะกร้า:
+ตัวอย่างการใช้ตะกร้าและคูปอง:
 - ลูกค้า: "เพิ่มเสื้อเชิ้ต 2 ตัว สีขาว ลงตะกร้า" → ตอบ "เพิ่มลงตะกร้าแล้วค่ะ 😊 [ADD_CART:เสื้อเชิ้ตแขนยาว|2|สี: ขาว]"
 - ลูกค้า: "ขอดูตะกร้า" → ตอบ "นี่คือตะกร้าของคุณค่ะ [VIEW_CART]"
-- ลูกค้า: "ยืนยันสั่งซื้อตะกร้า ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 081234567" → ตอบ "รับออเดอร์เรียบร้อยค่ะ 😊 [CHECKOUT_CART:สมชาย|123 ถ.สุขุมวิท|0812345678]"
+- ลูกค้า: "ใช้โค้ด SAVE10" → ตอบ "รับทราบค่ะ ใช้โค้ด SAVE10 [APPLY_COUPON:SAVE10]"
+- ลูกค้า: "ยืนยันสั่งซื้อตะกร้า ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 081234567 โค้ด SAVE10" → ตอบ "รับออเดอร์เรียบร้อยค่ะ 😊 [CHECKOUT_CART:สมชาย|123 ถ.สุขุมวิท|0812345678|SAVE10]"
 
 **การสั่งซื้อตรง (ไม่ผ่านตะกร้า):**
 - ถ้าลูกค้าพิมพ์ "สั่งซื้อ ชื่อสินค้า" และสินค้านั้น**มีตัวเลือก** (สี/ไซส์) → ตอบ [SELECT_VARIANT:ชื่อสินค้า] พร้อมข้อความถามว่าต้องการตัวเลือกไหน
-- ถ้าลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร) → ตอบ [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก]
+- ถ้าลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร และอาจมีโค้ด) → ตอบ [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก|โค้ดส่วนลด]
 - ห้ามส่งการ์ดสินค้าซ้ำเมื่อลูกค้าต้องการสั่งซื้อแล้ว
 - ห้ามบอกจำนวนสต็อกโดยตรง ยกเว้นลูกค้าจะสั่งเกินจำนวน`;
 
@@ -1045,6 +1217,7 @@ ${productCatalog}
     const viewCartMatch = content.match(/\[VIEW_CART\]/);
     const clearCartMatch = content.match(/\[CLEAR_CART\]/);
     const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
+    const applyCouponMatch = content.match(/\[APPLY_COUPON:([^\]]+)\]/);
 
     // Parse order data if present
     let createOrder: OrderData | undefined;
@@ -1057,7 +1230,8 @@ ${productCatalog}
           customerName: orderParts[2].trim(),
           customerAddress: orderParts[3].trim(),
           customerPhone: orderParts[4].trim(),
-          variants: orderParts[5]?.trim() || undefined
+          variants: orderParts[5]?.trim() || undefined,
+          couponCode: orderParts[6]?.trim() || undefined
         };
       }
     }
@@ -1082,7 +1256,8 @@ ${productCatalog}
         action: 'checkout',
         customerName: parts[0]?.trim(),
         customerAddress: parts[1]?.trim(),
-        customerPhone: parts[2]?.trim()
+        customerPhone: parts[2]?.trim(),
+        couponCode: parts[3]?.trim() || undefined
       };
     }
 
@@ -1097,6 +1272,7 @@ ${productCatalog}
       .replace(/\[VIEW_CART\]/g, '')
       .replace(/\[CLEAR_CART\]/g, '')
       .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
+      .replace(/\[APPLY_COUPON:[^\]]+\]/g, '')
       .trim();
 
     return {
@@ -1106,7 +1282,8 @@ ${productCatalog}
       detectedName: nameMatch ? nameMatch[1].trim() : undefined,
       selectVariant: selectVariantMatch ? selectVariantMatch[1].trim() : undefined,
       createOrder,
-      cartAction
+      cartAction,
+      applyCoupon: applyCouponMatch ? applyCouponMatch[1].trim() : undefined
     };
 
   } catch (error) {
@@ -1613,7 +1790,30 @@ serve(async (req) => {
             .eq("conversation_id", conversation.id);
 
           if (cartItems && cartItems.length > 0) {
-            const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+            let totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+            let discountAmount = 0;
+            let couponCode: string | null = null;
+            let couponMessage = "";
+
+            // Validate and apply coupon if provided
+            if (cartAction.couponCode) {
+              const couponResult = await validateCoupon(cartAction.couponCode, totalAmount, supabase);
+              if (couponResult.valid && couponResult.coupon) {
+                discountAmount = couponResult.discountAmount || 0;
+                couponCode = couponResult.coupon.code;
+                couponMessage = `\n🎟️ ใช้โค้ด ${couponCode} ลด ฿${discountAmount.toLocaleString()}`;
+                
+                // Update coupon usage
+                await supabase
+                  .from("coupons")
+                  .update({ used_count: couponResult.coupon.used_count + 1 })
+                  .eq("id", couponResult.coupon.id);
+              } else {
+                messagesToSend.push({ type: "text", text: couponResult.errorMessage || "โค้ดส่วนลดไม่ถูกต้อง" });
+              }
+            }
+
+            const finalAmount = totalAmount - discountAmount;
 
             // Create order
             const { data: order, error: orderError } = await supabase
@@ -1624,7 +1824,9 @@ serve(async (req) => {
                 customer_phone: cartAction.customerPhone,
                 customer_line_id: userId,
                 platform: "line",
-                total_amount: totalAmount
+                total_amount: finalAmount,
+                discount_amount: discountAmount,
+                coupon_code: couponCode
               })
               .select()
               .single();
@@ -1664,13 +1866,13 @@ serve(async (req) => {
                 })
                 .eq("id", conversation.id);
 
-              console.log(`Cart order created: ${order.order_number}`);
+              console.log(`Cart order created: ${order.order_number} with discount: ${discountAmount}`);
 
               if (aiResult.text) {
-                messagesToSend.push({ type: "text", text: aiResult.text });
+                messagesToSend.push({ type: "text", text: aiResult.text + couponMessage });
               }
 
-              // Add multi-item order confirmation
+              // Add multi-item order confirmation with discount info
               const orderItems = cartItems.map((item: any) => ({
                 product_name: item.product_name + (item.variants ? ` (${item.variants})` : ''),
                 quantity: item.quantity,
@@ -1680,9 +1882,10 @@ serve(async (req) => {
               messagesToSend.push(createMultiItemOrderCard(
                 order.order_number,
                 orderItems,
-                totalAmount,
+                finalAmount,
                 cartAction.customerName,
-                cartAction.customerAddress
+                cartAction.customerAddress,
+                discountAmount > 0 ? { code: couponCode!, discount: discountAmount, originalTotal: totalAmount } : undefined
               ));
             } else {
               messagesToSend.push({ type: "text", text: "ขออภัยค่ะ ไม่สามารถสร้างออเดอร์ได้ กรุณาลองใหม่อีกครั้ง" });
@@ -1706,7 +1909,28 @@ serve(async (req) => {
         if (products && products.length > 0) {
           const product = products[0];
           const price = product.promotion_price || product.price;
-          const totalAmount = price * orderData.quantity;
+          let totalAmount = price * orderData.quantity;
+          let discountAmount = 0;
+          let couponCode: string | null = null;
+
+          // Validate and apply coupon if provided
+          if (orderData.couponCode) {
+            const couponResult = await validateCoupon(orderData.couponCode, totalAmount, supabase);
+            if (couponResult.valid && couponResult.coupon) {
+              discountAmount = couponResult.discountAmount || 0;
+              couponCode = couponResult.coupon.code;
+              
+              // Update coupon usage
+              await supabase
+                .from("coupons")
+                .update({ used_count: couponResult.coupon.used_count + 1 })
+                .eq("id", couponResult.coupon.id);
+            } else {
+              messagesToSend.push({ type: "text", text: couponResult.errorMessage || "โค้ดส่วนลดไม่ถูกต้อง" });
+            }
+          }
+
+          const finalAmount = totalAmount - discountAmount;
 
           // Create order
           const { data: order, error: orderError } = await supabase
@@ -1717,7 +1941,9 @@ serve(async (req) => {
               customer_phone: orderData.customerPhone,
               customer_line_id: userId,
               platform: "line",
-              total_amount: totalAmount,
+              total_amount: finalAmount,
+              discount_amount: discountAmount,
+              coupon_code: couponCode,
               notes: orderData.variants ? `ตัวเลือก: ${orderData.variants}` : null
             })
             .select()
@@ -1748,11 +1974,12 @@ serve(async (req) => {
               })
               .eq("id", conversation.id);
 
-            console.log(`Order created: ${order.order_number}`);
+            console.log(`Order created: ${order.order_number} with discount: ${discountAmount}`);
 
             // Add text response
             if (aiResult.text) {
-              messagesToSend.push({ type: "text", text: aiResult.text });
+              const couponMsg = discountAmount > 0 ? `\n🎟️ ใช้โค้ด ${couponCode} ลด ฿${discountAmount.toLocaleString()}` : '';
+              messagesToSend.push({ type: "text", text: aiResult.text + couponMsg });
             }
 
             // Add order confirmation card
@@ -1760,10 +1987,11 @@ serve(async (req) => {
               order.order_number,
               product.name,
               orderData.quantity,
-              totalAmount,
+              finalAmount,
               orderData.customerName,
               orderData.customerAddress,
-              orderData.variants
+              orderData.variants,
+              discountAmount > 0 ? { code: couponCode!, discount: discountAmount, originalTotal: totalAmount } : undefined
             ));
           } else {
             console.error("Order creation error:", orderError);
