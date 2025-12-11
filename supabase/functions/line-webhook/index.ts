@@ -1303,24 +1303,11 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch LINE tokens from database settings
-    const { data: settings, error: settingsError } = await supabase
-      .from("settings")
-      .select("key, value")
-      .in("key", ["LINE_CHANNEL_ACCESS_TOKEN", "LINE_CHANNEL_SECRET"]);
+    // Read LINE tokens from environment variables (secure secrets)
+    const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN");
+    const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET");
 
-    if (settingsError) {
-      console.error("Error fetching LINE settings:", settingsError);
-      return new Response(JSON.stringify({ error: "Failed to load settings" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const LINE_CHANNEL_ACCESS_TOKEN = settings?.find(s => s.key === "LINE_CHANNEL_ACCESS_TOKEN")?.value;
-    const LINE_CHANNEL_SECRET = settings?.find(s => s.key === "LINE_CHANNEL_SECRET")?.value;
-
-    console.log("LINE tokens loaded from database:", {
+    console.log("LINE tokens loaded from environment:", {
       hasAccessToken: !!LINE_CHANNEL_ACCESS_TOKEN,
       hasChannelSecret: !!LINE_CHANNEL_SECRET
     });
@@ -1360,6 +1347,20 @@ serve(async (req) => {
       );
     }
     console.log("LINE signature verified successfully");
+
+    if (!LINE_CHANNEL_ACCESS_TOKEN) {
+      console.error("LINE_CHANNEL_ACCESS_TOKEN not configured");
+      return new Response(
+        JSON.stringify({ error: "LINE access token not configured" }), 
+        { 
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    // Type-safe token after validation
+    const lineAccessToken: string = LINE_CHANNEL_ACCESS_TOKEN;
 
     const data = JSON.parse(body);
     console.log("LINE webhook received:", JSON.stringify(data, null, 2));
@@ -1410,9 +1411,7 @@ serve(async (req) => {
 
       if (!conversation) {
         console.error("Failed to create conversation");
-        if (LINE_CHANNEL_ACCESS_TOKEN) {
-          await replyToLine(replyToken, [{ type: "text", text: "ขออภัยครับ เกิดข้อผิดพลาด" }], LINE_CHANNEL_ACCESS_TOKEN);
-        }
+        await replyToLine(replyToken, [{ type: "text", text: "ขออภัยครับ เกิดข้อผิดพลาด" }], lineAccessToken);
         continue;
       }
 
@@ -1464,7 +1463,7 @@ serve(async (req) => {
           await replyToLine(replyToken, [
             { type: "text", text: `นี่คือสถานะออเดอร์ของคุณค่ะ 📋` },
             orderStatusCard
-          ], LINE_CHANNEL_ACCESS_TOKEN);
+          ], lineAccessToken);
           continue;
         } else {
           // Order not found
@@ -1476,7 +1475,7 @@ serve(async (req) => {
 
           await replyToLine(replyToken, [
             { type: "text", text: `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้ง หรือติดต่อเจ้าหน้าที่ค่ะ` }
-          ], LINE_CHANNEL_ACCESS_TOKEN);
+          ], lineAccessToken);
           continue;
         }
       }
@@ -1520,7 +1519,7 @@ serve(async (req) => {
           await replyToLine(replyToken, [
             { type: "text", text: `📋 ประวัติออเดอร์ของคุณ (${orders.length} รายการล่าสุด)\n\nกดดูรายละเอียดหรือพิมพ์เลขออเดอร์เพื่อเช็คสถานะค่ะ` },
             historyCarousel
-          ], LINE_CHANNEL_ACCESS_TOKEN);
+          ], lineAccessToken);
           continue;
         } else {
           // No orders found
@@ -1532,7 +1531,7 @@ serve(async (req) => {
 
           await replyToLine(replyToken, [
             { type: "text", text: `📋 ยังไม่มีประวัติออเดอร์ค่ะ\n\nหากต้องการสั่งซื้อสินค้า พิมพ์ "ดูสินค้า" หรือสอบถามได้เลยค่ะ 😊` }
-          ], LINE_CHANNEL_ACCESS_TOKEN);
+          ], lineAccessToken);
           continue;
         }
       }
@@ -1565,7 +1564,7 @@ serve(async (req) => {
 
           await replyToLine(replyToken, [
             { type: "text", text: `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบของคุณ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้งค่ะ` }
-          ], LINE_CHANNEL_ACCESS_TOKEN);
+          ], lineAccessToken);
           continue;
         }
 
@@ -1585,7 +1584,7 @@ serve(async (req) => {
 
           await replyToLine(replyToken, [
             { type: "text", text: `ขออภัยค่ะ ${statusMessages[order.status] || 'ไม่สามารถยกเลิกออเดอร์นี้ได้ค่ะ'}\n\nหากมีปัญหา กรุณาติดต่อเจ้าหน้าที่ค่ะ` }
-          ], LINE_CHANNEL_ACCESS_TOKEN);
+          ], lineAccessToken);
           continue;
         }
 
@@ -1617,7 +1616,7 @@ serve(async (req) => {
           console.error("Error cancelling order:", updateError);
           await replyToLine(replyToken, [
             { type: "text", text: `ขออภัยค่ะ เกิดข้อผิดพลาดในการยกเลิกออเดอร์ กรุณาลองใหม่อีกครั้งค่ะ` }
-          ], LINE_CHANNEL_ACCESS_TOKEN);
+          ], lineAccessToken);
           continue;
         }
 
@@ -1693,7 +1692,7 @@ serve(async (req) => {
           })
           .eq("id", conversation.id);
 
-        await replyToLine(replyToken, [cancelConfirmCard], LINE_CHANNEL_ACCESS_TOKEN);
+        await replyToLine(replyToken, [cancelConfirmCard], lineAccessToken);
         continue;
       }
 
@@ -2100,11 +2099,11 @@ serve(async (req) => {
         .eq("id", conversation.id);
 
       // Reply to LINE
-      if (LINE_CHANNEL_ACCESS_TOKEN && messagesToSend.length > 0) {
+      if (messagesToSend.length > 0) {
         console.log("Sending reply to LINE...");
-        await replyToLine(replyToken, messagesToSend.slice(0, 5), LINE_CHANNEL_ACCESS_TOKEN);
+        await replyToLine(replyToken, messagesToSend.slice(0, 5), lineAccessToken);
       } else {
-        console.error("Cannot reply - LINE_CHANNEL_ACCESS_TOKEN not configured or no messages");
+        console.error("Cannot reply - no messages to send");
       }
     }
 

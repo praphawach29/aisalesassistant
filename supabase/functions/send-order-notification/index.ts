@@ -292,18 +292,14 @@ serve(async (req) => {
       );
     }
 
-    // Fetch API tokens from settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('settings')
-      .select('key, value')
-      .in('key', ['LINE_CHANNEL_ACCESS_TOKEN', 'FACEBOOK_PAGE_ACCESS_TOKEN']);
+    // Read API tokens from environment variables (secure secrets)
+    const lineToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
+    const facebookToken = Deno.env.get('FACEBOOK_PAGE_ACCESS_TOKEN');
 
-    if (settingsError) {
-      console.error('Error fetching settings:', settingsError);
-    }
-
-    const lineToken = settings?.find(s => s.key === 'LINE_CHANNEL_ACCESS_TOKEN')?.value;
-    const facebookToken = settings?.find(s => s.key === 'FACEBOOK_PAGE_ACCESS_TOKEN')?.value;
+    console.log('Tokens loaded from environment:', {
+      hasLineToken: !!lineToken,
+      hasFacebookToken: !!facebookToken
+    });
 
     let notificationSent = false;
     const results: { platform: string; success: boolean; error?: string }[] = [];
