@@ -1172,6 +1172,8 @@ interface OrderHistory {
 interface CustomerContext {
   isReturning: boolean;
   customerName?: string;
+  customerAddress?: string;
+  customerPhone?: string;
   messageCount: number;
   lastVisit?: string;
   cartItemCount?: number;
@@ -1238,10 +1240,15 @@ async function getAIResponse(
     orderHistorySection = `\n\n📋 ประวัติการสั่งซื้อของลูกค้า (${customerContext.orderHistory.length} รายการล่าสุด):\n${historyItems}`;
   }
 
+  // Build saved address info
+  const savedAddressInfo = customerContext.customerAddress 
+    ? `\n📍 ที่อยู่จัดส่งที่บันทึกไว้: "${customerContext.customerAddress}"`
+    : '';
+
   const customerGreeting = customerContext.isReturning 
     ? customerContext.customerName 
-      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น${cartInfo}${orderHistorySection}`
-      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น${cartInfo}${orderHistorySection}`
+      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น${savedAddressInfo}${cartInfo}${orderHistorySection}`
+      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น${savedAddressInfo}${cartInfo}${orderHistorySection}`
     : 'นี่คือลูกค้าใหม่ ทักทายสุภาพและแนะนำตัว';
 
   // Build store info section
@@ -1327,7 +1334,12 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
 ## 🛍️ สั่งซื้อตรง:
 - สั่งซื้อสินค้าที่มีตัวเลือก → [SELECT_VARIANT:ชื่อสินค้า]
 - ข้อมูลครบ → [CREATE_ORDER:สินค้า|จำนวน|ชื่อ|ที่อยู่|เบอร์|ตัวเลือก|โค้ด]
-- ห้ามบอกจำนวนสต็อกโดยตรง`;
+- ห้ามบอกจำนวนสต็อกโดยตรง
+
+## 📍 ที่อยู่จัดส่ง (ระบบบันทึกอัตโนมัติ):
+- ถ้ามีที่อยู่ที่บันทึกไว้ในข้อมูลลูกค้า → ถามว่าจะใช้ที่อยู่เดิมไหม เช่น "ส่งที่อยู่เดิมไหมคะ?"
+- ลูกค้าตอบ "ใช้ที่อยู่เดิม" หรือ "ส่งที่เดิม" → ใช้ที่อยู่ที่บันทึกไว้ในการสั่งซื้อ
+- ลูกค้าตอบ "เปลี่ยนที่อยู่" → ถามที่อยู่ใหม่`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -1909,6 +1921,8 @@ serve(async (req) => {
       const customerContext: CustomerContext = {
         isReturning: isReturningCustomer,
         customerName: conversation.customer_name || undefined,
+        customerAddress: conversation.customer_address || undefined,
+        customerPhone: conversation.customer_phone || undefined,
         messageCount: messageCount,
         lastVisit: conversation.last_message_at || undefined,
         cartItemCount: cartItemCount || 0,
@@ -2096,13 +2110,16 @@ serve(async (req) => {
                 .eq("conversation_id", conversation.id);
 
               // Update conversation
+              // Update conversation with customer info (including address)
               await supabase
                 .from("chat_conversations")
                 .update({
                   customer_name: cartAction.customerName,
-                  customer_phone: cartAction.customerPhone
+                  customer_phone: cartAction.customerPhone,
+                  customer_address: cartAction.customerAddress
                 })
                 .eq("id", conversation.id);
+              console.log(`Saved customer address for cart checkout: ${cartAction.customerName}`);
 
               console.log(`Cart order created: ${order.order_number} with discount: ${discountAmount}`);
 
@@ -2203,14 +2220,16 @@ serve(async (req) => {
               .update({ stock: product.stock - orderData.quantity })
               .eq("id", product.id);
 
-            // Update conversation with customer info
+            // Update conversation with customer info (including address)
             await supabase
               .from("chat_conversations")
               .update({
                 customer_name: orderData.customerName,
-                customer_phone: orderData.customerPhone
+                customer_phone: orderData.customerPhone,
+                customer_address: orderData.customerAddress
               })
               .eq("id", conversation.id);
+            console.log(`Saved customer address for ${orderData.customerName}`);
 
             console.log(`Order created: ${order.order_number} with discount: ${discountAmount}`);
 
