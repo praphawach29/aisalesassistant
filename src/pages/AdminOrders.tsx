@@ -41,9 +41,12 @@ import {
   MapPin,
   Calendar,
   MessageCircle,
-  Send
+  Send,
+  Bell,
+  BellOff
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Order, OrderItem } from '@/types';
 
 type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
@@ -81,6 +84,7 @@ export default function AdminOrders() {
     tracking_number: '',
     notes: '',
   });
+  const [sendNotificationOnSave, setSendNotificationOnSave] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
 
@@ -181,6 +185,8 @@ export default function AdminOrders() {
       tracking_number: order.tracking_number || '',
       notes: order.notes || '',
     });
+    // Auto-enable notification for LINE/Facebook, disable for web
+    setSendNotificationOnSave(order.platform !== 'web');
     setIsEditOpen(true);
   };
 
@@ -255,11 +261,13 @@ export default function AdminOrders() {
       
       toast.success('อัพเดทออเดอร์สำเร็จ');
       
-      // Send notification based on what changed
-      if (trackingChanged && editData.tracking_number.trim()) {
-        await sendNotification(selectedOrder.id, 'tracking_update');
-      } else if (statusChanged) {
-        await sendNotification(selectedOrder.id, 'status_update');
+      // Send notification based on what changed (only if enabled)
+      if (sendNotificationOnSave && selectedOrder.platform !== 'web') {
+        if (trackingChanged && editData.tracking_number.trim()) {
+          await sendNotification(selectedOrder.id, 'tracking_update');
+        } else if (statusChanged) {
+          await sendNotification(selectedOrder.id, 'status_update');
+        }
       }
       
       setIsEditOpen(false);
@@ -682,6 +690,48 @@ export default function AdminOrders() {
                 maxLength={500}
               />
             </div>
+
+            {/* Notification Toggle */}
+            {selectedOrder && (
+              <div className={`flex items-start gap-3 p-3 rounded-lg border ${
+                selectedOrder.platform === 'web' 
+                  ? 'bg-muted/50 border-muted' 
+                  : sendNotificationOnSave 
+                    ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' 
+                    : 'bg-muted/50 border-muted'
+              }`}>
+                <Checkbox
+                  id="sendNotification"
+                  checked={sendNotificationOnSave}
+                  onCheckedChange={(checked) => setSendNotificationOnSave(checked === true)}
+                  disabled={selectedOrder.platform === 'web'}
+                />
+                <div className="flex-1">
+                  <label 
+                    htmlFor="sendNotification" 
+                    className={`text-sm font-medium cursor-pointer flex items-center gap-2 ${
+                      selectedOrder.platform === 'web' ? 'text-muted-foreground' : ''
+                    }`}
+                  >
+                    {sendNotificationOnSave && selectedOrder.platform !== 'web' ? (
+                      <Bell className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <BellOff className="w-4 h-4 text-muted-foreground" />
+                    )}
+                    แจ้งเตือนลูกค้าอัตโนมัติ
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedOrder.platform === 'web' ? (
+                      'ไม่สามารถส่ง Push Notification ได้ (ออเดอร์จาก Web)'
+                    ) : selectedOrder.platform === 'line' ? (
+                      `ส่งแจ้งเตือนไปยัง LINE ของลูกค้า`
+                    ) : (
+                      `ส่งแจ้งเตือนไปยัง Facebook Messenger ของลูกค้า`
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-4">
               <Button 
