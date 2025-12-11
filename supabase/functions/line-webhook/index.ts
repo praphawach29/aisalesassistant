@@ -1160,11 +1160,29 @@ interface CartAction {
   couponCode?: string;
 }
 
+interface OrderHistory {
+  orderNumber: string;
+  productName: string;
+  quantity: number;
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+}
+
+interface CustomerContext {
+  isReturning: boolean;
+  customerName?: string;
+  messageCount: number;
+  lastVisit?: string;
+  cartItemCount?: number;
+  orderHistory?: OrderHistory[];
+}
+
 async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
-  customerContext: { isReturning: boolean; customerName?: string; messageCount: number; lastVisit?: string; cartItemCount?: number }
-): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData; cartAction?: CartAction; applyCoupon?: string }> {
+  customerContext: CustomerContext
+): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData; cartAction?: CartAction; applyCoupon?: string; recommendSimilar?: string }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -1196,22 +1214,34 @@ async function getAIResponse(
   const privacyPolicy = settingsMap.get("PRIVACY_POLICY") || "";
   const termsConditions = settingsMap.get("TERMS_CONDITIONS") || "";
 
+  // Build product catalog with stock and category info
   const productCatalog = products?.map((p: any) => {
     let variantInfo = "";
     if (p.variants && p.variants.length > 0) {
       variantInfo = ` [ตัวเลือก: ${p.variants.map((v: any) => `${v.name}(${v.options.join('/')})`).join(', ')}]`;
     }
-    return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}`;
+    const stockStatus = p.stock <= 0 ? ' [หมด]' : p.stock <= 5 ? ` [เหลือ ${p.stock} ชิ้น]` : '';
+    const categoryInfo = p.category ? ` (หมวด: ${p.category})` : '';
+    return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}${categoryInfo}${stockStatus}`;
   }).join('\n') || 'ยังไม่มีสินค้า';
 
   const cartInfo = customerContext.cartItemCount && customerContext.cartItemCount > 0 
     ? `\n\n🛒 ลูกค้ามีสินค้าในตะกร้า ${customerContext.cartItemCount} รายการ`
     : '';
 
+  // Build order history section
+  let orderHistorySection = '';
+  if (customerContext.orderHistory && customerContext.orderHistory.length > 0) {
+    const historyItems = customerContext.orderHistory.map(o => 
+      `- ${o.orderNumber}: ${o.productName} x${o.quantity} = ฿${o.totalAmount} (${o.status === 'delivered' ? 'ส่งแล้ว' : o.status === 'shipped' ? 'กำลังจัดส่ง' : o.status === 'confirmed' ? 'ยืนยันแล้ว' : o.status === 'cancelled' ? 'ยกเลิก' : 'รอดำเนินการ'})`
+    ).join('\n');
+    orderHistorySection = `\n\n📋 ประวัติการสั่งซื้อของลูกค้า (${customerContext.orderHistory.length} รายการล่าสุด):\n${historyItems}`;
+  }
+
   const customerGreeting = customerContext.isReturning 
     ? customerContext.customerName 
-      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น${cartInfo}`
-      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น${cartInfo}`
+      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น${cartInfo}${orderHistorySection}`
+      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น${cartInfo}${orderHistorySection}`
     : 'นี่คือลูกค้าใหม่ ทักทายสุภาพและแนะนำตัว';
 
   // Build store info section
@@ -1275,6 +1305,17 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
 - **สำคัญ**: ชื่อใน [SHOW_PRODUCT:xxx] ต้องตรงกับชื่อสินค้าในรายการ เช่น ถ้ามี "รองเท้าผ้าใบ" ต้องใช้ [SHOW_PRODUCT:รองเท้าผ้าใบ]
 - ถ้าลูกค้าบอกชื่อตัวเอง → ตอบ [NAME:ชื่อลูกค้า]
 
+## 🚫 สินค้าหมด - แนะนำสินค้าทดแทน:
+- ถ้าสินค้าที่ลูกค้าถามมีเครื่องหมาย [หมด] → แจ้งลูกค้าว่าสินค้าหมดและแนะนำสินค้าอื่นในหมวดเดียวกัน
+- ตัวอย่าง: ลูกค้าถาม "รองเท้า" แต่รองเท้าผ้าใบหมด → ตอบ "ขออภัยค่ะ รองเท้าผ้าใบหมดชั่วคราว ขอแนะนำสินค้าอื่นในหมวดเดียวกันนะคะ [RECOMMEND_SIMILAR:หมวดหมู่]"
+- ใช้ [RECOMMEND_SIMILAR:หมวดหมู่] เพื่อแสดงสินค้าในหมวดเดียวกันที่ยังมีสต็อก
+- ถ้าไม่มีสินค้าในหมวดเดียวกัน ให้แนะนำสินค้ายอดนิยมอื่นแทน
+
+## 📋 ประวัติการสั่งซื้อ:
+- ถ้าลูกค้าเคยสั่งซื้อ สามารถอ้างอิงประวัติได้ เช่น "ครั้งก่อนคุณสั่งเสื้อยืด สนใจสั่งซ้ำไหมคะ?"
+- ถ้าลูกค้าถามเรื่องออเดอร์เก่า สามารถบอกสถานะได้
+- ลูกค้าพิมพ์ "สั่งซ้ำ" หรือ "สั่งเหมือนเดิม" → ถามว่าต้องการสั่งสินค้าเดิมไหม
+
 ## 🎟️ คูปอง: ใช้โค้ด → [APPLY_COUPON:โค้ด]
 
 ## 🛒 ตะกร้า:
@@ -1323,6 +1364,7 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
     const clearCartMatch = content.match(/\[CLEAR_CART\]/);
     const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
     const applyCouponMatch = content.match(/\[APPLY_COUPON:([^\]]+)\]/);
+    const recommendSimilarMatch = content.match(/\[RECOMMEND_SIMILAR:([^\]]+)\]/);
 
     // Parse order data if present
     let createOrder: OrderData | undefined;
@@ -1378,6 +1420,7 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       .replace(/\[CLEAR_CART\]/g, '')
       .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
       .replace(/\[APPLY_COUPON:[^\]]+\]/g, '')
+      .replace(/\[RECOMMEND_SIMILAR:[^\]]+\]/g, '')
       .trim();
 
     return {
@@ -1388,7 +1431,8 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       selectVariant: selectVariantMatch ? selectVariantMatch[1].trim() : undefined,
       createOrder,
       cartAction,
-      applyCoupon: applyCouponMatch ? applyCouponMatch[1].trim() : undefined
+      applyCoupon: applyCouponMatch ? applyCouponMatch[1].trim() : undefined,
+      recommendSimilar: recommendSimilarMatch ? recommendSimilarMatch[1].trim() : undefined
     };
 
   } catch (error) {
@@ -1834,13 +1878,41 @@ serve(async (req) => {
         .select("*", { count: "exact", head: true })
         .eq("conversation_id", conversation.id);
 
+      // Get customer order history
+      let orderHistory: OrderHistory[] = [];
+      const { data: ordersData } = await supabase
+        .from("orders")
+        .select(`
+          order_number,
+          total_amount,
+          status,
+          created_at,
+          order_items (product_name, quantity)
+        `)
+        .eq("customer_line_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (ordersData && ordersData.length > 0) {
+        orderHistory = ordersData.map((o: any) => ({
+          orderNumber: o.order_number,
+          productName: o.order_items?.map((i: any) => i.product_name).join(', ') || 'ไม่ระบุ',
+          quantity: o.order_items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 1,
+          totalAmount: o.total_amount,
+          status: o.status,
+          createdAt: o.created_at
+        }));
+        console.log(`Found ${orderHistory.length} orders for customer ${userId}`);
+      }
+
       // Get AI response with customer context
-      const customerContext = {
+      const customerContext: CustomerContext = {
         isReturning: isReturningCustomer,
         customerName: conversation.customer_name || undefined,
         messageCount: messageCount,
         lastVisit: conversation.last_message_at || undefined,
-        cartItemCount: cartItemCount || 0
+        cartItemCount: cartItemCount || 0,
+        orderHistory: orderHistory.length > 0 ? orderHistory : undefined
       };
 
       let aiResult = await getAIResponse(messages, supabase, customerContext);
@@ -2219,6 +2291,37 @@ serve(async (req) => {
 
           if (products && products.length > 0) {
             messagesToSend.push(createSingleProductCard(products[0]));
+          }
+        } else if (aiResult.recommendSimilar) {
+          // Always add text message first
+          const textMsg = aiResult.text || "ขอแนะนำสินค้าอื่นในหมวดเดียวกันค่ะ 😊";
+          messagesToSend.push({ type: "text", text: textMsg });
+          
+          // Find products in the same category that are in stock
+          const { data: similarProducts } = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true)
+            .eq("category", aiResult.recommendSimilar)
+            .gt("stock", 0)
+            .limit(10);
+
+          if (similarProducts && similarProducts.length > 0) {
+            console.log(`Found ${similarProducts.length} similar products in category: ${aiResult.recommendSimilar}`);
+            messagesToSend.push(createProductFlexMessage(similarProducts));
+          } else {
+            // If no products in that category, show any available products
+            const { data: availableProducts } = await supabase
+              .from("products")
+              .select("*")
+              .eq("is_active", true)
+              .gt("stock", 0)
+              .limit(10);
+
+            if (availableProducts && availableProducts.length > 0) {
+              console.log(`No products in category ${aiResult.recommendSimilar}, showing ${availableProducts.length} available products`);
+              messagesToSend.push(createProductFlexMessage(availableProducts));
+            }
           }
         } else {
           // No product action - just send text response
