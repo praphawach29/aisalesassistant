@@ -1794,8 +1794,10 @@ serve(async (req) => {
       }
 
       // Check if message is a greeting - don't include history to force fresh response
-      const greetingPatterns = /^(สวัสดี|หวัดดี|ดีครับ|ดีค่ะ|ดี|hello|hi|hey|hola)[\s!]*$/i;
+      // Pattern matches: สวัสดี, สวัสดีครับ, สวัสดีค่ะ, หวัดดี, ดีครับ, ดีค่ะ, ดี, hello, hi, hey, etc.
+      const greetingPatterns = /^(สวัสดี(ครับ|ค่ะ|จ้า|นะ)?|หวัดดี(ครับ|ค่ะ|จ้า|นะ)?|ดีครับ|ดีค่ะ|ดีจ้า|ดี|hello|hi|hey|hola)[\s!]*$/i;
       const isGreeting = greetingPatterns.test(userMessage.trim());
+      console.log(`Greeting check: message="${userMessage}", isGreeting=${isGreeting}`);
       
       let messages: Array<{ role: string; content: string }>;
       
