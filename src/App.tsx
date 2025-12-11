@@ -18,6 +18,7 @@ import AdminNotifications from "./pages/AdminNotifications";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminAISettings from "./pages/AdminAISettings";
 import AdminCoupons from "./pages/AdminCoupons";
+import AdminAddresses from "./pages/AdminAddresses";
 import WidgetDemo from "./pages/WidgetDemo";
 import Embed from "./pages/Embed";
 import NotFound from "./pages/NotFound";
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/admin/templates" element={<AdminTemplates />} />
             <Route path="/admin/ai-settings" element={<AdminAISettings />} />
             <Route path="/admin/coupons" element={<AdminCoupons />} />
+            <Route path="/admin/addresses" element={<AdminAddresses />} />
             <Route path="/widget-demo" element={<WidgetDemo />} />
             <Route path="/embed" element={<Embed />} />
             <Route path="*" element={<NotFound />} />
