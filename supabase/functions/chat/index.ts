@@ -95,9 +95,7 @@ ${personality || "สุภาพ เป็นมิตร พร้อมให
 ## 📦 รายการสินค้า:
 ${productCatalog}
 
-${faqList ? `## ❓ คำถามที่พบบ่อย:\n${faqList}` : ''}
-
-## 🏪 ข้อมูลร้านค้า:
+## 🏪 ข้อมูลร้านค้าอย่างเป็นทางการ (สำคัญที่สุด - ใช้ข้อมูลนี้เป็นหลัก):
 ${storeSettings.storeName ? `- ชื่อร้าน: ${storeSettings.storeName}` : ''}
 ${storeSettings.storePhone ? `- เบอร์โทร: ${storeSettings.storePhone}` : ''}
 ${storeSettings.storeAddress ? `- ที่อยู่: ${storeSettings.storeAddress}` : ''}
@@ -109,19 +107,21 @@ ${storeSettings.lineId ? `- LINE: ${storeSettings.lineId}` : ''}
 ${storeSettings.facebookPage ? `- Facebook: ${storeSettings.facebookPage}` : ''}
 ${storeSettings.instagram ? `- Instagram: ${storeSettings.instagram}` : ''}` : ''}
 
-${storeSettings.returnPolicy ? `## 📋 นโยบายการคืนสินค้า:\n${storeSettings.returnPolicy}` : ''}
+${storeSettings.shippingInfo ? `## 🚚 ข้อมูลการจัดส่ง (สำคัญ - ใช้ข้อมูลนี้เท่านั้น ห้ามใช้ข้อมูลจาก FAQ):\n${storeSettings.shippingInfo}` : ''}
 
-${storeSettings.shippingInfo ? `## 🚚 ข้อมูลการจัดส่ง:\n${storeSettings.shippingInfo}` : ''}
+${storeSettings.bankAccounts ? `## 🏦 บัญชีธนาคาร (สำคัญ - ใช้ข้อมูลนี้เท่านั้น ห้ามใช้ข้อมูลจาก FAQ):\n${storeSettings.bankAccounts}` : ''}
 
-${storeSettings.bankAccounts ? `## 🏦 บัญชีธนาคาร (สำคัญ - ใช้ข้อมูลนี้เท่านั้น):\n${storeSettings.bankAccounts}` : ''}
+${storeSettings.paymentMethods ? `## 💳 วิธีการชำระเงิน (สำคัญ - ใช้ข้อมูลนี้เท่านั้น ห้ามใช้ข้อมูลจาก FAQ):\n${storeSettings.paymentMethods}` : ''}
 
-${storeSettings.paymentMethods ? `## 💳 วิธีการชำระเงิน (สำคัญ - ใช้ข้อมูลนี้เท่านั้น):\n${storeSettings.paymentMethods}` : ''}
+${storeSettings.returnPolicy ? `## 📋 นโยบายการคืนสินค้า (สำคัญ - ใช้ข้อมูลนี้เท่านั้น):\n${storeSettings.returnPolicy}` : ''}
 
-${storeSettings.warrantyInfo ? `## 🛡️ การรับประกัน:\n${storeSettings.warrantyInfo}` : ''}
+${storeSettings.warrantyInfo ? `## 🛡️ การรับประกัน (สำคัญ - ใช้ข้อมูลนี้เท่านั้น):\n${storeSettings.warrantyInfo}` : ''}
 
 ${storeSettings.privacyPolicy ? `## 🔒 นโยบายความเป็นส่วนตัว:\n${storeSettings.privacyPolicy}` : ''}
 
 ${storeSettings.termsConditions ? `## 📜 ข้อกำหนดและเงื่อนไข:\n${storeSettings.termsConditions}` : ''}
+
+${faqList ? `## ❓ คำถามที่พบบ่อย (ใช้เป็นข้อมูลเสริมเท่านั้น - ถ้าข้อมูลขัดแย้งกับข้อมูลร้านค้าด้านบน ให้ใช้ข้อมูลร้านค้าเป็นหลัก):\n${faqList}` : ''}
 
 ## 🚫 กฎเรื่องสต็อก (สำคัญมาก):
 - ห้ามบอกจำนวนสต็อกเด็ดขาด ถ้าถามให้ตอบว่า "สินค้ามีพร้อมจำหน่าย${particleEnd}"
