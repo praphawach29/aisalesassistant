@@ -1325,15 +1325,41 @@ serve(async (req) => {
       hasChannelSecret: !!LINE_CHANNEL_SECRET
     });
 
-    // Verify LINE signature
-    if (signature && LINE_CHANNEL_SECRET) {
-      const isValid = await verifySignature(body, signature, LINE_CHANNEL_SECRET);
-      if (!isValid) {
-        console.error("Invalid LINE signature");
-        return new Response("Unauthorized", { status: 401 });
-      }
-      console.log("LINE signature verified successfully");
+    // Verify LINE signature - MANDATORY for security
+    if (!signature) {
+      console.error("Missing LINE signature header");
+      return new Response(
+        JSON.stringify({ error: "Missing x-line-signature header" }), 
+        { 
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
     }
+
+    if (!LINE_CHANNEL_SECRET) {
+      console.error("LINE_CHANNEL_SECRET not configured");
+      return new Response(
+        JSON.stringify({ error: "Webhook not properly configured" }), 
+        { 
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    const isValid = await verifySignature(body, signature, LINE_CHANNEL_SECRET);
+    if (!isValid) {
+      console.error("Invalid LINE signature");
+      return new Response(
+        JSON.stringify({ error: "Invalid signature" }), 
+        { 
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+    console.log("LINE signature verified successfully");
 
     const data = JSON.parse(body);
     console.log("LINE webhook received:", JSON.stringify(data, null, 2));

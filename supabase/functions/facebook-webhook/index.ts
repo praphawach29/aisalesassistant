@@ -1,10 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-hub-signature-256",
 };
+
+// Verify Facebook webhook signature
+async function verifyFacebookSignature(body: string, signature: string, appSecret: string): Promise<boolean> {
+  try {
+    const expectedSignature = "sha256=" + createHmac("sha256", appSecret)
+      .update(body)
+      .digest("hex");
+    return signature === expectedSignature;
+  } catch (error) {
+    console.error("Facebook signature verification error:", error);
+    return false;
+  }
+}
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -529,19 +543,58 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    const bodyText = await req.text();
+    const body = JSON.parse(bodyText);
     console.log("Facebook webhook received:", JSON.stringify(body, null, 2));
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch Facebook token from database settings
+    // Fetch Facebook settings from database
     const { data: settings } = await supabase
       .from("settings")
       .select("key, value")
-      .eq("key", "FACEBOOK_PAGE_ACCESS_TOKEN")
-      .maybeSingle();
+      .in("key", ["FACEBOOK_PAGE_ACCESS_TOKEN", "FACEBOOK_APP_SECRET"]);
 
-    const FB_PAGE_ACCESS_TOKEN = settings?.value;
+    const FB_PAGE_ACCESS_TOKEN = settings?.find(s => s.key === "FACEBOOK_PAGE_ACCESS_TOKEN")?.value;
+    const FB_APP_SECRET = settings?.find(s => s.key === "FACEBOOK_APP_SECRET")?.value;
+
+    // Verify Facebook signature - MANDATORY for security
+    const signature = req.headers.get("x-hub-signature-256");
+    
+    if (!signature) {
+      console.error("Missing Facebook signature header");
+      return new Response(
+        JSON.stringify({ error: "Missing x-hub-signature-256 header" }), 
+        { 
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    if (!FB_APP_SECRET) {
+      console.error("FACEBOOK_APP_SECRET not configured in settings");
+      return new Response(
+        JSON.stringify({ error: "Webhook not properly configured" }), 
+        { 
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    const isValidSignature = await verifyFacebookSignature(bodyText, signature, FB_APP_SECRET);
+    if (!isValidSignature) {
+      console.error("Invalid Facebook signature");
+      return new Response(
+        JSON.stringify({ error: "Invalid signature" }), 
+        { 
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+    console.log("Facebook signature verified successfully");
 
     if (!FB_PAGE_ACCESS_TOKEN) {
       console.error("FACEBOOK_PAGE_ACCESS_TOKEN not configured in settings");
