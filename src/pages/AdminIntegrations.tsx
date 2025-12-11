@@ -61,18 +61,18 @@ const AdminIntegrations = () => {
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("*")
-        .order("key");
+      // Use edge function to load and decrypt settings
+      const { data, error } = await supabase.functions.invoke('settings-crypto', {
+        body: { action: 'load_and_decrypt' }
+      });
 
       if (error) throw error;
       
-      // Merge with default settings if they don't exist
-      const allKeys = [...LINE_SETTINGS, ...FACEBOOK_SETTINGS].map(s => s.key);
-      const existingKeys = (data || []).map(s => s.key);
+      const decryptedSettings = data?.settings || [];
       
-      const mergedSettings: Setting[] = [...(data || [])];
+      // Merge with default settings if they don't exist
+      const existingKeys = decryptedSettings.map((s: Setting) => s.key);
+      const mergedSettings: Setting[] = [...decryptedSettings];
       
       for (const settingDef of [...LINE_SETTINGS, ...FACEBOOK_SETTINGS]) {
         if (!existingKeys.includes(settingDef.key)) {
@@ -113,35 +113,27 @@ const AdminIntegrations = () => {
         ? LINE_SETTINGS.map(s => s.key)
         : FACEBOOK_SETTINGS.map(s => s.key);
       
-      for (const setting of settings.filter(s => keysToSave.includes(s.key))) {
-        // Check if setting exists
-        const { data: existing } = await supabase
-          .from("settings")
-          .select("id")
-          .eq("key", setting.key)
-          .single();
-        
-        if (existing) {
-          const { error } = await supabase
-            .from("settings")
-            .update({ value: setting.value })
-            .eq("key", setting.key);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from("settings")
-            .insert({ 
-              key: setting.key, 
-              value: setting.value,
-              description: [...LINE_SETTINGS, ...FACEBOOK_SETTINGS].find(s => s.key === setting.key)?.description
-            });
-          if (error) throw error;
+      const settingsToSave = settings
+        .filter(s => keysToSave.includes(s.key))
+        .map(s => ({
+          key: s.key,
+          value: s.value,
+          description: [...LINE_SETTINGS, ...FACEBOOK_SETTINGS].find(def => def.key === s.key)?.description
+        }));
+
+      // Use edge function to encrypt and save
+      const { data, error } = await supabase.functions.invoke('settings-crypto', {
+        body: { 
+          action: 'encrypt_and_save',
+          settings: settingsToSave
         }
-      }
+      });
+
+      if (error) throw error;
 
       toast({
         title: "บันทึกสำเร็จ",
-        description: `การตั้งค่า ${platform === 'line' ? 'LINE' : 'Facebook'} ถูกบันทึกเรียบร้อยแล้ว`,
+        description: `การตั้งค่า ${platform === 'line' ? 'LINE' : 'Facebook'} ถูกเข้ารหัสและบันทึกเรียบร้อยแล้ว`,
       });
     } catch (error) {
       console.error("Error saving settings:", error);

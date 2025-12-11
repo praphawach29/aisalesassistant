@@ -13,7 +13,10 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.test-line-connection]
-verify_jwt = false
+verify_jwt = true
 
 [functions.test-facebook-connection]
-verify_jwt = false
+verify_jwt = true
+
+[functions.settings-crypto]
+verify_jwt = true

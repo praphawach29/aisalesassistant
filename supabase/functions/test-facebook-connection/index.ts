@@ -5,6 +5,55 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || '';
+
+async function getKey(): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
+  return await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decrypt(encryptedText: string): Promise<string> {
+  if (!encryptedText) return '';
+  
+  try {
+    const key = await getKey();
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encrypted
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return encryptedText; // Return original if decryption fails
+  }
+}
+
+async function getDecryptedSetting(supabase: any, key: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  
+  if (error || !data?.value) return null;
+  
+  return await decrypt(data.value);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -43,7 +92,7 @@ Deno.serve(async (req) => {
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
-      .single();
+      .maybeSingle();
 
     if (!roleData) {
       return new Response(
@@ -52,12 +101,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Read Facebook token from environment variable (secure secret)
-    const pageAccessToken = Deno.env.get('FACEBOOK_PAGE_ACCESS_TOKEN');
+    // Read and decrypt Facebook token from database
+    const pageAccessToken = await getDecryptedSetting(supabase, 'FACEBOOK_PAGE_ACCESS_TOKEN');
 
     if (!pageAccessToken) {
       return new Response(
-        JSON.stringify({ success: false, message: 'ยังไม่ได้ตั้งค่า Facebook Page Access Token ใน Secrets' }),
+        JSON.stringify({ success: false, message: 'ยังไม่ได้ตั้งค่า Facebook Page Access Token กรุณาตั้งค่าในหน้า Integration' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }

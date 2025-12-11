@@ -6,6 +6,55 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || '';
+
+async function getKey(): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ENCRYPTION_KEY.padEnd(32, '0').slice(0, 32));
+  return await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decrypt(encryptedText: string): Promise<string> {
+  if (!encryptedText) return '';
+  
+  try {
+    const key = await getKey();
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encrypted
+    );
+    
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return encryptedText;
+  }
+}
+
+async function getDecryptedSetting(supabase: any, key: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  
+  if (error || !data?.value) return null;
+  
+  return await decrypt(data.value);
+}
+
 interface NotificationRequest {
   order_id: string;
   notification_type: 'status_update' | 'tracking_update' | 'custom';
@@ -292,11 +341,11 @@ serve(async (req) => {
       );
     }
 
-    // Read API tokens from environment variables (secure secrets)
-    const lineToken = Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN');
-    const facebookToken = Deno.env.get('FACEBOOK_PAGE_ACCESS_TOKEN');
+    // Read and decrypt API tokens from database
+    const lineToken = await getDecryptedSetting(supabase, 'LINE_CHANNEL_ACCESS_TOKEN');
+    const facebookToken = await getDecryptedSetting(supabase, 'FACEBOOK_PAGE_ACCESS_TOKEN');
 
-    console.log('Tokens loaded from environment:', {
+    console.log('Tokens loaded from database:', {
       hasLineToken: !!lineToken,
       hasFacebookToken: !!facebookToken
     });
