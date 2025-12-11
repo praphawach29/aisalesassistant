@@ -12,17 +12,160 @@ interface NotificationRequest {
   custom_message?: string;
 }
 
-const statusMessages: Record<string, string> = {
-  pending: 'ออเดอร์ของคุณกำลังรอการดำเนินการ',
-  confirmed: 'ออเดอร์ของคุณได้รับการยืนยันแล้ว',
-  shipped: 'ออเดอร์ของคุณถูกจัดส่งแล้ว',
-  delivered: 'ออเดอร์ของคุณส่งสำเร็จแล้ว',
-  cancelled: 'ออเดอร์ของคุณถูกยกเลิก',
+const statusMessages: Record<string, { text: string; emoji: string; color: string }> = {
+  pending: { text: 'รอดำเนินการ', emoji: '⏳', color: '#FFA500' },
+  confirmed: { text: 'ยืนยันแล้ว', emoji: '✅', color: '#00B900' },
+  shipped: { text: 'จัดส่งแล้ว', emoji: '🚚', color: '#1E90FF' },
+  delivered: { text: 'ส่งสำเร็จ', emoji: '📦', color: '#32CD32' },
+  cancelled: { text: 'ยกเลิก', emoji: '❌', color: '#FF0000' },
 };
 
-async function sendToLine(accessToken: string, userId: string, message: string): Promise<boolean> {
+// Create LINE Flex Message for status update
+function createStatusUpdateFlexMessage(order: any, statusInfo: { text: string; emoji: string; color: string }) {
+  const contents: any[] = [
+    {
+      type: "text",
+      text: `${statusInfo.emoji} อัปเดตสถานะออเดอร์`,
+      weight: "bold",
+      size: "lg",
+      color: "#333333"
+    },
+    {
+      type: "separator",
+      margin: "lg"
+    },
+    {
+      type: "box",
+      layout: "vertical",
+      margin: "lg",
+      spacing: "sm",
+      contents: [
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "หมายเลข:", size: "sm", color: "#666666", flex: 3 },
+            { type: "text", text: order.order_number, size: "sm", color: "#333333", weight: "bold", flex: 7, align: "end" }
+          ]
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "สถานะ:", size: "sm", color: "#666666", flex: 3 },
+            { type: "text", text: statusInfo.text, size: "sm", color: statusInfo.color, weight: "bold", flex: 7, align: "end" }
+          ]
+        }
+      ]
+    }
+  ];
+
+  // Add tracking number if shipped
+  if (order.status === 'shipped' && order.tracking_number) {
+    contents.push({
+      type: "box",
+      layout: "horizontal",
+      margin: "sm",
+      contents: [
+        { type: "text", text: "เลขพัสดุ:", size: "sm", color: "#666666", flex: 3 },
+        { type: "text", text: order.tracking_number, size: "sm", color: "#1E90FF", weight: "bold", flex: 7, align: "end" }
+      ]
+    });
+  }
+
+  contents.push({
+    type: "text",
+    text: "ขอบคุณที่ใช้บริการค่ะ 🙏",
+    size: "sm",
+    color: "#00B900",
+    margin: "lg",
+    align: "center"
+  });
+
+  return {
+    type: "flex",
+    altText: `อัปเดตสถานะ ${order.order_number}: ${statusInfo.text}`,
+    contents: {
+      type: "bubble",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents
+      }
+    }
+  };
+}
+
+// Create LINE Flex Message for tracking update
+function createTrackingUpdateFlexMessage(order: any) {
+  return {
+    type: "flex",
+    altText: `เลขพัสดุออเดอร์ ${order.order_number}: ${order.tracking_number}`,
+    contents: {
+      type: "bubble",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: "🚚 อัปเดตการจัดส่ง!",
+            weight: "bold",
+            size: "lg",
+            color: "#1E90FF"
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "sm",
+            contents: [
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "หมายเลขออเดอร์:", size: "sm", color: "#666666", flex: 5 },
+                  { type: "text", text: order.order_number, size: "sm", color: "#333333", weight: "bold", flex: 5, align: "end" }
+                ]
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "เลขพัสดุ:", size: "sm", color: "#666666", flex: 5 },
+                  { type: "text", text: order.tracking_number, size: "md", color: "#1E90FF", weight: "bold", flex: 5, align: "end" }
+                ]
+              }
+            ]
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "text",
+            text: "📍 สามารถติดตามพัสดุได้แล้วค่ะ",
+            size: "sm",
+            color: "#00B900",
+            margin: "lg",
+            align: "center",
+            wrap: true
+          }
+        ]
+      }
+    }
+  };
+}
+
+async function sendToLine(accessToken: string, userId: string, message: any): Promise<boolean> {
   try {
     console.log(`Sending LINE notification to ${userId}`);
+    
+    const messages = Array.isArray(message) ? message : [message];
     
     const response = await fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
@@ -32,7 +175,7 @@ async function sendToLine(accessToken: string, userId: string, message: string):
       },
       body: JSON.stringify({
         to: userId,
-        messages: [{ type: 'text', text: message }],
+        messages,
       }),
     });
 
@@ -162,53 +305,60 @@ serve(async (req) => {
     const lineToken = settings?.find(s => s.key === 'LINE_CHANNEL_ACCESS_TOKEN')?.value;
     const facebookToken = settings?.find(s => s.key === 'FACEBOOK_PAGE_ACCESS_TOKEN')?.value;
 
-    // Build notification message
-    let message = '';
-    
-    if (notification_type === 'custom' && custom_message) {
-      message = custom_message;
-    } else if (notification_type === 'tracking_update' && order.tracking_number) {
-      message = `📦 อัพเดทออเดอร์ ${order.order_number}\n\n🚚 หมายเลขพัสดุ: ${order.tracking_number}\n\nคุณสามารถติดตามพัสดุได้แล้วค่ะ`;
-    } else if (notification_type === 'status_update') {
-      const statusText = statusMessages[order.status] || 'สถานะออเดอร์มีการเปลี่ยนแปลง';
-      message = `📦 อัพเดทออเดอร์ ${order.order_number}\n\n${statusText}`;
-      
-      if (order.tracking_number && order.status === 'shipped') {
-        message += `\n\n🚚 หมายเลขพัสดุ: ${order.tracking_number}`;
-      }
-    }
-
-    if (!message) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'No message to send' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     let notificationSent = false;
     const results: { platform: string; success: boolean; error?: string }[] = [];
 
-    // Send to LINE if applicable
+    // Send to LINE with Flex Messages
     if (order.platform === 'line' && order.customer_line_id) {
       if (!lineToken) {
         console.error('LINE access token not configured');
         results.push({ platform: 'line', success: false, error: 'Token not configured' });
       } else {
-        const success = await sendToLine(lineToken, order.customer_line_id, message);
-        results.push({ platform: 'line', success });
-        if (success) notificationSent = true;
+        let lineMessage: any;
+        
+        if (notification_type === 'custom' && custom_message) {
+          lineMessage = { type: 'text', text: custom_message };
+        } else if (notification_type === 'tracking_update' && order.tracking_number) {
+          lineMessage = createTrackingUpdateFlexMessage(order);
+        } else if (notification_type === 'status_update') {
+          const statusInfo = statusMessages[order.status] || statusMessages['pending'];
+          lineMessage = createStatusUpdateFlexMessage(order, statusInfo);
+        }
+
+        if (lineMessage) {
+          const success = await sendToLine(lineToken, order.customer_line_id, lineMessage);
+          results.push({ platform: 'line', success });
+          if (success) notificationSent = true;
+        }
       }
     }
 
-    // Send to Facebook if applicable
+    // Send to Facebook (text only for now)
     if (order.platform === 'facebook' && order.customer_facebook_id) {
       if (!facebookToken) {
         console.error('Facebook access token not configured');
         results.push({ platform: 'facebook', success: false, error: 'Token not configured' });
       } else {
-        const success = await sendToFacebook(facebookToken, order.customer_facebook_id, message);
-        results.push({ platform: 'facebook', success });
-        if (success) notificationSent = true;
+        let message = '';
+        
+        if (notification_type === 'custom' && custom_message) {
+          message = custom_message;
+        } else if (notification_type === 'tracking_update' && order.tracking_number) {
+          message = `📦 อัพเดทออเดอร์ ${order.order_number}\n\n🚚 หมายเลขพัสดุ: ${order.tracking_number}\n\nคุณสามารถติดตามพัสดุได้แล้วค่ะ`;
+        } else if (notification_type === 'status_update') {
+          const statusInfo = statusMessages[order.status] || statusMessages['pending'];
+          message = `${statusInfo.emoji} อัปเดตออเดอร์ ${order.order_number}\n\nสถานะ: ${statusInfo.text}`;
+          
+          if (order.tracking_number && order.status === 'shipped') {
+            message += `\n\n🚚 หมายเลขพัสดุ: ${order.tracking_number}`;
+          }
+        }
+
+        if (message) {
+          const success = await sendToFacebook(facebookToken, order.customer_facebook_id, message);
+          results.push({ platform: 'facebook', success });
+          if (success) notificationSent = true;
+        }
       }
     }
 
