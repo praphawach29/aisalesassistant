@@ -1169,6 +1169,13 @@ interface OrderHistory {
   createdAt: string;
 }
 
+interface SavedAddress {
+  id: string;
+  label: string;
+  address: string;
+  isDefault: boolean;
+}
+
 interface CustomerContext {
   isReturning: boolean;
   customerName?: string;
@@ -1178,13 +1185,14 @@ interface CustomerContext {
   lastVisit?: string;
   cartItemCount?: number;
   orderHistory?: OrderHistory[];
+  savedAddresses?: SavedAddress[];
 }
 
 async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
   customerContext: CustomerContext
-): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData; cartAction?: CartAction; applyCoupon?: string; recommendSimilar?: string }> {
+): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string; selectVariant?: string; createOrder?: OrderData; cartAction?: CartAction; applyCoupon?: string; recommendSimilar?: string; saveAddress?: { label: string; address: string } }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -1240,10 +1248,14 @@ async function getAIResponse(
     orderHistorySection = `\n\n📋 ประวัติการสั่งซื้อของลูกค้า (${customerContext.orderHistory.length} รายการล่าสุด):\n${historyItems}`;
   }
 
-  // Build saved address info
-  const savedAddressInfo = customerContext.customerAddress 
-    ? `\n📍 ที่อยู่จัดส่งที่บันทึกไว้: "${customerContext.customerAddress}"`
-    : '';
+  // Build saved addresses info (multiple addresses)
+  let savedAddressInfo = '';
+  if (customerContext.savedAddresses && customerContext.savedAddresses.length > 0) {
+    const addressList = customerContext.savedAddresses.map((addr, idx) => 
+      `${idx + 1}. [${addr.label}]${addr.isDefault ? ' (ค่าเริ่มต้น)' : ''}: "${addr.address}"`
+    ).join('\n');
+    savedAddressInfo = `\n📍 ที่อยู่ที่บันทึกไว้ (${customerContext.savedAddresses.length} แห่ง):\n${addressList}`;
+  }
 
   const customerGreeting = customerContext.isReturning 
     ? customerContext.customerName 
@@ -1336,10 +1348,12 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
 - ข้อมูลครบ → [CREATE_ORDER:สินค้า|จำนวน|ชื่อ|ที่อยู่|เบอร์|ตัวเลือก|โค้ด]
 - ห้ามบอกจำนวนสต็อกโดยตรง
 
-## 📍 ที่อยู่จัดส่ง (ระบบบันทึกอัตโนมัติ):
-- ถ้ามีที่อยู่ที่บันทึกไว้ในข้อมูลลูกค้า → ถามว่าจะใช้ที่อยู่เดิมไหม เช่น "ส่งที่อยู่เดิมไหมคะ?"
-- ลูกค้าตอบ "ใช้ที่อยู่เดิม" หรือ "ส่งที่เดิม" → ใช้ที่อยู่ที่บันทึกไว้ในการสั่งซื้อ
-- ลูกค้าตอบ "เปลี่ยนที่อยู่" → ถามที่อยู่ใหม่`;
+## 📍 ที่อยู่จัดส่ง (รองรับหลายที่อยู่):
+- ถ้าลูกค้ามีที่อยู่บันทึกไว้ → ถามว่าจะใช้ที่อยู่ไหน เช่น "ส่งที่บ้านหรือที่ทำงานดีคะ?" หรือ "ใช้ที่อยู่ [บ้าน] ไหมคะ?"
+- ลูกค้าตอบ "ส่งที่บ้าน" หรือ "ใช้ที่อยู่บ้าน" → ใช้ที่อยู่ที่มี label "บ้าน"
+- ลูกค้าตอบ "ส่งที่ทำงาน" → ใช้ที่อยู่ที่มี label "ที่ทำงาน"
+- ลูกค้าต้องการเพิ่มที่อยู่ใหม่ → ถามที่อยู่และถามว่าจะบันทึกเป็นชื่ออะไร เช่น "บ้าน", "ที่ทำงาน", "บ้านแม่"
+- ใช้ [SAVE_ADDRESS:label|ที่อยู่] เพื่อบันทึกที่อยู่ใหม่ เช่น [SAVE_ADDRESS:ที่ทำงาน|123 อาคารเอบีซี ถนนสุขุมวิท]`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -1377,6 +1391,7 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
     const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
     const applyCouponMatch = content.match(/\[APPLY_COUPON:([^\]]+)\]/);
     const recommendSimilarMatch = content.match(/\[RECOMMEND_SIMILAR:([^\]]+)\]/);
+    const saveAddressMatch = content.match(/\[SAVE_ADDRESS:([^\]]+)\]/);
 
     // Parse order data if present
     let createOrder: OrderData | undefined;
@@ -1420,6 +1435,18 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       };
     }
 
+    // Parse save address if present
+    let saveAddress: { label: string; address: string } | undefined;
+    if (saveAddressMatch) {
+      const parts = saveAddressMatch[1].split('|');
+      if (parts.length >= 2) {
+        saveAddress = {
+          label: parts[0]?.trim(),
+          address: parts[1]?.trim()
+        };
+      }
+    }
+
     // Clean up the response
     content = content
       .replace(/\[SHOW_PRODUCTS\]/g, '')
@@ -1433,6 +1460,7 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
       .replace(/\[APPLY_COUPON:[^\]]+\]/g, '')
       .replace(/\[RECOMMEND_SIMILAR:[^\]]+\]/g, '')
+      .replace(/\[SAVE_ADDRESS:[^\]]+\]/g, '')
       .trim();
 
     return {
@@ -1444,7 +1472,8 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       createOrder,
       cartAction,
       applyCoupon: applyCouponMatch ? applyCouponMatch[1].trim() : undefined,
-      recommendSimilar: recommendSimilarMatch ? recommendSimilarMatch[1].trim() : undefined
+      recommendSimilar: recommendSimilarMatch ? recommendSimilarMatch[1].trim() : undefined,
+      saveAddress
     };
 
   } catch (error) {
@@ -1917,6 +1946,26 @@ serve(async (req) => {
         console.log(`Found ${orderHistory.length} orders for customer ${userId}`);
       }
 
+      // Fetch saved addresses for the customer
+      let savedAddresses: SavedAddress[] = [];
+      const { data: addressesData } = await supabase
+        .from("customer_addresses")
+        .select("*")
+        .eq("platform_user_id", userId)
+        .eq("platform", "line")
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (addressesData && addressesData.length > 0) {
+        savedAddresses = addressesData.map((a: any) => ({
+          id: a.id,
+          label: a.label,
+          address: a.address,
+          isDefault: a.is_default
+        }));
+        console.log(`Found ${savedAddresses.length} saved addresses for customer ${userId}`);
+      }
+
       // Get AI response with customer context
       const customerContext: CustomerContext = {
         isReturning: isReturningCustomer,
@@ -1926,7 +1975,8 @@ serve(async (req) => {
         messageCount: messageCount,
         lastVisit: conversation.last_message_at || undefined,
         cartItemCount: cartItemCount || 0,
-        orderHistory: orderHistory.length > 0 ? orderHistory : undefined
+        orderHistory: orderHistory.length > 0 ? orderHistory : undefined,
+        savedAddresses: savedAddresses.length > 0 ? savedAddresses : undefined
       };
 
       let aiResult = await getAIResponse(messages, supabase, customerContext);
@@ -1949,6 +1999,7 @@ serve(async (req) => {
           createOrder: undefined,
           cartAction: undefined,
           applyCoupon: undefined,
+          saveAddress: undefined,
           detectedName: aiResult.detectedName // Keep detected name if any
         };
         console.log("Overridden AI result for greeting:", aiResult);
@@ -1956,6 +2007,46 @@ serve(async (req) => {
 
       // Prepare messages to send
       const messagesToSend: any[] = [];
+
+      // Handle save address action
+      if (aiResult.saveAddress) {
+        const { label, address } = aiResult.saveAddress;
+        console.log(`Saving new address: ${label} - ${address}`);
+
+        // Check if address with same label already exists
+        const { data: existingAddr } = await supabase
+          .from("customer_addresses")
+          .select("id")
+          .eq("platform_user_id", userId)
+          .eq("platform", "line")
+          .eq("label", label)
+          .maybeSingle();
+
+        if (existingAddr) {
+          // Update existing address
+          await supabase
+            .from("customer_addresses")
+            .update({ address, updated_at: new Date().toISOString() })
+            .eq("id", existingAddr.id);
+          console.log(`Updated existing address: ${label}`);
+        } else {
+          // Check if this is the first address (set as default)
+          const { count: addressCount } = await supabase
+            .from("customer_addresses")
+            .select("*", { count: "exact", head: true })
+            .eq("platform_user_id", userId)
+            .eq("platform", "line");
+
+          await supabase.from("customer_addresses").insert({
+            platform_user_id: userId,
+            platform: "line",
+            label,
+            address,
+            is_default: (addressCount || 0) === 0 // First address is default
+          });
+          console.log(`Created new address: ${label} (default: ${(addressCount || 0) === 0})`);
+        }
+      }
 
       // Handle cart actions first
       if (aiResult.cartAction) {
