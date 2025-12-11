@@ -142,6 +142,28 @@ interface ProductAction {
   productName?: string;
 }
 
+interface SavedAddress {
+  id: string;
+  label: string;
+  address: string;
+  isDefault: boolean;
+}
+
+interface SaveAddressAction {
+  label: string;
+  address: string;
+}
+
+interface CustomerContext {
+  isReturning: boolean;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  messageCount?: number;
+  cartItemCount?: number;
+  savedAddresses?: SavedAddress[];
+}
+
 // Format order status message
 function formatOrderStatusMessage(order: any, orderItems: any[]): string {
   const statusInfo = statusMap[order.status] || statusMap['pending'];
@@ -397,8 +419,8 @@ async function sendSingleProductToFacebook(recipientId: string, product: Product
 async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
-  cartItemCount: number = 0
-): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction; productAction?: ProductAction }> {
+  customerContext: CustomerContext
+): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction; productAction?: ProductAction; saveAddress?: SaveAddressAction }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -437,9 +459,24 @@ async function getAIResponse(
     return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}`;
   }).join('\n') || 'ยังไม่มีสินค้า';
 
-  const cartInfo = cartItemCount > 0 
-    ? `\n\n🛒 ลูกค้ามีสินค้าในตะกร้า ${cartItemCount} รายการ`
+  const cartInfo = customerContext.cartItemCount && customerContext.cartItemCount > 0 
+    ? `\n\n🛒 ลูกค้ามีสินค้าในตะกร้า ${customerContext.cartItemCount} รายการ`
     : '';
+
+  // Build saved addresses info (multiple addresses)
+  let savedAddressInfo = '';
+  if (customerContext.savedAddresses && customerContext.savedAddresses.length > 0) {
+    const addressList = customerContext.savedAddresses.map((addr, idx) => 
+      `${idx + 1}. [${addr.label}]${addr.isDefault ? ' (ค่าเริ่มต้น)' : ''}: "${addr.address}"`
+    ).join('\n');
+    savedAddressInfo = `\n📍 ที่อยู่ที่บันทึกไว้ (${customerContext.savedAddresses.length} แห่ง):\n${addressList}`;
+  }
+
+  const customerGreeting = customerContext.isReturning 
+    ? customerContext.customerName 
+      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง!${savedAddressInfo}${cartInfo}`
+      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง!${savedAddressInfo}${cartInfo}`
+    : 'นี่คือลูกค้าใหม่';
 
   // Build store info section
   const storeInfoSection = `
@@ -457,7 +494,9 @@ ${warrantyInfo ? `🛡️ การรับประกัน: ${warrantyInfo}`
 ${privacyPolicy ? `🔒 ความเป็นส่วนตัว: ${privacyPolicy}` : ''}
 `.trim();
 
-  const systemPrompt = `คุณคือผู้ช่วยขายอัจฉริยะทาง Facebook Messenger พูดภาษาไทยสุภาพ ตอบสั้นกระชับ${cartInfo}
+  const systemPrompt = `คุณคือผู้ช่วยขายอัจฉริยะทาง Facebook Messenger พูดภาษาไทยสุภาพ ตอบสั้นกระชับ
+
+${customerGreeting}
 
 สินค้าที่มี:
 ${productCatalog}
@@ -473,6 +512,12 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
 - ตอบสั้น ได้ใจความ ไม่เกิน 200 ตัวอักษร
 - ช่วยแนะนำสินค้าและรับออเดอร์
 - ถ้าลูกค้าถามเรื่องการคืนสินค้าหรือการจัดส่ง ให้ตอบจากข้อมูลร้านค้าด้านบน
+
+## 📍 ระบบที่อยู่หลายแห่ง:
+- ถ้าลูกค้ามีที่อยู่บันทึกไว้ ให้ถามว่าต้องการใช้ที่อยู่ไหน หรือเพิ่มที่อยู่ใหม่
+- ถ้าลูกค้าต้องการเพิ่มที่อยู่ใหม่พร้อมชื่อ → ตอบ "บันทึกที่อยู่แล้วค่ะ 📍 [SAVE_ADDRESS:ชื่อที่อยู่|ที่อยู่เต็ม]"
+- ตัวอย่าง: ลูกค้าบอก "บันทึกที่อยู่ที่ทำงาน 123 ถนนสุขุมวิท" → "[SAVE_ADDRESS:ที่ทำงาน|123 ถนนสุขุมวิท]"
+- ถ้าลูกค้าเลือกใช้ที่อยู่ที่บันทึกไว้ ให้ใช้ที่อยู่นั้นในการสร้างออเดอร์
 
 ## 📦 แสดงสินค้าพร้อมรูป (ใช้เฉพาะเมื่อลูกค้าถามเกี่ยวกับสินค้าโดยตรง):
 - "ดูสินค้า", "มีอะไรขายบ้าง", "แนะนำสินค้า" → ตอบ "นี่คือสินค้าของเราค่ะ 😊 [SHOW_PRODUCTS]"
@@ -581,6 +626,19 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       };
     }
 
+    // Parse save address action if present
+    const saveAddressMatch = content.match(/\[SAVE_ADDRESS:([^\]]+)\]/);
+    let saveAddress: SaveAddressAction | undefined;
+    if (saveAddressMatch) {
+      const parts = saveAddressMatch[1].split('|');
+      if (parts.length >= 2) {
+        saveAddress = {
+          label: parts[0].trim(),
+          address: parts[1].trim()
+        };
+      }
+    }
+
     // Clean up the response
     content = content
       .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
@@ -590,9 +648,10 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
       .replace(/\[SHOW_PRODUCTS\]/g, '')
       .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
+      .replace(/\[SAVE_ADDRESS:[^\]]+\]/g, '')
       .trim();
 
-    return { text: content, createOrder, cartAction, productAction };
+    return { text: content, createOrder, cartAction, productAction, saveAddress };
 
   } catch (error) {
     console.error("AI call error:", error);
@@ -953,6 +1012,35 @@ serve(async (req) => {
           .select("*", { count: "exact", head: true })
           .eq("conversation_id", conversation.id);
 
+        // Fetch saved addresses for the customer
+        let savedAddresses: SavedAddress[] = [];
+        const { data: addressesData } = await supabase
+          .from("customer_addresses")
+          .select("*")
+          .eq("platform_user_id", senderId)
+          .eq("platform", "facebook")
+          .order("is_default", { ascending: false });
+
+        if (addressesData && addressesData.length > 0) {
+          savedAddresses = addressesData.map((a: any) => ({
+            id: a.id,
+            label: a.label,
+            address: a.address,
+            isDefault: a.is_default
+          }));
+          console.log(`Found ${savedAddresses.length} saved addresses for Facebook user ${senderId}`);
+        }
+
+        // Build customer context
+        const customerContext: CustomerContext = {
+          isReturning: !!conversation.customer_name,
+          customerName: conversation.customer_name || undefined,
+          customerPhone: conversation.customer_phone || undefined,
+          customerAddress: conversation.customer_address || undefined,
+          cartItemCount: cartItemCount || 0,
+          savedAddresses: savedAddresses.length > 0 ? savedAddresses : undefined
+        };
+
         // Get conversation history
         const { data: history } = await supabase
           .from("chat_messages")
@@ -967,10 +1055,44 @@ serve(async (req) => {
         })) || [{ role: "user", content: userMessage }];
 
         // Get AI response
-        const aiResult = await getAIResponse(messages, supabase, cartItemCount || 0);
+        const aiResult = await getAIResponse(messages, supabase, customerContext);
         console.log("AI response generated:", aiResult);
 
         let responseMessage = aiResult.text;
+
+        // Handle save address action
+        if (aiResult.saveAddress) {
+          const { label, address } = aiResult.saveAddress;
+          console.log(`Saving address for Facebook user ${senderId}: ${label} - ${address}`);
+          
+          // Check if this label already exists for this user
+          const { data: existingAddress } = await supabase
+            .from("customer_addresses")
+            .select("id")
+            .eq("platform_user_id", senderId)
+            .eq("platform", "facebook")
+            .eq("label", label)
+            .maybeSingle();
+
+          if (existingAddress) {
+            // Update existing address
+            await supabase
+              .from("customer_addresses")
+              .update({ address, updated_at: new Date().toISOString() })
+              .eq("id", existingAddress.id);
+          } else {
+            // Check if this is the first address (make it default)
+            const isFirst = savedAddresses.length === 0;
+            
+            await supabase.from("customer_addresses").insert({
+              platform_user_id: senderId,
+              platform: "facebook",
+              label,
+              address,
+              is_default: isFirst
+            });
+          }
+        }
 
         // Handle cart actions
         if (aiResult.cartAction) {
