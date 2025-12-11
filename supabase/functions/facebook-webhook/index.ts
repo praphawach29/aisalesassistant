@@ -37,6 +37,7 @@ interface OrderData {
   customerAddress: string;
   customerPhone: string;
   variants?: string;
+  couponCode?: string;
 }
 
 interface CartAction {
@@ -47,6 +48,30 @@ interface CartAction {
   customerName?: string;
   customerAddress?: string;
   customerPhone?: string;
+  couponCode?: string;
+}
+
+// Validate coupon
+async function validateCoupon(code: string, orderAmount: number, supabase: any): Promise<{ valid: boolean; coupon?: any; discountAmount?: number; errorMessage?: string }> {
+  const { data: coupon } = await supabase
+    .from("coupons")
+    .select("*")
+    .eq("code", code.toUpperCase())
+    .maybeSingle();
+
+  if (!coupon) return { valid: false, errorMessage: `ไม่พบโค้ดส่วนลด "${code}" ค่ะ` };
+  if (!coupon.is_active) return { valid: false, errorMessage: "โค้ดส่วนลดนี้ถูกปิดใช้งานแล้วค่ะ" };
+  
+  const now = new Date();
+  if (coupon.valid_from && new Date(coupon.valid_from) > now) return { valid: false, errorMessage: "โค้ดส่วนลดนี้ยังไม่เริ่มใช้งานค่ะ" };
+  if (coupon.valid_until && new Date(coupon.valid_until) < now) return { valid: false, errorMessage: "โค้ดส่วนลดนี้หมดอายุแล้วค่ะ" };
+  if (coupon.max_uses && coupon.used_count >= coupon.max_uses) return { valid: false, errorMessage: "โค้ดส่วนลดนี้ถูกใช้ครบจำนวนแล้วค่ะ" };
+  if (coupon.min_order_amount && orderAmount < coupon.min_order_amount) return { valid: false, errorMessage: `ยอดสั่งซื้อขั้นต่ำสำหรับโค้ดนี้คือ ฿${coupon.min_order_amount.toLocaleString()} ค่ะ` };
+
+  let discountAmount = coupon.discount_type === 'percentage' ? (orderAmount * coupon.discount_value) / 100 : coupon.discount_value;
+  discountAmount = Math.min(discountAmount, orderAmount);
+
+  return { valid: true, coupon, discountAmount };
 }
 
 interface ProductAction {
@@ -346,20 +371,25 @@ ${productCatalog}
 - ถ้าลูกค้าถาม "ดูสินค้า", "มีสินค้าอะไรบ้าง", "แนะนำสินค้า" → ตอบ [SHOW_PRODUCTS]
 - ถ้าลูกค้าถามเกี่ยวกับสินค้าเฉพาะตัว เช่น "มีเสื้อไหม", "ขอดูกระเป๋า" → ตอบ [SHOW_PRODUCT:ชื่อสินค้า]
 
+**🎟️ ระบบคูปอง:**
+- ถ้าลูกค้าใช้โค้ดส่วนลด → ตอบ [APPLY_COUPON:โค้ด]
+- สามารถใส่โค้ดพร้อมสั่งซื้อได้ เช่น [CHECKOUT_CART:ชื่อ|ที่อยู่|เบอร์|โค้ด]
+
 **🛒 ระบบตะกร้าสินค้า:**
 - ถ้าลูกค้าต้องการ "เพิ่มลงตะกร้า" หรือ "ใส่ตะกร้า" → ตอบ [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]
 - ถ้าลูกค้าถาม "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ตอบ [VIEW_CART]
 - ถ้าลูกค้าต้องการ "ล้างตะกร้า" → ตอบ [CLEAR_CART]
-- ถ้าลูกค้าพิมพ์ "สั่งซื้อตะกร้า" หรือ "ยืนยันสั่งซื้อ" พร้อมข้อมูลครบ (ชื่อ ที่อยู่ เบอร์) → ตอบ [CHECKOUT_CART:ชื่อลูกค้า|ที่อยู่|เบอร์โทร]
+- ถ้าลูกค้าพิมพ์ "สั่งซื้อตะกร้า" หรือ "ยืนยันสั่งซื้อ" พร้อมข้อมูลครบ (ชื่อ ที่อยู่ เบอร์ และอาจมีโค้ดส่วนลด) → ตอบ [CHECKOUT_CART:ชื่อลูกค้า|ที่อยู่|เบอร์โทร|โค้ดส่วนลด]
 
 **การสั่งซื้อตรง:**
-- ถ้าลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร) → ตอบ [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก]
+- ถ้าลูกค้าให้ข้อมูลครบถ้วน (ชื่อสินค้า จำนวน ชื่อ ที่อยู่ เบอร์โทร และอาจมีโค้ด) → ตอบ [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก|โค้ดส่วนลด]
 
 ตัวอย่าง:
 - "ดูสินค้า" → "นี่คือสินค้าของเราค่ะ 😊 [SHOW_PRODUCTS]"
 - "มีเสื้อยืดไหม" → "มีค่ะ ดูรายละเอียดได้เลยค่ะ 😊 [SHOW_PRODUCT:เสื้อยืด]"
 - "เพิ่มเสื้อ 2 ตัว ลงตะกร้า" → "เพิ่มลงตะกร้าแล้วค่ะ 😊 [ADD_CART:เสื้อ|2|]"
-- "สั่งซื้อตะกร้า ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 0812345678" → "รับออเดอร์แล้วค่ะ 😊 [CHECKOUT_CART:สมชาย|123 ถ.สุขุมวิท|0812345678]"`;
+- "ใช้โค้ด SAVE10" → "รับทราบค่ะ [APPLY_COUPON:SAVE10]"
+- "สั่งซื้อตะกร้า ชื่อสมชาย ที่อยู่ 123 ถ.สุขุมวิท เบอร์ 0812345678 โค้ด SAVE10" → "รับออเดอร์แล้วค่ะ 😊 [CHECKOUT_CART:สมชาย|123 ถ.สุขุมวิท|0812345678|SAVE10]"`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
