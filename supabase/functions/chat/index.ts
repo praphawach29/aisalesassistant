@@ -34,6 +34,10 @@ interface StoreSettings {
   facebookPage: string;
   instagram: string;
   bankAccounts: string;
+  paymentMethods: string;
+  warrantyInfo: string;
+  privacyPolicy: string;
+  termsConditions: string;
 }
 
 function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings): string {
@@ -105,6 +109,14 @@ ${storeSettings.returnPolicy ? `## 📋 นโยบายการคืนส�
 ${storeSettings.shippingInfo ? `## 🚚 ข้อมูลการจัดส่ง:\n${storeSettings.shippingInfo}` : ''}
 
 ${storeSettings.bankAccounts ? `## 🏦 บัญชีธนาคาร:\n${storeSettings.bankAccounts}` : ''}
+
+${storeSettings.paymentMethods ? `## 💳 วิธีการชำระเงิน:\n${storeSettings.paymentMethods}` : ''}
+
+${storeSettings.warrantyInfo ? `## 🛡️ การรับประกัน:\n${storeSettings.warrantyInfo}` : ''}
+
+${storeSettings.privacyPolicy ? `## 🔒 นโยบายความเป็นส่วนตัว:\n${storeSettings.privacyPolicy}` : ''}
+
+${storeSettings.termsConditions ? `## 📜 ข้อกำหนดและเงื่อนไข:\n${storeSettings.termsConditions}` : ''}
 
 ## 🚫 กฎเรื่องสต็อก (สำคัญมาก):
 - ห้ามบอกจำนวนสต็อกเด็ดขาด ถ้าถามให้ตอบว่า "สินค้ามีพร้อมจำหน่าย${particleEnd}"
@@ -216,7 +228,7 @@ serve(async (req) => {
     const { data: settingsData } = await supabase
       .from("settings")
       .select("key, value")
-      .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS"]);
+      .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]);
 
     // Build store settings object
     const storeSettingsMap = new Map(settingsData?.map(s => [s.key, s.value]) || []);
@@ -232,6 +244,10 @@ serve(async (req) => {
       facebookPage: storeSettingsMap.get("FACEBOOK_PAGE") || "",
       instagram: storeSettingsMap.get("INSTAGRAM") || "",
       bankAccounts: storeSettingsMap.get("BANK_ACCOUNTS") || "",
+      paymentMethods: storeSettingsMap.get("PAYMENT_METHODS") || "",
+      warrantyInfo: storeSettingsMap.get("WARRANTY_INFO") || "",
+      privacyPolicy: storeSettingsMap.get("PRIVACY_POLICY") || "",
+      termsConditions: storeSettingsMap.get("TERMS_CONDITIONS") || "",
     };
 
     console.log("Store settings loaded:", { 
