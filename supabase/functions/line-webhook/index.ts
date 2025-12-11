@@ -275,7 +275,7 @@ async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
   customerContext: { isReturning: boolean; customerName?: string; messageCount: number; lastVisit?: string }
-): Promise<{ text: string; showProducts?: boolean; productQuery?: string; specificProduct?: string }> {
+): Promise<{ text: string; showProducts?: boolean; specificProduct?: string; detectedName?: string }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -291,7 +291,9 @@ async function getAIResponse(
   ).join('\n') || 'ยังไม่มีสินค้า';
 
   const customerGreeting = customerContext.isReturning 
-    ? `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ${customerContext.customerName ? `, ชื่อ: ${customerContext.customerName}` : ''})! ทักทายอย่างเป็นกันเองและอบอุ่น แสดงความดีใจที่ได้พบกันอีก`
+    ? customerContext.customerName 
+      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น`
+      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น`
     : 'นี่คือลูกค้าใหม่ ทักทายสุภาพและแนะนำตัว';
 
   const systemPrompt = `คุณคือ "น้องช้อป" ผู้ช่วยขายอัจฉริยะทาง LINE พูดภาษาไทยสุภาพ น่ารัก ใช้อิโมจิบ้าง
@@ -308,12 +310,12 @@ ${productCatalog}
 - ถ้าลูกค้าสั่งซื้อ ให้เก็บข้อมูล: ชื่อ, ที่อยู่, เบอร์โทร
 - ถ้าลูกค้าถามเกี่ยวกับสินค้าหลายรายการ หรือขอดูสินค้า ให้ตอบ [SHOW_PRODUCTS]
 - ถ้าลูกค้าถามเกี่ยวกับสินค้าเฉพาะอย่าง ให้ตอบ [SHOW_PRODUCT:ชื่อสินค้า]
+- ถ้าลูกค้าบอกชื่อตัวเอง (เช่น "ชื่อ...", "ผม/ฉันชื่อ...", "เรียกผมว่า...") ให้บันทึก [NAME:ชื่อลูกค้า]
 - ห้ามบอกจำนวนสต็อกโดยตรง ยกเว้นลูกค้าจะสั่งเกินจำนวน
 
 ตัวอย่างการตอบกลับ:
-- ถ้าลูกค้าถามว่า "มีสินค้าอะไรบ้าง" → ตอบแนะนำสั้นๆ แล้วลงท้าย [SHOW_PRODUCTS]
-- ถ้าลูกค้าบอก "อยากดูสินค้า" → ตอบ "ได้เลยค่ะ มาดูสินค้าของเรากันเลย 🛍️ [SHOW_PRODUCTS]"
-- ถ้าลูกค้าถามเกี่ยวกับสินค้าชื่อ "xxx" → ตอบรายละเอียดแล้วลงท้าย [SHOW_PRODUCT:xxx]`;
+- ถ้าลูกค้าบอก "ผมชื่อสมชาย" → ตอบ "ยินดีที่ได้รู้จักค่ะ คุณสมชาย 😊 [NAME:สมชาย]"
+- ถ้าลูกค้าถามว่า "มีสินค้าอะไรบ้าง" → ตอบแนะนำสั้นๆ แล้วลงท้าย [SHOW_PRODUCTS]`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -342,14 +344,20 @@ ${productCatalog}
     // Parse special commands
     const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
     const specificProductMatch = content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
+    const nameMatch = content.match(/\[NAME:([^\]]+)\]/);
 
     // Clean up the response
-    content = content.replace(/\[SHOW_PRODUCTS\]/g, '').replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '').trim();
+    content = content
+      .replace(/\[SHOW_PRODUCTS\]/g, '')
+      .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
+      .replace(/\[NAME:[^\]]+\]/g, '')
+      .trim();
 
     return {
       text: content,
       showProducts: !!showProductsMatch,
-      specificProduct: specificProductMatch ? specificProductMatch[1] : undefined
+      specificProduct: specificProductMatch ? specificProductMatch[1] : undefined,
+      detectedName: nameMatch ? nameMatch[1].trim() : undefined
     };
 
   } catch (error) {
@@ -527,13 +535,20 @@ serve(async (req) => {
         content: aiResult.text,
       });
 
-      // Update conversation
+      // Update conversation (including customer name if detected)
+      const updateData: any = {
+        last_message: aiResult.text.slice(0, 100),
+        last_message_at: new Date().toISOString(),
+      };
+
+      if (aiResult.detectedName && !conversation.customer_name) {
+        updateData.customer_name = aiResult.detectedName;
+        console.log(`Saved customer name: ${aiResult.detectedName}`);
+      }
+
       await supabase
         .from("chat_conversations")
-        .update({
-          last_message: aiResult.text.slice(0, 100),
-          last_message_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", conversation.id);
 
       // Reply to LINE
