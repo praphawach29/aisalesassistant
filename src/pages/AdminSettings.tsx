@@ -28,8 +28,12 @@ const DEFAULT_STORE_SETTINGS: StoreSetting[] = [
   { key: 'FACEBOOK_PAGE', value: '', description: 'Facebook Page' },
   { key: 'INSTAGRAM', value: '', description: 'Instagram' },
   { key: 'BANK_ACCOUNTS', value: '', description: 'บัญชีธนาคาร' },
+  { key: 'PAYMENT_METHODS', value: '', description: 'วิธีการชำระเงิน' },
   { key: 'RETURN_POLICY', value: '', description: 'นโยบายการคืนสินค้า' },
   { key: 'SHIPPING_INFO', value: '', description: 'ข้อมูลการจัดส่ง' },
+  { key: 'WARRANTY_INFO', value: '', description: 'ข้อมูลการรับประกัน' },
+  { key: 'PRIVACY_POLICY', value: '', description: 'นโยบายความเป็นส่วนตัว' },
+  { key: 'TERMS_CONDITIONS', value: '', description: 'ข้อกำหนดและเงื่อนไข' },
 ];
 
 const AdminSettings = () => {
@@ -234,6 +238,17 @@ const AdminSettings = () => {
               />
             </div>
             
+            {/* Payment Methods */}
+            <div className="space-y-2">
+              <Label>วิธีการชำระเงิน</Label>
+              <Textarea
+                value={settings.find(s => s.key === 'PAYMENT_METHODS')?.value || ''}
+                onChange={(e) => handleValueChange('PAYMENT_METHODS', e.target.value)}
+                placeholder="เช่น: โอนเงินผ่านธนาคาร, PromptPay, บัตรเครดิต/เดบิต, เก็บเงินปลายทาง (COD)..."
+                rows={2}
+              />
+            </div>
+
             {/* Return Policy */}
             <div className="space-y-2">
               <Label>นโยบายการคืนสินค้า</Label>
@@ -252,6 +267,39 @@ const AdminSettings = () => {
                 value={settings.find(s => s.key === 'SHIPPING_INFO')?.value || ''}
                 onChange={(e) => handleValueChange('SHIPPING_INFO', e.target.value)}
                 placeholder="เช่น: จัดส่งทุกวันจันทร์-ศุกร์ ภายใน 1-3 วันทำการ..."
+                rows={3}
+              />
+            </div>
+
+            {/* Warranty Info */}
+            <div className="space-y-2">
+              <Label>ข้อมูลการรับประกัน</Label>
+              <Textarea
+                value={settings.find(s => s.key === 'WARRANTY_INFO')?.value || ''}
+                onChange={(e) => handleValueChange('WARRANTY_INFO', e.target.value)}
+                placeholder="เช่น: รับประกันสินค้า 1 ปี กรณีชำรุดจากการใช้งานปกติ..."
+                rows={2}
+              />
+            </div>
+
+            {/* Privacy Policy */}
+            <div className="space-y-2">
+              <Label>นโยบายความเป็นส่วนตัว</Label>
+              <Textarea
+                value={settings.find(s => s.key === 'PRIVACY_POLICY')?.value || ''}
+                onChange={(e) => handleValueChange('PRIVACY_POLICY', e.target.value)}
+                placeholder="เช่น: เราจะเก็บรักษาข้อมูลส่วนบุคคลของท่านเป็นความลับ และใช้เพื่อการจัดส่งสินค้าเท่านั้น..."
+                rows={3}
+              />
+            </div>
+
+            {/* Terms & Conditions */}
+            <div className="space-y-2">
+              <Label>ข้อกำหนดและเงื่อนไข</Label>
+              <Textarea
+                value={settings.find(s => s.key === 'TERMS_CONDITIONS')?.value || ''}
+                onChange={(e) => handleValueChange('TERMS_CONDITIONS', e.target.value)}
+                placeholder="เช่น: การสั่งซื้อสินค้าถือว่าลูกค้ายอมรับเงื่อนไขการซื้อขาย..."
                 rows={3}
               />
             </div>

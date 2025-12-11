@@ -413,7 +413,7 @@ async function getAIResponse(
   const { data: settingsData } = await supabase
     .from("settings")
     .select("key, value")
-    .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS"]);
+    .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]);
 
   const settingsMap = new Map(settingsData?.map((s: any) => [s.key, s.value]) || []);
   const storeName = settingsMap.get("STORE_NAME") || "";
@@ -425,6 +425,9 @@ async function getAIResponse(
   const facebookPage = settingsMap.get("FACEBOOK_PAGE") || "";
   const instagram = settingsMap.get("INSTAGRAM") || "";
   const bankAccounts = settingsMap.get("BANK_ACCOUNTS") || "";
+  const paymentMethods = settingsMap.get("PAYMENT_METHODS") || "";
+  const warrantyInfo = settingsMap.get("WARRANTY_INFO") || "";
+  const privacyPolicy = settingsMap.get("PRIVACY_POLICY") || "";
 
   const productCatalog = products?.map((p: any) => {
     let variantInfo = "";
@@ -446,9 +449,12 @@ ${businessHours ? `🕐 เวลาทำการ: ${businessHours}` : ''}
 ${lineId ? `💬 LINE: ${lineId}` : ''}
 ${facebookPage ? `📘 Facebook: ${facebookPage}` : ''}
 ${instagram ? `📸 Instagram: ${instagram}` : ''}
+${paymentMethods ? `💳 วิธีชำระเงิน: ${paymentMethods}` : ''}
 ${returnPolicy ? `📋 นโยบายคืนสินค้า: ${returnPolicy}` : ''}
 ${shippingInfo ? `🚚 การจัดส่ง: ${shippingInfo}` : ''}
 ${bankAccounts ? `🏦 บัญชีธนาคาร: ${bankAccounts}` : ''}
+${warrantyInfo ? `🛡️ การรับประกัน: ${warrantyInfo}` : ''}
+${privacyPolicy ? `🔒 ความเป็นส่วนตัว: ${privacyPolicy}` : ''}
 `.trim();
 
   const systemPrompt = `คุณคือผู้ช่วยขายอัจฉริยะทาง Facebook Messenger พูดภาษาไทยสุภาพ ตอบสั้นกระชับ${cartInfo}
