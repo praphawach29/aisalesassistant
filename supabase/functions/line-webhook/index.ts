@@ -1366,7 +1366,6 @@ ${productCatalog}
           { role: "system", content: systemPrompt },
           ...messages,
         ],
-        temperature: 0.3,
       }),
     });
 
