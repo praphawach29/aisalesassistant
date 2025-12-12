@@ -366,6 +366,13 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 - **ห้ามพูดเรื่องการเมือง ศาสนา** หรือเรื่องละเอียดอ่อน
 - **ห้ามแกล้งทำเป็นมนุษย์** → ถ้าถามว่าเป็น AI ให้ยอมรับว่า "ใช่${particleEnd} เป็น AI ผู้ช่วยขาย${particleEnd}"
 
+## 💬 กฎการตอบให้เป็นธรรมชาติ (สำคัญมาก!):
+- **ตอบสั้นกระชับ** → ไม่เกิน 4-5 ประโยคต่อข้อความ ยกเว้นสรุปออเดอร์
+- **ห้ามถามหลายอย่างพร้อมกัน** → ถามทีละเรื่อง เช่น ถามสี/ไซส์ก่อน แล้วค่อยถามข้อมูลจัดส่งทีหลัง
+- **เมื่อลูกค้าทักทาย** → ตอบทักทายสั้นๆ พร้อมถามว่าสนใจอะไร เช่น "สวัสดี${particleEnd} 😊 สนใจสินค้าอะไรเป็นพิเศษ${particleQuestion}?"
+- **เมื่อลูกค้าบอกสี/ไซส์/จำนวน** → ยืนยันสิ่งที่เลือกแล้วถามข้อมูลจัดส่งเท่านั้น ไม่ต้องอธิบายสินค้าซ้ำ
+- **ห้ามพูดซ้ำซาก** → ไม่ต้องบอกข้อมูลสินค้าซ้ำถ้าเพิ่งบอกไป
+
 ${custom_rules ? `## ⚠️ กฎพิเศษ:\n${custom_rules.split(',').map((rule: string) => `- ${rule.trim()}`).join('\n')}` : ''}`;
 }
 
@@ -1331,12 +1338,41 @@ serve(async (req) => {
         // Reverse to get chronological order (oldest to newest) for AI
         const history = rawHistory ? [...rawHistory].reverse() : [];
 
-        const isFirstMessage = !history || history.length === 0;
+        // Check if this is effectively a new session (no messages OR last message was more than 1 hour ago)
+        let isNewSession = !history || history.length === 0;
+        if (!isNewSession && history.length > 0) {
+          const lastMessageTime = new Date(history[history.length - 1].created_at);
+          const hoursSinceLastMessage = (Date.now() - lastMessageTime.getTime()) / (1000 * 60 * 60);
+          if (hoursSinceLastMessage > 1) {
+            isNewSession = true;
+            console.log(`New session detected: ${hoursSinceLastMessage.toFixed(1)} hours since last message`);
+          }
+        }
 
-        const messages = history?.map((m: any) => ({
-          role: m.role,
-          content: m.content,
-        })) || [{ role: "user", content: userMessage }];
+        const isFirstMessage = isNewSession;
+
+        // Detect greeting messages
+        const greetingPatterns = /^(สวัสดี|หวัดดี|ดี|hello|hi|hey|hola|หวัดดีครับ|หวัดดีค่ะ|สวัสดีครับ|สวัสดีค่ะ|ดีครับ|ดีค่ะ|ดีจ้า|สวัสดีจ้า|หวัดดีจ้า)[ๆ]*[\s]*[ครับค่ะคะจ้านะ]*$/i;
+        const isGreeting = greetingPatterns.test(userMessage.trim());
+        
+        if (isGreeting) {
+          console.log("Greeting detected - will respond with greeting only");
+        }
+
+        // Build messages - skip history if new session or greeting
+        let messages: Array<{ role: string; content: string }> = [];
+        
+        if (!isNewSession && !isGreeting && history && history.length > 0) {
+          messages = history.map((m: any) => ({
+            role: m.role,
+            content: m.content,
+          }));
+        }
+        
+        // For greetings, add instruction
+        if (isGreeting) {
+          messages.push({ role: "system", content: "[INSTRUCTION: ลูกค้าทักทายเข้ามา - ตอบทักทายสั้นๆ เป็นธรรมชาติ ถามว่าสนใจสินค้าอะไรหรือช่วยอะไรได้บ้าง ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์]" });
+        }
         
         // Add current user message
         messages.push({ role: "user", content: userMessage });
