@@ -104,7 +104,7 @@ interface OrderData {
 }
 
 interface CartAction {
-  action: 'add' | 'view' | 'clear' | 'checkout';
+  type: 'add' | 'view' | 'clear' | 'checkout' | 'remove' | 'update';
   productName?: string;
   quantity?: number;
   variants?: string;
@@ -112,6 +112,26 @@ interface CartAction {
   customerAddress?: string;
   customerPhone?: string;
   couponCode?: string;
+}
+
+interface AISettings {
+  ai_name: string;
+  gender: string;
+  personality: string | null;
+  formality_level: number;
+  use_emoji: boolean;
+  response_length: string;
+  greeting_message: string | null;
+  closing_message: string | null;
+  custom_rules: string | null;
+}
+
+interface StoreSettings {
+  storeName: string;
+  shippingInfo: string;
+  bankAccounts: string;
+  paymentMethods: string;
+  returnPolicy: string;
 }
 
 // Validate coupon
@@ -162,6 +182,121 @@ interface CustomerContext {
   messageCount?: number;
   cartItemCount?: number;
   savedAddresses?: SavedAddress[];
+}
+
+// ============= Build System Prompt (Same as LINE and Web Chat) =============
+function buildSystemPrompt(
+  settings: AISettings,
+  productCatalog: string,
+  faqList: string,
+  storeSettings: StoreSettings,
+  isFirstMessage: boolean
+): string {
+  const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
+
+  // Gender-specific particles
+  let particleEnd = "ครับ/ค่ะ";
+  let particleQuestion = "ครับ/คะ";
+  if (gender === "female") {
+    particleEnd = "ค่ะ";
+    particleQuestion = "คะ";
+  } else if (gender === "male") {
+    particleEnd = "ครับ";
+    particleQuestion = "ครับ";
+  }
+
+  // Formality descriptions
+  const formalityDescriptions: Record<number, string> = {
+    1: "เป็นกันเองมาก ใช้ภาษาสบายๆ พูดคุยเหมือนเพื่อน",
+    2: "เป็นกันเอง สุภาพแต่ไม่เครียด พูดจาน่ารัก",
+    3: "ปานกลาง สุภาพพอประมาณ เป็นมืออาชีพแต่ไม่แข็งทื่อ",
+    4: "เป็นทางการ สุภาพเรียบร้อย ใช้ภาษาที่เหมาะสม",
+    5: "เป็นทางการมาก ใช้ภาษาสุภาพสูง เหมาะกับลูกค้าองค์กร",
+  };
+
+  const responseLengthGuide: Record<string, string> = {
+    short: "ตอบสั้นกระชับ 1-2 ประโยค ตรงประเด็น",
+    medium: "ตอบปานกลาง 3-4 ประโยค ให้ข้อมูลครบถ้วน",
+    long: "ตอบละเอียด 5+ ประโยค อธิบายเจาะลึก",
+  };
+
+  const emojiGuide = use_emoji 
+    ? "ใช้ emoji เล็กน้อยเพื่อความเป็นกันเอง เช่น 😊 🙏 ✨ 🔥 💕" 
+    : "ไม่ใช้ emoji ในการสนทนา";
+
+  const greetingInstruction = isFirstMessage && greeting_message
+    ? `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น):\nเริ่มต้นด้วย: "${greeting_message}"`
+    : `## 👋 หมายเหตุ:\nนี่ไม่ใช่ข้อความแรกของการสนทนา ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
+
+  return `คุณคือ "${ai_name}" ผู้ช่วยขายอัจฉริยะที่พูดภาษาไทยได้อย่างเป็นธรรมชาติ
+
+## 🎭 บุคลิกภาพ:
+${personality || "สุภาพ เป็นมิตร พร้อมให้บริการ"}
+
+## 🎯 บทบาทหลัก:
+1. ต้อนรับและให้บริการลูกค้าด้วยความเป็นมิตร
+2. แนะนำสินค้าที่เหมาะสมตามความต้องการ
+3. ตอบคำถามเกี่ยวกับสินค้า ราคา โปรโมชั่น และการจัดส่ง
+4. รับออเดอร์และเก็บข้อมูลลูกค้าอย่างเป็นระบบ
+5. สร้างความประทับใจและกระตุ้นยอดขาย
+
+## 📦 รายการสินค้า:
+${productCatalog}
+
+## 🏪 ข้อมูลร้านค้า:
+${storeSettings.storeName ? `- ชื่อร้าน: ${storeSettings.storeName}` : ''}
+${storeSettings.shippingInfo ? `- การจัดส่ง: ${storeSettings.shippingInfo}` : ''}
+${storeSettings.bankAccounts ? `- บัญชีธนาคาร: ${storeSettings.bankAccounts}` : ''}
+${storeSettings.paymentMethods ? `- วิธีชำระเงิน: ${storeSettings.paymentMethods}` : ''}
+${storeSettings.returnPolicy ? `- นโยบายคืนสินค้า: ${storeSettings.returnPolicy}` : ''}
+
+${faqList ? `## ❓ คำถามที่พบบ่อย:\n${faqList}` : ''}
+
+## 💬 สไตล์การสื่อสาร:
+- **ความเป็นทางการ**: ${formalityDescriptions[formality_level] || formalityDescriptions[3]}
+- **คำลงท้าย**: ใช้ "${particleEnd}" และ "${particleQuestion}" อย่างสม่ำเสมอ
+- **ความยาวคำตอบ**: ${responseLengthGuide[response_length] || responseLengthGuide["medium"]}
+- **Emoji**: ${emojiGuide}
+
+${greetingInstruction}
+
+${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิดท้าย:\n"${closing_message}"` : ''}
+
+## 📈 เทคนิคการขาย:
+- ถามความต้องการก่อนแนะนำ เช่น "ไม่ทราบว่าสนใจสินค้าประเภทไหนเป็นพิเศษ${particleQuestion}?"
+- **Upsell**: หากสนใจสินค้าราคาถูก → แนะนำรุ่นที่ดีกว่าเล็กน้อย
+- **Cross-sell**: แนะนำสินค้าที่เข้าคู่กัน
+- **สร้าง Urgency**: "ตอนนี้โปรโมชั่นลดราคาอยู่${particleEnd}" หรือ "สินค้าตัวนี้ขายดีมาก${particleEnd}"
+
+## 🛍️ การแสดงสินค้า:
+- ลูกค้าขอดูสินค้าทั้งหมด → ตอบแล้วใส่ [SHOW_PRODUCTS] ต่อท้าย
+- ลูกค้าถามหาสินค้าเฉพาะตัว → ตอบอธิบายแล้วใส่ [PRODUCT:ชื่อสินค้า] ต่อท้าย
+- ลูกค้าถามโปรโมชั่น/ลดราคา → ตอบสั้นๆ แล้วใส่ [SHOW_PROMOTIONS] ต่อท้าย
+
+## 🛒 การจัดการตะกร้า:
+- "เพิ่มลงตะกร้า [ชื่อสินค้า]" → [CART_ADD:ชื่อสินค้า|จำนวน|ตัวเลือก]
+- "ลบ [ชื่อสินค้า] ออกจากตะกร้า" → [CART_REMOVE:ชื่อสินค้า]
+- "เปลี่ยนจำนวน [ชื่อสินค้า] เป็น X ชิ้น" → [CART_UPDATE:ชื่อสินค้า|จำนวนใหม่]
+- "ดูตะกร้า" → [CART_VIEW]
+- "ล้างตะกร้า" → [CART_CLEAR]
+- "สั่งซื้อตะกร้า" พร้อมข้อมูลครบ → [CART_CHECKOUT:ชื่อ|ที่อยู่|เบอร์โทร|โค้ดคูปอง]
+
+## 📝 การรับออเดอร์ (ถามทีละข้อ):
+1. ยืนยันรายการสินค้าและจำนวน
+2. ถามชื่อ-นามสกุล
+3. ถามที่อยู่จัดส่ง (พร้อมรหัสไปรษณีย์)
+4. ถามเบอร์โทรศัพท์
+5. สรุปออเดอร์และยอดรวม
+6. แจ้งว่า "ขอบคุณมาก${particleEnd}! ออเดอร์ของคุณได้รับการบันทึกเรียบร้อยแล้ว ทางร้านจะติดต่อกลับเพื่อยืนยันและแจ้งเลข Tracking ${particleEnd}"
+
+## 🚫 กฎสำคัญ:
+- **ห้ามบอกจำนวนสต็อก** → ถ้าถามให้ตอบว่า "สินค้ามีพร้อมจำหน่าย${particleEnd}"
+- **ห้ามตอบแค่คำสั่งโดดๆ** → ต้องมีข้อความตอบลูกค้าด้วยเสมอ
+- **ห้ามแต่งข้อมูลที่ไม่มี** → ถ้าไม่รู้ให้บอกว่า "ขออภัย${particleEnd} ไม่มีข้อมูลในส่วนนี้ รบกวนติดต่อทางร้านโดยตรงนะ${particleQuestion}"
+- **ห้ามพูดเรื่องการเมือง ศาสนา** หรือเรื่องละเอียดอ่อน
+- **ห้ามแกล้งทำเป็นมนุษย์** → ถ้าถามว่าเป็น AI ให้ยอมรับว่า "ใช่${particleEnd} เป็น AI ผู้ช่วยขาย${particleEnd}"
+
+${custom_rules ? `## ⚠️ กฎพิเศษ:\n${custom_rules.split(',').map((rule: string) => `- ${rule.trim()}`).join('\n')}` : ''}`;
 }
 
 // Format order status message
@@ -464,11 +599,31 @@ async function sendPromotionCarouselToFacebook(recipientId: string, products: Pr
 async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
-  customerContext: CustomerContext
+  customerContext: CustomerContext,
+  isFirstMessage: boolean = false
 ): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction; productAction?: ProductAction; saveAddress?: SaveAddressAction }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
+
+  // Fetch AI settings
+  const { data: aiSettingsData } = await supabase
+    .from("ai_settings")
+    .select("*")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const aiSettings: AISettings = aiSettingsData || {
+    ai_name: "น้องช้อป",
+    gender: "female",
+    personality: "ร่าเริง เป็นกันเอง ชอบช่วยเหลือลูกค้า",
+    formality_level: 2,
+    use_emoji: true,
+    response_length: "medium",
+    greeting_message: "สวัสดีค่ะ! 😊 ยินดีต้อนรับค่ะ",
+    closing_message: null,
+    custom_rules: null,
+  };
 
   // Fetch products for context
   const { data: products } = await supabase
@@ -476,133 +631,48 @@ async function getAIResponse(
     .select("*")
     .eq("is_active", true);
 
+  const productList = products || [];
+
+  // Build product catalog with variants info for AI
+  const productCatalog = productList.map((p: any) => {
+    let info = `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (ลด: ฿${p.promotion_price})` : ''}`;
+    if (p.description) info += ` - ${p.description}`;
+    
+    // Include variants info
+    if (p.variants && Array.isArray(p.variants) && p.variants.length > 0) {
+      const variantInfo = p.variants.map((v: any) => {
+        if (v.name && v.options && Array.isArray(v.options)) {
+          return `${v.name}: ${v.options.join(', ')}`;
+        }
+        return null;
+      }).filter(Boolean).join(' | ');
+      if (variantInfo) info += ` [ตัวเลือก: ${variantInfo}]`;
+    }
+    
+    return info;
+  }).join('\n') || 'ยังไม่มีสินค้า';
+
+  // Fetch FAQs
+  const { data: faqs } = await supabase.from("faqs").select("*").eq("is_active", true);
+  const faqList = faqs?.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') || '';
+
   // Fetch store settings
   const { data: settingsData } = await supabase
     .from("settings")
     .select("key, value")
-    .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]);
+    .in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"]);
 
-  const settingsMap = new Map(settingsData?.map((s: any) => [s.key, s.value]) || []);
-  const storeName = settingsMap.get("STORE_NAME") || "";
-  const storePhone = settingsMap.get("STORE_PHONE") || "";
-  const returnPolicy = settingsMap.get("RETURN_POLICY") || "";
-  const shippingInfo = settingsMap.get("SHIPPING_INFO") || "";
-  const businessHours = settingsMap.get("BUSINESS_HOURS") || "";
-  const lineId = settingsMap.get("LINE_ID") || "";
-  const facebookPage = settingsMap.get("FACEBOOK_PAGE") || "";
-  const instagram = settingsMap.get("INSTAGRAM") || "";
-  const bankAccounts = settingsMap.get("BANK_ACCOUNTS") || "";
-  const paymentMethods = settingsMap.get("PAYMENT_METHODS") || "";
-  const warrantyInfo = settingsMap.get("WARRANTY_INFO") || "";
-  const privacyPolicy = settingsMap.get("PRIVACY_POLICY") || "";
+  const settingsMap: Map<string, string> = new Map(settingsData?.map((s: any) => [s.key, s.value as string]) || []);
+  const storeSettings: StoreSettings = {
+    storeName: settingsMap.get("STORE_NAME") || "",
+    shippingInfo: settingsMap.get("SHIPPING_INFO") || "",
+    bankAccounts: settingsMap.get("BANK_ACCOUNTS") || "",
+    paymentMethods: settingsMap.get("PAYMENT_METHODS") || "",
+    returnPolicy: settingsMap.get("RETURN_POLICY") || "",
+  };
 
-  const productCatalog = products?.map((p: any) => {
-    let variantInfo = "";
-    if (p.variants && p.variants.length > 0) {
-      variantInfo = ` [ตัวเลือก: ${p.variants.map((v: any) => `${v.name}(${v.options.join('/')})`).join(', ')}]`;
-    }
-    return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}`;
-  }).join('\n') || 'ยังไม่มีสินค้า';
-
-  const cartInfo = customerContext.cartItemCount && customerContext.cartItemCount > 0 
-    ? `\n\n🛒 ลูกค้ามีสินค้าในตะกร้า ${customerContext.cartItemCount} รายการ`
-    : '';
-
-  // Build saved addresses info (multiple addresses)
-  let savedAddressInfo = '';
-  if (customerContext.savedAddresses && customerContext.savedAddresses.length > 0) {
-    const addressList = customerContext.savedAddresses.map((addr, idx) => 
-      `${idx + 1}. [${addr.label}]${addr.isDefault ? ' (ค่าเริ่มต้น)' : ''}: "${addr.address}"`
-    ).join('\n');
-    savedAddressInfo = `\n📍 ที่อยู่ที่บันทึกไว้ (${customerContext.savedAddresses.length} แห่ง):\n${addressList}`;
-  }
-
-  const customerGreeting = customerContext.isReturning 
-    ? customerContext.customerName 
-      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง!${savedAddressInfo}${cartInfo}`
-      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง!${savedAddressInfo}${cartInfo}`
-    : 'นี่คือลูกค้าใหม่';
-
-  // Build store info section
-  const storeInfoSection = `
-${storeName ? `🏪 ร้าน: ${storeName}` : ''}
-${storePhone ? `📞 ติดต่อ: ${storePhone}` : ''}
-${businessHours ? `🕐 เวลาทำการ: ${businessHours}` : ''}
-${lineId ? `💬 LINE: ${lineId}` : ''}
-${facebookPage ? `📘 Facebook: ${facebookPage}` : ''}
-${instagram ? `📸 Instagram: ${instagram}` : ''}
-${paymentMethods ? `💳 วิธีชำระเงิน: ${paymentMethods}` : ''}
-${returnPolicy ? `📋 นโยบายคืนสินค้า: ${returnPolicy}` : ''}
-${shippingInfo ? `🚚 การจัดส่ง: ${shippingInfo}` : ''}
-${bankAccounts ? `🏦 บัญชีธนาคาร: ${bankAccounts}` : ''}
-${warrantyInfo ? `🛡️ การรับประกัน: ${warrantyInfo}` : ''}
-${privacyPolicy ? `🔒 ความเป็นส่วนตัว: ${privacyPolicy}` : ''}
-`.trim();
-
-  const systemPrompt = `คุณคือผู้ช่วยขายอัจฉริยะทาง Facebook Messenger พูดภาษาไทยสุภาพ ตอบสั้นกระชับ
-
-${customerGreeting}
-
-สินค้าที่มี:
-${productCatalog}
-
-${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSection}` : ''}
-
-## 📌 กฎสำคัญที่สุด (ต้องปฏิบัติตามเสมอ):
-1. **ทุกการตอบต้องมีข้อความ** - ห้ามตอบเฉพาะคำสั่ง [] อย่างเดียว ต้องมีข้อความสื่อสารกับลูกค้าเสมอ
-2. **ทักทายปกติ = ตอบข้อความอย่างเดียว** - ถ้าลูกค้าทักทาย (สวัสดี, หวัดดี, ดีค่ะ, ดีครับ, hello, hi) → ตอบทักทายกลับ **ห้ามแสดงสินค้า ห้ามใช้ [SHOW_PRODUCTS] หรือ [SHOW_PRODUCT:x]**
-3. **แสดงสินค้าเฉพาะเมื่อถามโดยตรง** - ใช้ [SHOW_PRODUCTS] หรือ [SHOW_PRODUCT:x] เฉพาะเมื่อลูกค้าถามเกี่ยวกับสินค้าโดยตรงเท่านั้น
-
-## หลักการทั่วไป:
-- ตอบสั้น ได้ใจความ ไม่เกิน 200 ตัวอักษร
-- ช่วยแนะนำสินค้าและรับออเดอร์
-- ถ้าลูกค้าถามเรื่องการคืนสินค้าหรือการจัดส่ง ให้ตอบจากข้อมูลร้านค้าด้านบน
-
-## 📍 ระบบที่อยู่หลายแห่ง:
-- ถ้าลูกค้ามีที่อยู่บันทึกไว้ ให้ถามว่าต้องการใช้ที่อยู่ไหน หรือเพิ่มที่อยู่ใหม่
-- ถ้าลูกค้าต้องการเพิ่มที่อยู่ใหม่พร้อมชื่อ → ตอบ "บันทึกที่อยู่แล้วค่ะ 📍 [SAVE_ADDRESS:ชื่อที่อยู่|ที่อยู่เต็ม]"
-- ตัวอย่าง: ลูกค้าบอก "บันทึกที่อยู่ที่ทำงาน 123 ถนนสุขุมวิท" → "[SAVE_ADDRESS:ที่ทำงาน|123 ถนนสุขุมวิท]"
-- ถ้าลูกค้าเลือกใช้ที่อยู่ที่บันทึกไว้ ให้ใช้ที่อยู่นั้นในการสร้างออเดอร์
-
-## 📦 การแสดงสินค้า (สำคัญมาก!):
-
-### 🔴 กฎแสดงหลายสินค้า [SHOW_PRODUCTS] - ใช้เมื่อ:
-- "ดูสินค้า", "มีอะไรขายบ้าง", "ดูรายการสินค้า", "แนะนำสินค้า"
-- "สินค้ายอดนิยม"
-**ตัวอย่างการตอบ:** "นี่คือสินค้าของเราค่ะ 😊 [SHOW_PRODUCTS]"
-
-### 🟢 กฎแสดงสินค้าโปรโมชั่น [SHOW_PROMOTIONS] - ใช้เมื่อ:
-- "โปรโมชั่น", "สอบถามโปรโมชั่น", "มีโปรโมชั่นไหม", "โปรโมชั่นวันนี้"
-- "ลดราคา", "มีอะไรลดราคา", "สินค้าลดราคา", "ของลดราคา", "สินค้าลด"
-**ตัวอย่างการตอบ:** "มีสินค้าโปรโมชั่นหลายรายการค่ะ 🎉 [SHOW_PROMOTIONS]"
-
-### 🟡 กฎแสดงสินค้าเดียว [SHOW_PRODUCT:ชื่อ] - ใช้เมื่อ:
-- ลูกค้าถามชื่อสินค้าเฉพาะเจาะจง เช่น "มีเสื้อไหม", "ขอดูกางเกง"
-**ตัวอย่างการตอบ:** "มีค่ะ ดูรายละเอียดได้เลยค่ะ 😊 [SHOW_PRODUCT:ชื่อเต็มของสินค้าจากรายการ]"
-
-### ⚠️ ห้ามสับสน!
-- ห้ามใช้ [SHOW_PRODUCT:xxx] เมื่อลูกค้าถามเรื่องโปรโมชั่น/ลดราคาทั่วไป → ต้องใช้ [SHOW_PROMOTIONS]
-- ห้ามตอบรายการโปรโมชั่นยาวๆ เป็นข้อความ ให้ใช้ [SHOW_PROMOTIONS] แทน
-- [SHOW_PRODUCT:xxx] ใช้เฉพาะเมื่อลูกค้าระบุชื่อสินค้าที่ต้องการดูเท่านั้น
-
-## 🎟️ ระบบคูปอง:
-- ถ้าลูกค้าใช้โค้ดส่วนลด → ตอบ "รับทราบค่ะ 🎟️ [APPLY_COUPON:โค้ด]"
-- สามารถใส่โค้ดพร้อมสั่งซื้อได้ → ตอบ "รับออเดอร์แล้วค่ะ 😊 [CHECKOUT_CART:ชื่อ|ที่อยู่|เบอร์|โค้ด]"
-
-## 🛒 ระบบตะกร้าสินค้า:
-- "เพิ่มลงตะกร้า" หรือ "ใส่ตะกร้า" → ตอบ "เพิ่มลงตะกร้าแล้วค่ะ 😊 [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]"
-- "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ตอบ "นี่คือตะกร้าของคุณค่ะ 🛒 [VIEW_CART]"
-- "ล้างตะกร้า" → ตอบ "ล้างตะกร้าแล้วค่ะ 🗑️ [CLEAR_CART]"
-- "สั่งซื้อตะกร้า" พร้อมข้อมูลครบ → ตอบ "รับออเดอร์เรียบร้อยค่ะ 😊 [CHECKOUT_CART:ชื่อลูกค้า|ที่อยู่|เบอร์โทร|โค้ดส่วนลด]"
-
-## 🛍️ การสั่งซื้อตรง:
-- ลูกค้าให้ข้อมูลครบ → ตอบ "รับออเดอร์แล้วค่ะ 😊 [CREATE_ORDER:ชื่อสินค้า|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก|โค้ดส่วนลด]"
-
-## ตัวอย่างการตอบ:
-- ลูกค้า: "สวัสดีครับ" → ตอบ "สวัสดีค่ะ 😊 ยินดีให้บริการค่ะ มีอะไรให้ช่วยไหมคะ?" (ไม่แสดงสินค้า!)
-- ลูกค้า: "ดูสินค้าหน่อย" → ตอบ "นี่คือสินค้าของเราค่ะ 😊 [SHOW_PRODUCTS]"
-- ลูกค้า: "มีเสื้อเชิ้ตไหม" → ตอบ "มีค่ะ ดูรายละเอียดได้เลยค่ะ 😊 [SHOW_PRODUCT:เสื้อเชิ้ตแขนยาว]"
-- ลูกค้า: "ส่งของยังไง" → ตอบ จากข้อมูลการจัดส่งในข้อมูลร้านค้า (ไม่แสดงสินค้า!)`;
+  // Build system prompt using the same function as LINE and web chat
+  const systemPrompt = buildSystemPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage);
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -630,13 +700,15 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
 
     // Parse special commands
     const createOrderMatch = content.match(/\[CREATE_ORDER:([^\]]+)\]/);
-    const addCartMatch = content.match(/\[ADD_CART:([^\]]+)\]/);
-    const viewCartMatch = content.match(/\[VIEW_CART\]/);
-    const clearCartMatch = content.match(/\[CLEAR_CART\]/);
-    const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
+    const addCartMatch = content.match(/\[CART_ADD:([^\]]+)\]/) || content.match(/\[ADD_CART:([^\]]+)\]/);
+    const removeCartMatch = content.match(/\[CART_REMOVE:([^\]]+)\]/);
+    const updateCartMatch = content.match(/\[CART_UPDATE:([^\]]+)\]/);
+    const viewCartMatch = content.match(/\[CART_VIEW\]/) || content.match(/\[VIEW_CART\]/);
+    const clearCartMatch = content.match(/\[CART_CLEAR\]/) || content.match(/\[CLEAR_CART\]/);
+    const checkoutCartMatch = content.match(/\[CART_CHECKOUT:([^\]]+)\]/) || content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
     const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
     const showPromotionsMatch = content.match(/\[SHOW_PROMOTIONS\]/);
-    const showSingleProductMatch = content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
+    const showSingleProductMatch = content.match(/\[PRODUCT:([^\]]+)\]/) || content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
 
     // Parse order data if present
     let createOrder: OrderData | undefined;
@@ -659,22 +731,35 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
     if (addCartMatch) {
       const parts = addCartMatch[1].split('|');
       cartAction = {
-        action: 'add',
+        type: 'add',
         productName: parts[0]?.trim(),
         quantity: parseInt(parts[1]?.trim()) || 1,
         variants: parts[2]?.trim() || undefined
       };
+    } else if (removeCartMatch) {
+      cartAction = {
+        type: 'remove',
+        productName: removeCartMatch[1].trim()
+      };
+    } else if (updateCartMatch) {
+      const parts = updateCartMatch[1].split('|');
+      cartAction = {
+        type: 'update',
+        productName: parts[0]?.trim(),
+        quantity: parseInt(parts[1]?.trim()) || 1
+      };
     } else if (viewCartMatch) {
-      cartAction = { action: 'view' };
+      cartAction = { type: 'view' };
     } else if (clearCartMatch) {
-      cartAction = { action: 'clear' };
+      cartAction = { type: 'clear' };
     } else if (checkoutCartMatch) {
       const parts = checkoutCartMatch[1].split('|');
       cartAction = {
-        action: 'checkout',
+        type: 'checkout',
         customerName: parts[0]?.trim(),
         customerAddress: parts[1]?.trim(),
-        customerPhone: parts[2]?.trim()
+        customerPhone: parts[2]?.trim(),
+        couponCode: parts[3]?.trim() || undefined
       };
     }
 
@@ -707,12 +792,19 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
     // Clean up the response
     content = content
       .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
+      .replace(/\[CART_ADD:[^\]]+\]/g, '')
       .replace(/\[ADD_CART:[^\]]+\]/g, '')
+      .replace(/\[CART_REMOVE:[^\]]+\]/g, '')
+      .replace(/\[CART_UPDATE:[^\]]+\]/g, '')
+      .replace(/\[CART_VIEW\]/g, '')
       .replace(/\[VIEW_CART\]/g, '')
+      .replace(/\[CART_CLEAR\]/g, '')
       .replace(/\[CLEAR_CART\]/g, '')
+      .replace(/\[CART_CHECKOUT:[^\]]+\]/g, '')
       .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
       .replace(/\[SHOW_PRODUCTS\]/g, '')
       .replace(/\[SHOW_PROMOTIONS\]/g, '')
+      .replace(/\[PRODUCT:[^\]]+\]/g, '')
       .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
       .replace(/\[SAVE_ADDRESS:[^\]]+\]/g, '')
       .trim();
@@ -1115,13 +1207,15 @@ serve(async (req) => {
           .order("created_at", { ascending: true })
           .limit(20);
 
+        const isFirstMessage = !history || history.length === 0;
+
         const messages = history?.map((m: any) => ({
           role: m.role,
           content: m.content,
         })) || [{ role: "user", content: userMessage }];
 
         // Get AI response
-        const aiResult = await getAIResponse(messages, supabase, customerContext);
+        const aiResult = await getAIResponse(messages, supabase, customerContext, isFirstMessage);
         console.log("AI response generated:", aiResult);
 
         let responseMessage = aiResult.text;
@@ -1165,7 +1259,7 @@ serve(async (req) => {
           const cartAction = aiResult.cartAction;
           console.log("Cart action:", cartAction);
 
-          if (cartAction.action === 'add' && cartAction.productName) {
+          if (cartAction.type === 'add' && cartAction.productName) {
             // Find product
             const { data: products } = await supabase
               .from("products")
@@ -1206,7 +1300,48 @@ serve(async (req) => {
             } else {
               responseMessage = "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ";
             }
-          } else if (cartAction.action === 'view') {
+          } else if (cartAction.type === 'remove' && cartAction.productName) {
+            // Find item in cart by product name
+            const { data: cartItems } = await supabase
+              .from("shopping_carts")
+              .select("*")
+              .eq("conversation_id", conversation.id);
+
+            const itemToRemove = cartItems?.find((item: any) => 
+              item.product_name.toLowerCase().includes(cartAction.productName!.toLowerCase()) ||
+              cartAction.productName!.toLowerCase().includes(item.product_name.toLowerCase())
+            );
+
+            if (itemToRemove) {
+              await supabase.from("shopping_carts").delete().eq("id", itemToRemove.id);
+              responseMessage = `🗑️ ลบ "${itemToRemove.product_name}" ออกจากตะกร้าแล้วค่ะ`;
+            } else {
+              responseMessage = `ไม่พบสินค้า "${cartAction.productName}" ในตะกร้าค่ะ`;
+            }
+          } else if (cartAction.type === 'update' && cartAction.productName) {
+            const { data: cartItems } = await supabase
+              .from("shopping_carts")
+              .select("*")
+              .eq("conversation_id", conversation.id);
+
+            const itemToUpdate = cartItems?.find((item: any) => 
+              item.product_name.toLowerCase().includes(cartAction.productName!.toLowerCase()) ||
+              cartAction.productName!.toLowerCase().includes(item.product_name.toLowerCase())
+            );
+
+            if (itemToUpdate) {
+              const newQty = cartAction.quantity || 1;
+              if (newQty <= 0) {
+                await supabase.from("shopping_carts").delete().eq("id", itemToUpdate.id);
+                responseMessage = `🗑️ ลบ "${itemToUpdate.product_name}" ออกจากตะกร้าแล้วค่ะ`;
+              } else {
+                await supabase.from("shopping_carts").update({ quantity: newQty }).eq("id", itemToUpdate.id);
+                responseMessage = `✅ เปลี่ยนจำนวน "${itemToUpdate.product_name}" เป็น ${newQty} ชิ้นแล้วค่ะ`;
+              }
+            } else {
+              responseMessage = `ไม่พบสินค้า "${cartAction.productName}" ในตะกร้าค่ะ`;
+            }
+          } else if (cartAction.type === 'view') {
             const { data: cartItems } = await supabase
               .from("shopping_carts")
               .select("*")
@@ -1214,14 +1349,14 @@ serve(async (req) => {
 
             const totalAmount = cartItems?.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) || 0;
             responseMessage = formatCartSummaryMessage(cartItems || [], totalAmount);
-          } else if (cartAction.action === 'clear') {
+          } else if (cartAction.type === 'clear') {
             await supabase
               .from("shopping_carts")
               .delete()
               .eq("conversation_id", conversation.id);
 
             responseMessage = "🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ";
-          } else if (cartAction.action === 'checkout' && cartAction.customerName && cartAction.customerAddress && cartAction.customerPhone) {
+          } else if (cartAction.type === 'checkout' && cartAction.customerName && cartAction.customerAddress && cartAction.customerPhone) {
             const { data: cartItems } = await supabase
               .from("shopping_carts")
               .select("*, products(*)")
