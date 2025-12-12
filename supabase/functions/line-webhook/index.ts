@@ -275,7 +275,7 @@ serve(async (req) => {
         conversation = newConv;
       }
 
-      // Get conversation history
+      // Get conversation history FIRST (before saving new message)
       const { data: historyMessages } = await supabase
         .from('chat_messages')
         .select('*')
@@ -285,7 +285,7 @@ serve(async (req) => {
 
       const isFirstMessage = !historyMessages || historyMessages.length === 0;
 
-      // Save user message
+      // Save user message BEFORE calling AI
       await supabase.from('chat_messages').insert({
         conversation_id: conversation.id,
         role: 'user',
@@ -344,11 +344,21 @@ serve(async (req) => {
       // Build system prompt
       const systemPrompt = buildSystemPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage);
 
-      // Build messages for AI
-      const aiMessages = [
-        ...(historyMessages || []).map(m => ({ role: m.role, content: m.content })),
-        { role: "user", content: userMessage }
-      ];
+      // Build messages for AI - include FULL conversation history
+      // historyMessages contains previous messages, plus we add current user message
+      const aiMessages: { role: string; content: string }[] = [];
+      
+      // Add all previous messages from history
+      if (historyMessages && historyMessages.length > 0) {
+        for (const m of historyMessages) {
+          aiMessages.push({ role: m.role, content: m.content });
+        }
+      }
+      
+      // Add current user message
+      aiMessages.push({ role: "user", content: userMessage });
+      
+      console.log(`Sending ${aiMessages.length} messages to AI (including current)`);
 
       // Call AI
       console.log("Calling Lovable AI...");
