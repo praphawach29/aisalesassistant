@@ -9,6 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
 import {
   Select,
   SelectContent,
@@ -24,7 +29,9 @@ import {
   XCircle,
   Clock,
   Radio,
-  MessageCircle
+  MessageCircle,
+  CalendarIcon,
+  Timer
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,6 +48,7 @@ interface BroadcastMessage {
   status: string;
   created_at: string;
   completed_at: string | null;
+  scheduled_at: string | null;
 }
 
 export default function AdminBroadcast() {
@@ -52,6 +60,9 @@ export default function AdminBroadcast() {
   
   const [message, setMessage] = useState('');
   const [targetAudience, setTargetAudience] = useState('all');
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [isScheduleMode, setIsScheduleMode] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -87,10 +98,55 @@ export default function AdminBroadcast() {
       return;
     }
 
-    setIsSending(true);
+    // For scheduled broadcasts
+    if (isScheduleMode) {
+      if (!scheduledDate || !scheduledTime) {
+        toast.error('กรุณาเลือกวันและเวลา');
+        return;
+      }
+      
+      const [hours, minutes] = scheduledTime.split(':').map(Number);
+      const scheduledDateTime = new Date(scheduledDate);
+      scheduledDateTime.setHours(hours, minutes, 0, 0);
+      
+      if (scheduledDateTime <= new Date()) {
+        toast.error('เวลาที่ตั้งต้องเป็นอนาคต');
+        return;
+      }
 
+      setIsSending(true);
+      try {
+        const { error: insertError } = await supabase
+          .from('broadcast_messages')
+          .insert({
+            platform: selectedPlatform,
+            message_type: 'text',
+            content: message.trim(),
+            target_audience: targetAudience,
+            status: 'scheduled',
+            scheduled_at: scheduledDateTime.toISOString()
+          });
+
+        if (insertError) throw insertError;
+
+        toast.success(`ตั้งเวลา Broadcast สำหรับ ${format(scheduledDateTime, 'dd MMM yyyy HH:mm', { locale: th })}`);
+        setMessage('');
+        setScheduledDate(undefined);
+        setScheduledTime('');
+        setIsScheduleMode(false);
+        fetchBroadcasts();
+      } catch (error) {
+        console.error('Error scheduling broadcast:', error);
+        toast.error('เกิดข้อผิดพลาดในการตั้งเวลา');
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
+
+    // Immediate broadcast
+    setIsSending(true);
     try {
-      // Create broadcast record
       const { data: broadcast, error: insertError } = await supabase
         .from('broadcast_messages')
         .insert({
@@ -105,7 +161,6 @@ export default function AdminBroadcast() {
 
       if (insertError) throw insertError;
 
-      // Call edge function to send broadcast
       const { error: funcError } = await supabase.functions.invoke('send-broadcast', {
         body: {
           broadcast_id: broadcast.id,
@@ -119,10 +174,7 @@ export default function AdminBroadcast() {
 
       toast.success('กำลังส่ง Broadcast...');
       setMessage('');
-      
-      // Refresh after a delay to get updated status
       setTimeout(fetchBroadcasts, 2000);
-      
     } catch (error) {
       console.error('Error sending broadcast:', error);
       toast.error('เกิดข้อผิดพลาดในการส่ง Broadcast');
@@ -131,7 +183,23 @@ export default function AdminBroadcast() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const handleCancelScheduled = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('broadcast_messages')
+        .update({ status: 'cancelled' })
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success('ยกเลิกการตั้งเวลาสำเร็จ');
+      fetchBroadcasts();
+    } catch (error) {
+      console.error('Error cancelling broadcast:', error);
+      toast.error('เกิดข้อผิดพลาด');
+    }
+  };
+
+  const getStatusBadge = (status: string, scheduledAt?: string | null) => {
     switch (status) {
       case 'completed':
         return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" /> สำเร็จ</Badge>;
@@ -139,6 +207,10 @@ export default function AdminBroadcast() {
         return <Badge className="bg-blue-500"><RefreshCw className="w-3 h-3 mr-1 animate-spin" /> กำลังส่ง</Badge>;
       case 'failed':
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> ล้มเหลว</Badge>;
+      case 'scheduled':
+        return <Badge className="bg-orange-500"><Timer className="w-3 h-3 mr-1" /> ตั้งเวลา</Badge>;
+      case 'cancelled':
+        return <Badge variant="outline"><XCircle className="w-3 h-3 mr-1" /> ยกเลิก</Badge>;
       default:
         return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" /> รอดำเนินการ</Badge>;
     }
@@ -152,6 +224,15 @@ export default function AdminBroadcast() {
       default: return audience;
     }
   };
+
+  // Generate time options
+  const timeOptions = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      timeOptions.push(time);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -220,6 +301,69 @@ export default function AdminBroadcast() {
               </p>
             </div>
 
+            {/* Schedule Toggle */}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={isScheduleMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsScheduleMode(!isScheduleMode)}
+                className="gap-2"
+              >
+                <Timer className="w-4 h-4" />
+                {isScheduleMode ? 'ตั้งเวลาส่ง' : 'ส่งทันที'}
+              </Button>
+              {isScheduleMode && (
+                <span className="text-sm text-muted-foreground">เลือกวันและเวลาด้านล่าง</span>
+              )}
+            </div>
+
+            {/* Schedule Date & Time */}
+            {isScheduleMode && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>วันที่</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !scheduledDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {scheduledDate ? format(scheduledDate, "dd MMM yyyy", { locale: th }) : "เลือกวันที่"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={scheduledDate}
+                        onSelect={setScheduledDate}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label>เวลา</Label>
+                  <Select value={scheduledTime} onValueChange={setScheduledTime}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="เลือกเวลา" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeOptions.map(time => (
+                        <SelectItem key={time} value={time}>{time}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2">
               <Button 
                 onClick={() => handleSendBroadcast('line')} 
@@ -281,22 +425,44 @@ export default function AdminBroadcast() {
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
                           <span>{broadcast.platform === 'line' ? '🟢' : broadcast.platform === 'facebook' ? '🔵' : '📢'}</span>
-                          {getStatusBadge(broadcast.status)}
+                          {getStatusBadge(broadcast.status, broadcast.scheduled_at)}
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(broadcast.created_at).toLocaleString('th-TH')}
-                        </span>
+                        <div className="text-right">
+                          {broadcast.status === 'scheduled' && broadcast.scheduled_at ? (
+                            <div className="text-xs">
+                              <div className="text-orange-600 font-medium">
+                                {format(new Date(broadcast.scheduled_at), 'dd MMM yyyy HH:mm', { locale: th })}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(broadcast.created_at).toLocaleString('th-TH')}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm line-clamp-2 mb-2">{broadcast.content}</p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>กลุ่ม: {getAudienceLabel(broadcast.target_audience)}</span>
-                        {broadcast.status === 'completed' && (
-                          <>
-                            <span className="text-green-600">✓ {broadcast.success_count}</span>
-                            {broadcast.failed_count > 0 && (
-                              <span className="text-red-600">✗ {broadcast.failed_count}</span>
-                            )}
-                          </>
+                      <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-4">
+                          <span>กลุ่ม: {getAudienceLabel(broadcast.target_audience)}</span>
+                          {broadcast.status === 'completed' && (
+                            <>
+                              <span className="text-green-600">✓ {broadcast.success_count}</span>
+                              {broadcast.failed_count > 0 && (
+                                <span className="text-red-600">✗ {broadcast.failed_count}</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {broadcast.status === 'scheduled' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCancelScheduled(broadcast.id)}
+                            className="text-destructive hover:text-destructive h-6 px-2"
+                          >
+                            ยกเลิก
+                          </Button>
                         )}
                       </div>
                     </div>
