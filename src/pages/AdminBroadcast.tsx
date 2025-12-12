@@ -31,8 +31,11 @@ import {
   Radio,
   MessageCircle,
   CalendarIcon,
-  Timer
+  Timer,
+  ImagePlus,
+  X
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface BroadcastMessage {
@@ -63,6 +66,9 @@ export default function AdminBroadcast() {
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState('');
   const [isScheduleMode, setIsScheduleMode] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -92,10 +98,66 @@ export default function AdminBroadcast() {
     setIsLoadingData(false);
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('รูปภาพต้องมีขนาดไม่เกิน 5MB');
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return null;
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `broadcast-${Date.now()}.${fileExt}`;
+      const filePath = `broadcasts/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('ไม่สามารถอัปโหลดรูปภาพได้');
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleSendBroadcast = async (selectedPlatform: 'line' | 'facebook' | 'all') => {
     if (!message.trim()) {
       toast.error('กรุณากรอกข้อความ');
       return;
+    }
+
+    // Upload image first if exists
+    let imageUrl: string | null = null;
+    if (imageFile) {
+      imageUrl = await uploadImage();
     }
 
     // For scheduled broadcasts
@@ -120,8 +182,9 @@ export default function AdminBroadcast() {
           .from('broadcast_messages')
           .insert({
             platform: selectedPlatform,
-            message_type: 'text',
+            message_type: imageUrl ? 'image' : 'text',
             content: message.trim(),
+            image_url: imageUrl,
             target_audience: targetAudience,
             status: 'scheduled',
             scheduled_at: scheduledDateTime.toISOString()
@@ -134,6 +197,7 @@ export default function AdminBroadcast() {
         setScheduledDate(undefined);
         setScheduledTime('');
         setIsScheduleMode(false);
+        removeImage();
         fetchBroadcasts();
       } catch (error) {
         console.error('Error scheduling broadcast:', error);
@@ -151,8 +215,9 @@ export default function AdminBroadcast() {
         .from('broadcast_messages')
         .insert({
           platform: selectedPlatform,
-          message_type: 'text',
+          message_type: imageUrl ? 'image' : 'text',
           content: message.trim(),
+          image_url: imageUrl,
           target_audience: targetAudience,
           status: 'pending'
         })
@@ -165,6 +230,7 @@ export default function AdminBroadcast() {
         body: {
           broadcast_id: broadcast.id,
           message: message.trim(),
+          image_url: imageUrl,
           target_audience: targetAudience,
           platform: selectedPlatform
         }
@@ -174,6 +240,7 @@ export default function AdminBroadcast() {
 
       toast.success('กำลังส่ง Broadcast...');
       setMessage('');
+      removeImage();
       setTimeout(fetchBroadcasts, 2000);
     } catch (error) {
       console.error('Error sending broadcast:', error);
@@ -299,6 +366,44 @@ export default function AdminBroadcast() {
               <p className="text-xs text-muted-foreground text-right">
                 {message.length}/2000
               </p>
+            </div>
+
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <Label>รูปภาพ (ไม่บังคับ)</Label>
+              {imagePreview ? (
+                <div className="relative w-32 h-32 rounded-lg overflow-hidden border">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1 right-1 w-6 h-6"
+                    onClick={removeImage}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="broadcast-image"
+                  />
+                  <label htmlFor="broadcast-image">
+                    <Button type="button" variant="outline" size="sm" className="gap-2 cursor-pointer" asChild>
+                      <span>
+                        <ImagePlus className="w-4 h-4" />
+                        เพิ่มรูปภาพ
+                      </span>
+                    </Button>
+                  </label>
+                  <span className="text-xs text-muted-foreground">ขนาดไม่เกิน 5MB</span>
+                </div>
+              )}
             </div>
 
             {/* Schedule Toggle */}
@@ -441,7 +546,16 @@ export default function AdminBroadcast() {
                           )}
                         </div>
                       </div>
-                      <p className="text-sm line-clamp-2 mb-2">{broadcast.content}</p>
+                      <div className="flex gap-2 mb-2">
+                        {broadcast.image_url && (
+                          <img 
+                            src={broadcast.image_url} 
+                            alt="" 
+                            className="w-12 h-12 rounded object-cover flex-shrink-0"
+                          />
+                        )}
+                        <p className="text-sm line-clamp-2">{broadcast.content}</p>
+                      </div>
                       <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
                         <div className="flex items-center gap-4">
                           <span>กลุ่ม: {getAudienceLabel(broadcast.target_audience)}</span>
