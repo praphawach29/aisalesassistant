@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button';
 import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from './ProductCarousel';
+import { VariantSelectDialog } from './VariantSelectDialog';
 
 export function ChatWindow() {
   const { messages, isLoading, isLoadingHistory, sendMessage, clearChat } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false);
 
   // Fetch products for carousel display
   useEffect(() => {
@@ -48,7 +51,29 @@ export function ChatWindow() {
   }, [messages]);
 
   const handleSelectProduct = (product: Product) => {
-    sendMessage(`ต้องการสั่งซื้อ ${product.name} ครับ`);
+    // If product has variants, show selection dialog
+    const hasVariants = product.variants && Array.isArray(product.variants) && product.variants.length > 0;
+    
+    if (hasVariants) {
+      setSelectedProduct(product);
+      setIsVariantDialogOpen(true);
+    } else {
+      // No variants, order directly
+      sendMessage(`ต้องการสั่งซื้อ ${product.name} จำนวน 1 ชิ้นครับ`);
+    }
+  };
+
+  const handleVariantConfirm = (product: Product, selectedVariants: Record<string, string>, quantity: number) => {
+    // Build order message with variants
+    const variantText = Object.entries(selectedVariants)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    
+    const message = variantText 
+      ? `ต้องการสั่งซื้อ ${product.name} (${variantText}) จำนวน ${quantity} ชิ้นครับ`
+      : `ต้องการสั่งซื้อ ${product.name} จำนวน ${quantity} ชิ้นครับ`;
+    
+    sendMessage(message);
   };
 
   const quickActions = [
@@ -150,6 +175,14 @@ export function ChatWindow() {
           placeholder="พิมพ์ข้อความ... (กด Enter เพื่อส่ง)"
         />
       </div>
+
+      {/* Variant Selection Dialog */}
+      <VariantSelectDialog
+        product={selectedProduct}
+        open={isVariantDialogOpen}
+        onOpenChange={setIsVariantDialogOpen}
+        onConfirm={handleVariantConfirm}
+      />
     </div>
   );
 }
