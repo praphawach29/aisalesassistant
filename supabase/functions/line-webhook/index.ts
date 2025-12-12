@@ -338,6 +338,52 @@ function buildProductFlexMessage(product: Product) {
   }
   bodyContents.push(priceBox);
 
+  // Product variants (color, size, etc.)
+  if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+    const variantContents: any[] = [];
+    
+    for (const variant of product.variants) {
+      if (variant.name && variant.options && Array.isArray(variant.options) && variant.options.length > 0) {
+        variantContents.push({
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            {
+              type: "text",
+              text: `🎨 ${variant.name}:`,
+              size: "xs",
+              color: "#666666",
+              flex: 0
+            },
+            {
+              type: "text",
+              text: variant.options.join(", "),
+              size: "xs",
+              color: "#1F2937",
+              weight: "bold",
+              margin: "sm",
+              wrap: true,
+              flex: 1
+            }
+          ],
+          margin: "xs"
+        });
+      }
+    }
+    
+    if (variantContents.length > 0) {
+      bodyContents.push({
+        type: "box",
+        layout: "vertical",
+        contents: variantContents,
+        margin: "md",
+        backgroundColor: "#F9FAFB",
+        cornerRadius: "md",
+        paddingAll: "sm"
+      });
+    }
+  }
+
   // Stock status
   let stockText = "";
   let stockColor = "#10B981";
