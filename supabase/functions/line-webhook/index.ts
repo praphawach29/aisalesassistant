@@ -152,8 +152,76 @@ ${custom_rules ? `## กฎพิเศษ:\n${custom_rules}` : ''}`;
 // ============= LINE Message Builders =============
 function buildProductFlexMessage(product: Product) {
   const displayPrice = product.promotion_price || product.price;
+  const hasPromotion = product.promotion_price && product.promotion_price < product.price;
+  const discountPercent = hasPromotion 
+    ? Math.round(((product.price - product.promotion_price!) / product.price) * 100) 
+    : 0;
+
+  const bodyContents: any[] = [
+    { type: "text", text: product.name, weight: "bold", size: "lg", wrap: true }
+  ];
+
+  // Add discount badge if promotion exists
+  if (hasPromotion) {
+    bodyContents.push({
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        {
+          type: "text",
+          text: `ลด ${discountPercent}%`,
+          size: "xs",
+          color: "#FFFFFF",
+          weight: "bold"
+        }
+      ],
+      backgroundColor: "#E74C3C",
+      cornerRadius: "md",
+      paddingAll: "xs",
+      width: "60px",
+      justifyContent: "center",
+      margin: "sm"
+    });
+  }
+
+  // Add description
+  if (product.description) {
+    bodyContents.push({ 
+      type: "text", 
+      text: product.description, 
+      size: "sm", 
+      color: "#666666", 
+      wrap: true,
+      maxLines: 2,
+      margin: "sm"
+    });
+  }
+
+  // Add price section
+  const priceContents: any[] = [
+    { type: "text", text: `฿${displayPrice.toLocaleString()}`, weight: "bold", size: "xl", color: "#E74C3C" }
+  ];
+  if (hasPromotion) {
+    priceContents.push({ 
+      type: "text", 
+      text: `฿${product.price.toLocaleString()}`, 
+      size: "sm", 
+      color: "#999999", 
+      decoration: "line-through", 
+      align: "end",
+      gravity: "bottom"
+    });
+  }
+  bodyContents.push({
+    type: "box",
+    layout: "horizontal",
+    contents: priceContents,
+    margin: "md"
+  });
+
   return {
     type: "bubble",
+    size: "micro",
     hero: product.image_url ? {
       type: "image",
       url: product.image_url,
@@ -164,18 +232,37 @@ function buildProductFlexMessage(product: Product) {
     body: {
       type: "box",
       layout: "vertical",
+      contents: bodyContents,
+      spacing: "none"
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
       contents: [
-        { type: "text", text: product.name, weight: "bold", size: "lg", wrap: true },
-        { type: "text", text: product.description || "", size: "sm", color: "#666666", wrap: true },
         {
-          type: "box",
-          layout: "horizontal",
-          contents: [
-            { type: "text", text: `฿${displayPrice}`, weight: "bold", size: "xl", color: "#E74C3C" },
-            ...(product.promotion_price ? [{ type: "text", text: `฿${product.price}`, size: "sm", color: "#999999", decoration: "line-through", align: "end" }] : [])
-          ]
+          type: "button",
+          action: {
+            type: "message",
+            label: "สั่งซื้อ",
+            text: `สั่งซื้อ ${product.name}`
+          },
+          style: "primary",
+          color: "#E74C3C",
+          height: "sm"
+        },
+        {
+          type: "button",
+          action: {
+            type: "message",
+            label: "ดูรายละเอียด",
+            text: `ขอดูรายละเอียด ${product.name}`
+          },
+          style: "secondary",
+          height: "sm",
+          margin: "sm"
         }
-      ]
+      ],
+      spacing: "none"
     }
   };
 }
