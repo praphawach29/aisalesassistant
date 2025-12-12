@@ -156,39 +156,76 @@ function buildProductFlexMessage(product: Product) {
   const discountPercent = hasPromotion 
     ? Math.round(((product.price - product.promotion_price!) / product.price) * 100) 
     : 0;
+  const isLowStock = product.stock > 0 && product.stock <= 5;
+  const isOutOfStock = product.stock === 0;
+  const savingsAmount = hasPromotion ? product.price - product.promotion_price! : 0;
 
-  const bodyContents: any[] = [
-    { type: "text", text: product.name, weight: "bold", size: "lg", wrap: true }
-  ];
-
-  // Add discount badge if promotion exists
+  // Hero section with overlay badge
+  const heroContents: any[] = [];
+  
+  // Add promotion badge overlay on image
   if (hasPromotion) {
+    heroContents.push({
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: `🔥 ลด ${discountPercent}%`,
+          color: "#FFFFFF",
+          size: "sm",
+          weight: "bold"
+        }
+      ],
+      position: "absolute",
+      backgroundColor: "#E74C3C",
+      cornerRadius: "md",
+      paddingAll: "xs",
+      offsetTop: "10px",
+      offsetStart: "10px"
+    });
+  }
+
+  // Body contents
+  const bodyContents: any[] = [];
+
+  // Category tag
+  if (product.category) {
     bodyContents.push({
       type: "box",
       layout: "horizontal",
       contents: [
         {
           type: "text",
-          text: `ลด ${discountPercent}%`,
-          size: "xs",
-          color: "#FFFFFF",
+          text: product.category,
+          size: "xxs",
+          color: "#8B5CF6",
           weight: "bold"
         }
       ],
-      backgroundColor: "#E74C3C",
-      cornerRadius: "md",
+      backgroundColor: "#F3E8FF",
+      cornerRadius: "sm",
       paddingAll: "xs",
-      width: "60px",
-      justifyContent: "center",
-      margin: "sm"
+      width: "80px",
+      justifyContent: "center"
     });
   }
 
-  // Add description
+  // Product name
+  bodyContents.push({ 
+    type: "text", 
+    text: product.name, 
+    weight: "bold", 
+    size: "lg", 
+    wrap: true,
+    margin: "sm"
+  });
+
+  // Description with better formatting
   if (product.description) {
     bodyContents.push({ 
       type: "text", 
-      text: product.description, 
+      text: `📝 ${product.description}`, 
       size: "sm", 
       color: "#666666", 
       wrap: true,
@@ -197,43 +234,100 @@ function buildProductFlexMessage(product: Product) {
     });
   }
 
-  // Add price section
-  const priceContents: any[] = [
-    { type: "text", text: `฿${displayPrice.toLocaleString()}`, weight: "bold", size: "xl", color: "#E74C3C" }
-  ];
+  // Price section with savings info
+  const priceBox: any = {
+    type: "box",
+    layout: "vertical",
+    contents: [
+      {
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { 
+            type: "text", 
+            text: `฿${displayPrice.toLocaleString()}`, 
+            weight: "bold", 
+            size: "xxl", 
+            color: hasPromotion ? "#E74C3C" : "#1F2937"
+          }
+        ]
+      }
+    ],
+    margin: "md"
+  };
+
   if (hasPromotion) {
-    priceContents.push({ 
+    priceBox.contents[0].contents.push({ 
       type: "text", 
       text: `฿${product.price.toLocaleString()}`, 
       size: "sm", 
       color: "#999999", 
       decoration: "line-through", 
       align: "end",
-      gravity: "bottom"
+      gravity: "bottom",
+      margin: "md"
+    });
+    // Add savings text
+    priceBox.contents.push({
+      type: "text",
+      text: `💰 ประหยัด ฿${savingsAmount.toLocaleString()}`,
+      size: "xs",
+      color: "#10B981",
+      weight: "bold",
+      margin: "xs"
     });
   }
+  bodyContents.push(priceBox);
+
+  // Stock status
+  let stockText = "";
+  let stockColor = "#10B981";
+  if (isOutOfStock) {
+    stockText = "❌ สินค้าหมด";
+    stockColor = "#EF4444";
+  } else if (isLowStock) {
+    stockText = `⚡ เหลือ ${product.stock} ชิ้นสุดท้าย!`;
+    stockColor = "#F59E0B";
+  } else {
+    stockText = "✅ พร้อมจัดส่ง";
+  }
+  
   bodyContents.push({
-    type: "box",
-    layout: "horizontal",
-    contents: priceContents,
-    margin: "md"
+    type: "text",
+    text: stockText,
+    size: "xs",
+    color: stockColor,
+    weight: "bold",
+    margin: "sm"
   });
+
+  // Build hero with image and overlay
+  const hero: any = product.image_url ? {
+    type: "box",
+    layout: "vertical",
+    contents: [
+      {
+        type: "image",
+        url: product.image_url,
+        size: "full",
+        aspectRatio: "1:1",
+        aspectMode: "cover"
+      },
+      ...heroContents
+    ],
+    paddingAll: "0px"
+  } : undefined;
 
   return {
     type: "bubble",
     size: "mega",
-    hero: product.image_url ? {
-      type: "image",
-      url: product.image_url,
-      size: "full",
-      aspectRatio: "1:1",
-      aspectMode: "cover"
-    } : undefined,
+    hero: hero,
     body: {
       type: "box",
       layout: "vertical",
       contents: bodyContents,
-      spacing: "none"
+      spacing: "none",
+      paddingAll: "lg"
     },
     footer: {
       type: "box",
@@ -243,18 +337,18 @@ function buildProductFlexMessage(product: Product) {
           type: "button",
           action: {
             type: "message",
-            label: "สั่งซื้อ",
-            text: `สั่งซื้อ ${product.name}`
+            label: isOutOfStock ? "สินค้าหมด" : "🛒 สั่งซื้อเลย",
+            text: isOutOfStock ? `สอบถามสินค้า ${product.name}` : `สั่งซื้อ ${product.name}`
           },
           style: "primary",
-          color: "#E74C3C",
+          color: isOutOfStock ? "#9CA3AF" : "#E74C3C",
           height: "sm"
         },
         {
           type: "button",
           action: {
             type: "message",
-            label: "ดูรายละเอียด",
+            label: "📦 ดูรายละเอียดเพิ่มเติม",
             text: `ขอดูรายละเอียด ${product.name}`
           },
           style: "secondary",
@@ -262,7 +356,8 @@ function buildProductFlexMessage(product: Product) {
           margin: "sm"
         }
       ],
-      spacing: "none"
+      spacing: "none",
+      paddingAll: "lg"
     }
   };
 }

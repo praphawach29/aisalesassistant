@@ -288,24 +288,35 @@ async function sendProductCarouselToFacebook(recipientId: string, products: Prod
     const discountPercent = hasPromotion 
       ? Math.round(((product.price - product.promotion_price!) / product.price) * 100) 
       : 0;
+    const savingsAmount = hasPromotion ? product.price - product.promotion_price! : 0;
+    const isLowStock = product.stock > 0 && product.stock <= 5;
+    const isOutOfStock = product.stock === 0;
     
     let subtitle = '';
+    
+    // Price with promotion info
     if (hasPromotion) {
-      subtitle = `🔥 ลด ${discountPercent}% | ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})`;
+      subtitle = `🔥 ลด ${discountPercent}% | ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n💰 ประหยัด ฿${savingsAmount.toLocaleString()}`;
     } else {
       subtitle = `💰 ฿${price.toLocaleString()}`;
     }
-    if (product.description) {
-      subtitle += `\n${product.description.slice(0, 40)}`;
+    
+    // Stock status
+    if (isOutOfStock) {
+      subtitle += `\n❌ สินค้าหมด`;
+    } else if (isLowStock) {
+      subtitle += `\n⚡ เหลือ ${product.stock} ชิ้นสุดท้าย!`;
+    } else {
+      subtitle += `\n✅ พร้อมจัดส่ง`;
     }
 
     const element: any = {
-      title: product.name.slice(0, 80),
+      title: `${product.name}${product.category ? ` • ${product.category}` : ''}`.slice(0, 80),
       subtitle: subtitle.slice(0, 80),
       buttons: [
         {
           type: "postback",
-          title: "🛒 สั่งซื้อ",
+          title: isOutOfStock ? "สินค้าหมด" : "🛒 สั่งซื้อเลย",
           payload: `ORDER_${product.id}`
         },
         {
@@ -359,31 +370,47 @@ async function sendSingleProductToFacebook(recipientId: string, product: Product
   const discountPercent = hasPromotion 
     ? Math.round(((product.price - product.promotion_price!) / product.price) * 100) 
     : 0;
+  const savingsAmount = hasPromotion ? product.price - product.promotion_price! : 0;
+  const isLowStock = product.stock > 0 && product.stock <= 5;
+  const isOutOfStock = product.stock === 0;
 
   let subtitle = "";
+  
+  // Price section
   if (hasPromotion) {
     subtitle += `🔥 ลด ${discountPercent}% | ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n`;
+    subtitle += `💰 ประหยัด ฿${savingsAmount.toLocaleString()}\n`;
   } else {
     subtitle += `💰 ราคา: ฿${price.toLocaleString()}\n`;
   }
   
+  // Description
   if (product.description) {
-    subtitle += `${product.description.slice(0, 40)}\n`;
+    subtitle += `📝 ${product.description.slice(0, 30)}\n`;
   }
 
   // Add variant info if exists
   if (product.variants && product.variants.length > 0) {
     const variantText = product.variants.map(v => `${v.name}: ${v.options.join(', ')}`).join(' | ');
-    subtitle += `🎨 ${variantText}`;
+    subtitle += `🎨 ${variantText}\n`;
+  }
+  
+  // Stock status
+  if (isOutOfStock) {
+    subtitle += `❌ สินค้าหมด`;
+  } else if (isLowStock) {
+    subtitle += `⚡ เหลือ ${product.stock} ชิ้นสุดท้าย!`;
+  } else {
+    subtitle += `✅ พร้อมจัดส่ง`;
   }
 
   const element: any = {
-    title: product.name.slice(0, 80),
+    title: `${product.name}${product.category ? ` • ${product.category}` : ''}`.slice(0, 80),
     subtitle: subtitle.slice(0, 80),
     buttons: [
       {
         type: "postback",
-        title: "🛒 สั่งซื้อเลย",
+        title: isOutOfStock ? "สินค้าหมด" : "🛒 สั่งซื้อเลย",
         payload: `ORDER_${product.id}`
       },
       {
