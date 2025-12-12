@@ -1197,9 +1197,48 @@ async function getAIResponse(
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
 
+  // Fetch AI settings from database (same as chat function)
+  const { data: aiSettingsData } = await supabase
+    .from("ai_settings")
+    .select("*")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  // Default settings if none found
+  const aiSettings = aiSettingsData || {
+    ai_name: "น้องช้อป",
+    gender: "female",
+    personality: "ร่าเริง เป็นกันเอง สนุกสนาน กระตือรือร้น ชอบช่วยเหลือลูกค้า",
+    formality_level: 2,
+    use_emoji: true,
+    response_length: "medium",
+    greeting_message: "สวัสดีค่ะ! 😊 ยินดีต้อนรับค่ะ",
+    closing_message: "ขอบคุณมากค่ะ! 🙏",
+    custom_rules: null,
+  };
+
+  console.log("LINE webhook using AI settings:", aiSettings.ai_name);
+
+  // Gender-specific particles
+  let particleEnd = "ครับ/ค่ะ";
+  let particleQuestion = "ครับ/คะ";
+  if (aiSettings.gender === "female") {
+    particleEnd = "ค่ะ";
+    particleQuestion = "คะ";
+  } else if (aiSettings.gender === "male") {
+    particleEnd = "ครับ";
+    particleQuestion = "ครับ";
+  }
+
   // Fetch products for context with variants
   const { data: products } = await supabase
     .from("products")
+    .select("*")
+    .eq("is_active", true);
+
+  // Fetch FAQs for context
+  const { data: faqs } = await supabase
+    .from("faqs")
     .select("*")
     .eq("is_active", true);
 
@@ -1212,6 +1251,8 @@ async function getAIResponse(
   const settingsMap = new Map(settingsData?.map((s: any) => [s.key, s.value]) || []);
   const storeName = settingsMap.get("STORE_NAME") || "";
   const storePhone = settingsMap.get("STORE_PHONE") || "";
+  const storeAddress = settingsMap.get("STORE_ADDRESS") || "";
+  const storeEmail = settingsMap.get("STORE_EMAIL") || "";
   const returnPolicy = settingsMap.get("RETURN_POLICY") || "";
   const shippingInfo = settingsMap.get("SHIPPING_INFO") || "";
   const businessHours = settingsMap.get("BUSINESS_HOURS") || "";
@@ -1224,16 +1265,22 @@ async function getAIResponse(
   const privacyPolicy = settingsMap.get("PRIVACY_POLICY") || "";
   const termsConditions = settingsMap.get("TERMS_CONDITIONS") || "";
 
-  // Build product catalog with stock and category info
+  console.log("Store settings loaded:", { hasStoreName: !!storeName, hasReturnPolicy: !!returnPolicy, hasShippingInfo: !!shippingInfo });
+
+  // Build product catalog with stock and category info (include promotion indicator)
   const productCatalog = products?.map((p: any) => {
     let variantInfo = "";
     if (p.variants && p.variants.length > 0) {
       variantInfo = ` [ตัวเลือก: ${p.variants.map((v: any) => `${v.name}(${v.options.join('/')})`).join(', ')}]`;
     }
-    const stockStatus = p.stock <= 0 ? ' [หมด]' : p.stock <= 5 ? ` [เหลือ ${p.stock} ชิ้น]` : '';
+    const stockStatus = p.stock <= 0 ? ' [หมด]' : '';
     const categoryInfo = p.category ? ` (หมวด: ${p.category})` : '';
-    return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''}${variantInfo}${categoryInfo}${stockStatus}`;
+    const promoInfo = p.promotion_price ? ' 🔥โปรโมชั่น' : '';
+    return `- ${p.name}: ฿${p.price}${p.promotion_price ? ` → ฿${p.promotion_price}${promoInfo}` : ''}${variantInfo}${categoryInfo}${stockStatus}`;
   }).join('\n') || 'ยังไม่มีสินค้า';
+
+  // Build FAQ list
+  const faqList = faqs?.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') || '';
 
   const cartInfo = customerContext.cartItemCount && customerContext.cartItemCount > 0 
     ? `\n\n🛒 ลูกค้ามีสินค้าในตะกร้า ${customerContext.cartItemCount} รายการ`
@@ -1259,114 +1306,90 @@ async function getAIResponse(
 
   const customerGreeting = customerContext.isReturning 
     ? customerContext.customerName 
-      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง! ทักทายโดยเรียกชื่อลูกค้าอย่างเป็นกันเองและอบอุ่น${savedAddressInfo}${cartInfo}${orderHistorySection}`
-      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)! ทักทายอย่างเป็นกันเองและอบอุ่น${savedAddressInfo}${cartInfo}${orderHistorySection}`
-    : 'นี่คือลูกค้าใหม่ ทักทายสุภาพและแนะนำตัว';
+      ? `นี่คือลูกค้าเก่าชื่อ "${customerContext.customerName}" ที่กลับมาอีกครั้ง!${savedAddressInfo}${cartInfo}${orderHistorySection}`
+      : `นี่คือลูกค้าเก่าที่กลับมาอีกครั้ง (เคยคุยกัน ${customerContext.messageCount} ข้อความ)!${savedAddressInfo}${cartInfo}${orderHistorySection}`
+    : 'นี่คือลูกค้าใหม่';
 
-  // Build store info section
-  const storeInfoSection = `
-${storeName ? `🏪 ร้าน: ${storeName}` : ''}
-${storePhone ? `📞 ติดต่อ: ${storePhone}` : ''}
-${businessHours ? `🕐 เวลาทำการ: ${businessHours}` : ''}
-${lineId ? `💬 LINE: ${lineId}` : ''}
-${facebookPage ? `📘 Facebook: ${facebookPage}` : ''}
-${instagram ? `📸 Instagram: ${instagram}` : ''}
-${paymentMethods ? `💳 วิธีชำระเงิน: ${paymentMethods}` : ''}
-${returnPolicy ? `📋 นโยบายคืนสินค้า: ${returnPolicy}` : ''}
-${shippingInfo ? `🚚 การจัดส่ง: ${shippingInfo}` : ''}
-${bankAccounts ? `🏦 บัญชีธนาคาร: ${bankAccounts}` : ''}
-${warrantyInfo ? `🛡️ การรับประกัน: ${warrantyInfo}` : ''}
-${privacyPolicy ? `🔒 ความเป็นส่วนตัว: ${privacyPolicy}` : ''}
-`.trim();
+  // Emoji guide
+  const emojiGuide = aiSettings.use_emoji 
+    ? "ใช้ emoji บ้างเพื่อความเป็นกันเอง เช่น 😊 🙏 ✨" 
+    : "ไม่ใช้ emoji";
 
-  const systemPrompt = `คุณคือ "น้องช้อป" ผู้ช่วยขายอัจฉริยะทาง LINE พูดภาษาไทยสุภาพ น่ารัก ใช้อิโมจิบ้าง
+  const systemPrompt = `คุณคือ "${aiSettings.ai_name}" ผู้ช่วยขายอัจฉริยะทาง LINE
 
+## 🎭 บุคลิกภาพ:
+${aiSettings.personality || "สุภาพ เป็นมิตร พร้อมให้บริการ"}
+
+## 💬 สไตล์การสื่อสาร:
+- ใช้คำลงท้าย "${particleEnd}" อย่างสม่ำเสมอ
+- ${emojiGuide}
+- ตอบสั้น กระชับ ได้ใจความ (ไม่เกิน 200 ตัวอักษร)
+- ใช้ภาษาเป็นธรรมชาติ ไม่แข็งทื่อ
+
+## 👤 ข้อมูลลูกค้า:
 ${customerGreeting}
 
-สินค้าที่มี:
+## 📦 สินค้าในร้าน:
 ${productCatalog}
 
-${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSection}` : ''}
+## 🏪 ข้อมูลร้านค้า (สำคัญมาก - ใช้ข้อมูลนี้เป็นหลัก):
+${storeName ? `- ชื่อร้าน: ${storeName}` : ''}
+${storePhone ? `- เบอร์โทร: ${storePhone}` : ''}
+${storeAddress ? `- ที่อยู่: ${storeAddress}` : ''}
+${storeEmail ? `- อีเมล: ${storeEmail}` : ''}
+${businessHours ? `- เวลาทำการ: ${businessHours}` : ''}
+${lineId ? `- LINE: ${lineId}` : ''}
+${facebookPage ? `- Facebook: ${facebookPage}` : ''}
+${instagram ? `- Instagram: ${instagram}` : ''}
+${paymentMethods ? `- วิธีชำระเงิน: ${paymentMethods}` : ''}
+${bankAccounts ? `- บัญชีธนาคาร: ${bankAccounts}` : ''}
+${shippingInfo ? `- การจัดส่ง: ${shippingInfo}` : ''}
+${returnPolicy ? `- การคืนสินค้า: ${returnPolicy}` : ''}
+${warrantyInfo ? `- การรับประกัน: ${warrantyInfo}` : ''}
 
-## 🚨 กฎบังคับ (ต้องปฏิบัติตามก่อนกฎอื่นทั้งหมด):
+${faqList ? `## ❓ คำถามที่พบบ่อย:\n${faqList}` : ''}
 
-### 🔴 กฎข้อที่ 1 - ตอบตามข้อความล่าสุดเสมอ!
-**ข้อความล่าสุดของลูกค้าคือสิ่งสำคัญที่สุด**
-- ถ้าลูกค้าถามเรื่องสินค้าใหม่ → ต้องค้นหาสินค้านั้นจากรายการสินค้า ห้ามใช้สินค้าจากบทสนทนาเดิม
-- ถ้าลูกค้าถาม "รองเท้า" → หา "รองเท้า" ในรายการ ห้ามตอบเป็นสินค้าอื่นเด็ดขาด
-- ถ้าลูกค้าถาม "เสื้อ" → หา "เสื้อ" ในรายการ
-- ประวัติการสนทนาใช้เป็นข้อมูลประกอบเท่านั้น ไม่ใช่คำตอบ
+${aiSettings.custom_rules ? `## ⚠️ กฎพิเศษ:\n${aiSettings.custom_rules}` : ''}
 
-### 🔴 กฎข้อที่ 2 - กฎทักทาย
-**เมื่อข้อความล่าสุดของลูกค้าเป็นคำทักทายอย่างเดียว** เช่น:
-"สวัสดี", "สวัสดีครับ", "สวัสดีค่ะ", "หวัดดี", "ดีครับ", "ดีค่ะ", "ดี", "hello", "hi", "หวัดดีครับ"
+## 🎯 วิธีตอบคำถาม:
 
-**→ ต้องตอบทักทายกลับเท่านั้น** เช่น: "สวัสดีค่ะ 😊 ยินดีให้บริการค่ะ มีอะไรให้ช่วยไหมคะ?"
+**สำคัญที่สุด: ตอบคำถามลูกค้าเป็นธรรมชาติก่อน แล้วค่อยใช้คำสั่งพิเศษถ้าจำเป็น**
 
-**ห้ามเด็ดขาดเมื่อเจอคำทักทาย:**
-❌ ห้ามพูดถึงสินค้า/สี/ไซส์/ราคา
-❌ ห้ามตอบต่อจากบทสนทนาเดิม
-❌ ห้ามใช้ [SHOW_PRODUCTS] หรือ [SHOW_PRODUCT:x]
-❌ ห้ามถามว่าต้องการสินค้าอะไร
+### การตอบคำถามทั่วไป:
+- ถามเรื่องการจัดส่ง → ตอบจากข้อมูลการจัดส่งด้านบน
+- ถามเรื่องคืนสินค้า → ตอบจากนโยบายคืนสินค้า
+- ถามเรื่องราคา/โปรโมชั่น → ตอบจากรายการสินค้า พร้อมแสดงสินค้าถ้าเหมาะสม
+- ถามเรื่องติดต่อ → ตอบจากข้อมูลร้านค้า
+- ถ้าไม่มีข้อมูล → บอกว่า "ขออภัย${particleEnd} ไม่มีข้อมูลในส่วนนี้ รบกวนติดต่อทางร้านโดยตรงนะ${particleQuestion}"
 
-### กฎอื่นๆ:
-- ทุกการตอบต้องมีข้อความ - ห้ามตอบเฉพาะ [] อย่างเดียว
-- แสดงสินค้าเฉพาะเมื่อลูกค้าถามโดยตรง
+### 📦 การแสดงสินค้า (ใช้ต่อท้ายข้อความตอบ):
 
-## หลักการทั่วไป:
-- ตอบสั้น ได้ใจความ ไม่เกิน 200 ตัวอักษร
-- ใช้ภาษาเป็นกันเอง แต่สุภาพ
-- ถ้าลูกค้าถามเรื่องการคืนสินค้าหรือการจัดส่ง ให้ตอบจากข้อมูลร้านค้า
+**[SHOW_PRODUCTS]** - แสดงสินค้าหลายรายการ ใช้เมื่อ:
+- ลูกค้าพิมพ์: "ดูสินค้า", "มีอะไรขาย", "ดูทั้งหมด"
+- ลูกค้าถาม: "โปรโมชั่น", "มีโปรโมชั่นอะไร", "ลดราคา", "มีอะไรลดราคา", "สินค้าลดราคา"
+- ลูกค้าขอ: "แนะนำสินค้า", "สินค้ายอดนิยม"
+- ตัวอย่าง: "มีโปรโมชั่นลดราคาหลายรายการเลย${particleEnd} ดูได้เลย${particleQuestion} 🎉 [SHOW_PRODUCTS]"
 
-## 📦 การแสดงสินค้า (สำคัญมาก!):
+**[SHOW_PRODUCT:ชื่อสินค้า]** - แสดงสินค้าเดียว ใช้เมื่อ:
+- ลูกค้าถามชื่อสินค้าเฉพาะ เช่น "ดูเสื้อยืด", "รองเท้าผ้าใบราคาเท่าไหร่"
+- ตัวอย่าง: "มี${particleEnd} ตัวนี้กำลังลดราคาอยู่พอดีเลย${particleEnd} [SHOW_PRODUCT:รองเท้าผ้าใบ]"
 
-### 🔴 กฎแสดงหลายสินค้า [SHOW_PRODUCTS] - ใช้เมื่อ:
-- "ดูสินค้า", "มีอะไรขายบ้าง", "ดูรายการสินค้า"
-- "โปรโมชั่น", "สอบถามโปรโมชั่น", "มีโปรโมชั่นไหม", "โปรโมชั่นวันนี้"
-- "ลดราคา", "มีอะไรลดราคา", "สินค้าลดราคา", "ของลดราคา"
-- "แนะนำสินค้า", "สินค้าแนะนำ", "สินค้ายอดนิยม"
-**ตัวอย่างการตอบ:** "มีสินค้าลดราคาหลายรายการค่ะ 🎉 [SHOW_PRODUCTS]"
+### 🚫 กฎห้าม:
+- ห้ามบอกจำนวนสต็อก (ยกเว้นเมื่อสั่งเกินสต็อก)
+- ห้ามแต่งข้อมูลที่ไม่มี เช่น เลขบัญชี เบอร์โทร
+- เมื่อลูกค้าทักทาย (สวัสดี, ดี, hi) → ตอบทักทายกลับเท่านั้น ห้ามพูดถึงสินค้า
 
-### 🟡 กฎแสดงสินค้าเดียว [SHOW_PRODUCT:ชื่อ] - ใช้เมื่อ:
-- ลูกค้าถามชื่อสินค้าเฉพาะเจาะจง เช่น "ดูเสื้อยืดหน่อย", "รองเท้าผ้าใบราคาเท่าไหร่"
-**ตัวอย่างการตอบ:** "มีค่ะ 😊 [SHOW_PRODUCT:ชื่อเต็มของสินค้าจากรายการ]"
-
-### ⚠️ ห้ามสับสน!
-- ห้ามใช้ [SHOW_PRODUCT:xxx] เมื่อลูกค้าถามเรื่องโปรโมชั่น/ลดราคาทั่วไป → ต้องใช้ [SHOW_PRODUCTS]
-- [SHOW_PRODUCT:xxx] ใช้เฉพาะเมื่อลูกค้าระบุชื่อสินค้าที่ต้องการดูเท่านั้น
-
-- ถ้าลูกค้าบอกชื่อตัวเอง → ตอบ [NAME:ชื่อลูกค้า]
-
-## 🚫 สินค้าหมด - แนะนำสินค้าทดแทน:
-- ถ้าสินค้าที่ลูกค้าถามมีเครื่องหมาย [หมด] → แจ้งลูกค้าว่าสินค้าหมดและแนะนำสินค้าอื่นในหมวดเดียวกัน
-- ตัวอย่าง: ลูกค้าถาม "รองเท้า" แต่รองเท้าผ้าใบหมด → ตอบ "ขออภัยค่ะ รองเท้าผ้าใบหมดชั่วคราว ขอแนะนำสินค้าอื่นในหมวดเดียวกันนะคะ [RECOMMEND_SIMILAR:หมวดหมู่]"
-- ใช้ [RECOMMEND_SIMILAR:หมวดหมู่] เพื่อแสดงสินค้าในหมวดเดียวกันที่ยังมีสต็อก
-- ถ้าไม่มีสินค้าในหมวดเดียวกัน ให้แนะนำสินค้ายอดนิยมอื่นแทน
-
-## 📋 ประวัติการสั่งซื้อ:
-- ถ้าลูกค้าเคยสั่งซื้อ สามารถอ้างอิงประวัติได้ เช่น "ครั้งก่อนคุณสั่งเสื้อยืด สนใจสั่งซ้ำไหมคะ?"
-- ถ้าลูกค้าถามเรื่องออเดอร์เก่า สามารถบอกสถานะได้
-- ลูกค้าพิมพ์ "สั่งซ้ำ" หรือ "สั่งเหมือนเดิม" → ถามว่าต้องการสั่งสินค้าเดิมไหม
-
-## 🎟️ คูปอง: ใช้โค้ด → [APPLY_COUPON:โค้ด]
-
-## 🛒 ตะกร้า:
-- เพิ่มลงตะกร้า → [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]
+### 🛒 ระบบตะกร้าและสั่งซื้อ:
+- เพิ่มตะกร้า → [ADD_CART:ชื่อสินค้า|จำนวน|ตัวเลือก]
 - ดูตะกร้า → [VIEW_CART]
 - ล้างตะกร้า → [CLEAR_CART]
-- สั่งซื้อตะกร้า พร้อมข้อมูล → [CHECKOUT_CART:ชื่อ|ที่อยู่|เบอร์|โค้ด]
-
-## 🛍️ สั่งซื้อตรง:
-- สั่งซื้อสินค้าที่มีตัวเลือก → [SELECT_VARIANT:ชื่อสินค้า]
-- ข้อมูลครบ → [CREATE_ORDER:สินค้า|จำนวน|ชื่อ|ที่อยู่|เบอร์|ตัวเลือก|โค้ด]
-- ห้ามบอกจำนวนสต็อกโดยตรง
-
-## 📍 ที่อยู่จัดส่ง (รองรับหลายที่อยู่):
-- ถ้าลูกค้ามีที่อยู่บันทึกไว้ → ถามว่าจะใช้ที่อยู่ไหน เช่น "ส่งที่บ้านหรือที่ทำงานดีคะ?" หรือ "ใช้ที่อยู่ [บ้าน] ไหมคะ?"
-- ลูกค้าตอบ "ส่งที่บ้าน" หรือ "ใช้ที่อยู่บ้าน" → ใช้ที่อยู่ที่มี label "บ้าน"
-- ลูกค้าตอบ "ส่งที่ทำงาน" → ใช้ที่อยู่ที่มี label "ที่ทำงาน"
-- ลูกค้าต้องการเพิ่มที่อยู่ใหม่ → ถามที่อยู่และถามว่าจะบันทึกเป็นชื่ออะไร เช่น "บ้าน", "ที่ทำงาน", "บ้านแม่"
-- ใช้ [SAVE_ADDRESS:label|ที่อยู่] เพื่อบันทึกที่อยู่ใหม่ เช่น [SAVE_ADDRESS:ที่ทำงาน|123 อาคารเอบีซี ถนนสุขุมวิท]`;
+- สั่งซื้อตะกร้า → [CHECKOUT_CART:ชื่อ|ที่อยู่|เบอร์|โค้ดส่วนลด]
+- สั่งซื้อตรง → [CREATE_ORDER:สินค้า|จำนวน|ชื่อ|ที่อยู่|เบอร์|ตัวเลือก|โค้ด]
+- เลือกตัวเลือก → [SELECT_VARIANT:ชื่อสินค้า]
+- ใช้คูปอง → [APPLY_COUPON:โค้ด]
+- สินค้าหมด → [RECOMMEND_SIMILAR:หมวดหมู่]
+- บันทึกที่อยู่ → [SAVE_ADDRESS:label|ที่อยู่]
+- จับชื่อลูกค้า → [NAME:ชื่อ]`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
