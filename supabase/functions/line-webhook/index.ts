@@ -221,7 +221,7 @@ function buildProductFlexMessage(product: Product) {
 
   return {
     type: "bubble",
-    size: "micro",
+    size: "kilo",
     hero: product.image_url ? {
       type: "image",
       url: product.image_url,
