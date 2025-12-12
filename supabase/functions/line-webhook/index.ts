@@ -276,6 +276,13 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 - **ห้ามพูดเรื่องการเมือง ศาสนา** หรือเรื่องละเอียดอ่อน
 - **ห้ามแกล้งทำเป็นมนุษย์** → ถ้าถามว่าเป็น AI ให้ยอมรับว่า "ใช่${particleEnd} เป็น AI ผู้ช่วยขาย${particleEnd}"
 
+## 💬 กฎการตอบให้เป็นธรรมชาติ (สำคัญมาก!):
+- **ตอบสั้นกระชับ** → ไม่เกิน 4-5 ประโยคต่อข้อความ ยกเว้นสรุปออเดอร์
+- **ห้ามถามหลายอย่างพร้อมกัน** → ถามทีละเรื่อง เช่น ถามสี/ไซส์ก่อน แล้วค่อยถามข้อมูลจัดส่งทีหลัง
+- **เมื่อลูกค้าทักทาย** → ตอบทักทายสั้นๆ พร้อมถามว่าสนใจอะไร เช่น "สวัสดี${particleEnd} 😊 สนใจสินค้าอะไรเป็นพิเศษ${particleQuestion}?"
+- **เมื่อลูกค้าบอกสี/ไซส์/จำนวน** → ยืนยันสิ่งที่เลือกแล้วถามข้อมูลจัดส่งเท่านั้น ไม่ต้องอธิบายสินค้าซ้ำ
+- **ห้ามพูดซ้ำซาก** → ไม่ต้องบอกข้อมูลสินค้าซ้ำถ้าเพิ่งบอกไป
+
 ${custom_rules ? `## ⚠️ กฎพิเศษ:\n${custom_rules.split(',').map((rule: string) => `- ${rule.trim()}`).join('\n')}` : ''}`;
 }
 
@@ -1105,7 +1112,26 @@ serve(async (req) => {
       // Reverse to get chronological order (oldest to newest) for AI
       const historyMessages = rawHistoryMessages ? [...rawHistoryMessages].reverse() : [];
 
-      const isFirstMessage = !historyMessages || historyMessages.length === 0;
+      // Check if this is effectively a new session (no messages OR last message was more than 1 hour ago)
+      let isNewSession = !historyMessages || historyMessages.length === 0;
+      if (!isNewSession && historyMessages.length > 0) {
+        const lastMessageTime = new Date(historyMessages[historyMessages.length - 1].created_at);
+        const hoursSinceLastMessage = (Date.now() - lastMessageTime.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLastMessage > 1) {
+          isNewSession = true;
+          console.log(`New session detected: ${hoursSinceLastMessage.toFixed(1)} hours since last message`);
+        }
+      }
+
+      const isFirstMessage = isNewSession;
+
+      // Detect greeting messages (Thai and English)
+      const greetingPatterns = /^(สวัสดี|หวัดดี|ดี|hello|hi|hey|hola|หวัดดีครับ|หวัดดีค่ะ|สวัสดีครับ|สวัสดีค่ะ|ดีครับ|ดีค่ะ|ดีจ้า|สวัสดีจ้า|หวัดดีจ้า)[ๆ]*[\s]*[ครับค่ะคะจ้านะ]*$/i;
+      const isGreeting = greetingPatterns.test(userMessage.trim());
+      
+      if (isGreeting) {
+        console.log("Greeting detected - will respond with greeting only");
+      }
 
       // Save user message BEFORE calling AI
       await supabase.from('chat_messages').insert({
@@ -1210,19 +1236,23 @@ serve(async (req) => {
       // historyMessages contains previous messages, plus we add current user message
       const aiMessages: { role: string; content: string }[] = [];
       
-      // Add all previous messages from history
-      if (historyMessages && historyMessages.length > 0) {
+      // If it's a new session or greeting, don't add old history (start fresh)
+      if (!isNewSession && !isGreeting && historyMessages && historyMessages.length > 0) {
         for (const m of historyMessages) {
           aiMessages.push({ role: m.role, content: m.content });
         }
       }
       
-      // Add context reminder about last discussed product BEFORE user's new message
-      // This explicitly tells AI what product context to use
-      if (lastDiscussedProduct) {
+      // Add context reminder about last discussed product ONLY if not greeting and not new session
+      if (lastDiscussedProduct && !isGreeting && !isNewSession) {
         const contextReminder = `[CONTEXT: กำลังคุยเรื่องสินค้า "${lastDiscussedProduct.name}" - ถ้าลูกค้าบอกแค่สี/ไซส์/จำนวน ให้อ้างอิงถึงสินค้านี้เสมอ ห้ามเปลี่ยนเป็นสินค้าอื่น!]`;
         aiMessages.push({ role: "system", content: contextReminder });
         console.log(`Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
+      }
+      
+      // For greetings, add instruction to respond naturally with just greeting
+      if (isGreeting) {
+        aiMessages.push({ role: "system", content: "[INSTRUCTION: ลูกค้าทักทายเข้ามา - ตอบทักทายสั้นๆ เป็นธรรมชาติ ถามว่าสนใจสินค้าอะไรหรือช่วยอะไรได้บ้าง ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์]" });
       }
       
       // Add current user message
