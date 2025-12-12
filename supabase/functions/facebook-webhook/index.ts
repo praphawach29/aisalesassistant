@@ -1776,6 +1776,24 @@ serve(async (req) => {
         // Add current user message
         messages.push({ role: "user", content: userMessage });
 
+        // Send typing indicator to Facebook
+        try {
+          await fetch(
+            `https://graph.facebook.com/v18.0/me/messages?access_token=${FB_PAGE_ACCESS_TOKEN}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                recipient: { id: senderId },
+                sender_action: "typing_on"
+              }),
+            }
+          );
+          console.log("Facebook typing indicator sent");
+        } catch (typingError) {
+          console.log("Typing indicator error (non-critical):", typingError);
+        }
+
         // Get AI response
         const aiResult = await getAIResponse(messages, supabase, customerContext, isFirstMessage);
         console.log("AI response generated:", aiResult);
