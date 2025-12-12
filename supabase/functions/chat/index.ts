@@ -128,8 +128,14 @@ ${faqList ? `## ❓ คำถามที่พบบ่อย (ใช้เป�
 - หากสั่งเกินสต็อก → แจ้งว่า "ขออภัย${particleEnd} สินค้านี้เหลือเพียง X ชิ้น" (เฉพาะกรณีนี้)
 - หากหมดสต็อก (0) → แจ้ง "ขออภัย${particleEnd} สินค้าหมดชั่วคราว" และแนะนำสินค้าใกล้เคียง
 
+## 🎨 กฎเรื่องตัวเลือกสินค้า (สำคัญมาก - ห้ามละเมิด!):
+- **ห้ามแต่งสี ไซส์ หรือตัวเลือกเอง** - แนะนำได้เฉพาะตัวเลือกที่ระบุไว้ในข้อมูลสินค้าเท่านั้น
+- ถ้าสินค้าไม่มีข้อมูลตัวเลือก (variants) ให้บอกว่า "สินค้านี้มีแบบเดียว${particleEnd}" หรือ "รบกวนสอบถามทางร้านเพิ่มเติมนะ${particleQuestion}"
+- ตัวอย่าง: ถ้าสินค้ามี "สี: ขาว, ดำ, เทา" ห้ามแนะนำสีแดง สีน้ำเงิน หรือสีอื่นๆ ที่ไม่มี
+
 ## ⚠️ กฎสำคัญที่สุด - ห้ามแต่งข้อมูลเอง:
 - **ห้ามแต่งเลขบัญชีธนาคาร PromptPay หรือวิธีชำระเงินเอง** - ใช้เฉพาะข้อมูลที่ให้ไว้ด้านบนเท่านั้น
+- **ห้ามแต่งสี ไซส์ หรือตัวเลือกสินค้าเอง** - ใช้เฉพาะที่ระบุใน "ตัวเลือก" ของแต่ละสินค้าเท่านั้น
 - ห้ามสร้างข้อมูลใหม่ที่ไม่มีใน context นี้ เช่น เลขโทรศัพท์ ที่อยู่ ราคา ที่ไม่ได้ระบุไว้
 - ถ้าไม่มีข้อมูล ให้ตอบว่า "ขออภัย${particleEnd} ไม่มีข้อมูลในส่วนนี้ รบกวนติดต่อทางร้านโดยตรงนะ${particleQuestion}"
 
@@ -266,10 +272,25 @@ serve(async (req) => {
       hasShippingInfo: !!storeSettings.shippingInfo
     });
 
-    // Build product catalog with image URLs
-    const productCatalog = products?.map(p => 
-      `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}]`
-    ).join('\n') || 'ยังไม่มีสินค้าในระบบ';
+    // Build product catalog with image URLs and variants
+    const productCatalog = products?.map(p => {
+      let productInfo = `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}]`;
+      
+      // Add variants info
+      if (p.variants && Array.isArray(p.variants) && p.variants.length > 0) {
+        const variantTexts: string[] = [];
+        for (const v of p.variants) {
+          if (v && v.name && v.options && Array.isArray(v.options) && v.options.length > 0) {
+            variantTexts.push(`${v.name}: ${v.options.join(', ')}`);
+          }
+        }
+        if (variantTexts.length > 0) {
+          productInfo += ` | ตัวเลือก: [${variantTexts.join(' | ')}]`;
+        }
+      }
+      
+      return productInfo;
+    }).join('\n') || 'ยังไม่มีสินค้าในระบบ';
 
     // Build FAQ list
     const faqList = faqs?.map(f => 
