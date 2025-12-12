@@ -1378,6 +1378,170 @@ serve(async (req) => {
         }
       }
 
+      // Check for order cancellation request
+      const cancelKeywords = ['ยกเลิกออเดอร์', 'ยกเลิกคำสั่งซื้อ', 'ยกเลิก', 'cancel'];
+      const isCancelRequest = cancelKeywords.some(keyword => 
+        userMessage.toLowerCase().includes(keyword.toLowerCase())
+      );
+      const cancelOrderMatch = userMessage.match(/ORD-\d{8}-\d{4}/i);
+
+      if (isCancelRequest && cancelOrderMatch) {
+        const orderNumber = cancelOrderMatch[0].toUpperCase();
+        console.log("Order cancellation requested for:", orderNumber);
+
+        // Find order and verify it belongs to this customer
+        const { data: order } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("order_number", orderNumber)
+          .eq("customer_line_id", userId)
+          .maybeSingle();
+
+        if (!order) {
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "user",
+            content: userMessage,
+          });
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: `ไม่พบออเดอร์หมายเลข ${orderNumber}`,
+          });
+
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [{ 
+                type: "text", 
+                text: `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบของคุณ 😔\n\nกรุณาตรวจสอบหมายเลขออเดอร์อีกครั้งค่ะ` 
+              }]
+            }),
+          });
+          continue;
+        }
+
+        // Check if order can be cancelled (only pending or confirmed)
+        if (!['pending', 'confirmed'].includes(order.status)) {
+          const statusMessages: Record<string, string> = {
+            'shipped': 'ออเดอร์นี้จัดส่งแล้ว ไม่สามารถยกเลิกได้ค่ะ 📦',
+            'delivered': 'ออเดอร์นี้ส่งถึงแล้ว ไม่สามารถยกเลิกได้ค่ะ ✅',
+            'cancelled': 'ออเดอร์นี้ถูกยกเลิกไปแล้วค่ะ ❌'
+          };
+
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "user",
+            content: userMessage,
+          });
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: `ไม่สามารถยกเลิกออเดอร์ ${orderNumber} ได้ (สถานะ: ${order.status})`,
+          });
+
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [{ 
+                type: "text", 
+                text: `ขออภัยค่ะ ${statusMessages[order.status] || 'ไม่สามารถยกเลิกออเดอร์นี้ได้ค่ะ'}\n\nหากมีปัญหา กรุณาติดต่อเจ้าหน้าที่ค่ะ` 
+              }]
+            }),
+          });
+          continue;
+        }
+
+        // Get order items to return stock
+        const { data: orderItems } = await supabase
+          .from("order_items")
+          .select("*, products(*)")
+          .eq("order_id", order.id);
+
+        // Return stock for each item
+        if (orderItems) {
+          for (const item of orderItems) {
+            if (item.product_id && item.products) {
+              const currentStock = (item.products as any).stock || 0;
+              await supabase
+                .from("products")
+                .update({ stock: currentStock + item.quantity })
+                .eq("id", item.product_id);
+              console.log(`Returned ${item.quantity} units of stock for product ${item.product_id}`);
+            }
+          }
+        }
+
+        // Update order status to cancelled
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({ status: 'cancelled' })
+          .eq("id", order.id);
+
+        if (updateError) {
+          console.error("Error cancelling order:", updateError);
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [{ 
+                type: "text", 
+                text: `ขออภัยค่ะ เกิดข้อผิดพลาดในการยกเลิกออเดอร์ กรุณาลองใหม่อีกครั้งค่ะ` 
+              }]
+            }),
+          });
+          continue;
+        }
+
+        const cancelMessage = `❌ ยกเลิกออเดอร์สำเร็จ\n━━━━━━━━━━━━━━━\n\n📋 หมายเลข: ${orderNumber}\n💰 ยอดเงิน: ฿${Number(order.total_amount).toLocaleString()} (ยกเลิก)\n📦 สต็อกสินค้าได้คืนเรียบร้อยแล้ว\n\nหากต้องการสั่งซื้อใหม่ พิมพ์ "ดูสินค้า" ค่ะ 😊`;
+
+        await supabase.from("chat_messages").insert({
+          conversation_id: conversation.id,
+          role: "user",
+          content: userMessage,
+        });
+        await supabase.from("chat_messages").insert({
+          conversation_id: conversation.id,
+          role: "assistant",
+          content: `ยกเลิกออเดอร์ ${orderNumber} สำเร็จ - คืนสต็อกเรียบร้อย`,
+        });
+
+        await supabase
+          .from("chat_conversations")
+          .update({
+            last_message: `ยกเลิกออเดอร์ ${orderNumber}`,
+            last_message_at: new Date().toISOString(),
+          })
+          .eq("id", conversation.id);
+
+        await fetch("https://api.line.me/v2/bot/message/reply", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${lineAccessToken}`,
+          },
+          body: JSON.stringify({
+            replyToken,
+            messages: [{ type: "text", text: cancelMessage }]
+          }),
+        });
+        continue;
+      }
+
       // Save user message BEFORE calling AI
       await supabase.from('chat_messages').insert({
         conversation_id: conversation.id,
