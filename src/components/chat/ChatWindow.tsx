@@ -23,7 +23,19 @@ export function ChatWindow() {
         .order('created_at', { ascending: false });
       
       if (data) {
-        setProducts(data as Product[]);
+        // Map database products to Product type with proper variants typing
+        const mappedProducts: Product[] = data.map(p => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          promotion_price: p.promotion_price,
+          image_url: p.image_url,
+          category: p.category,
+          stock: p.stock,
+          variants: Array.isArray(p.variants) ? p.variants as unknown as Product['variants'] : null
+        }));
+        setProducts(mappedProducts);
       }
     };
     fetchProducts();

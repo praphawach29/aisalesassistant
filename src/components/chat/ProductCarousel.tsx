@@ -3,8 +3,13 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, ShoppingCart, ImageIcon, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingCart, ImageIcon, ExternalLink, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+export interface ProductVariant {
+  name: string;
+  options: string[];
+}
 
 export interface Product {
   id: string;
@@ -15,6 +20,7 @@ export interface Product {
   image_url: string | null;
   category: string | null;
   stock: number;
+  variants?: ProductVariant[] | null;
 }
 
 interface ProductCarouselProps {
@@ -134,6 +140,22 @@ export function ProductCarousel({ products, onSelectProduct }: ProductCarouselPr
                   {product.name}
                 </h4>
               </Link>
+
+              {/* Product Variants */}
+              {product.variants && Array.isArray(product.variants) && product.variants.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {product.variants.slice(0, 2).map((variant, idx) => (
+                    <div key={idx} className="flex items-center gap-1 text-xs">
+                      <Palette className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-muted-foreground">{variant.name}:</span>
+                      <span className="text-foreground font-medium truncate">
+                        {variant.options.slice(0, 3).join(', ')}
+                        {variant.options.length > 3 && ' ...'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               
               {/* Price */}
               <div className="flex items-center gap-2 mt-2">

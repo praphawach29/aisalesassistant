@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, ImageIcon, ExternalLink } from 'lucide-react';
+import { ShoppingCart, ImageIcon, ExternalLink, Palette } from 'lucide-react';
 import { Product } from './ProductCarousel';
 
 interface SingleProductCardProps {
@@ -74,6 +74,23 @@ export function SingleProductCard({ product, onSelectProduct }: SingleProductCar
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
             {product.description}
           </p>
+        )}
+
+        {/* Product Variants */}
+        {product.variants && Array.isArray(product.variants) && product.variants.length > 0 && (
+          <div className="mt-3 p-2 bg-muted/50 rounded-md space-y-1.5">
+            {product.variants.map((variant, idx) => (
+              <div key={idx} className="flex items-start gap-2 text-sm">
+                <Palette className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="text-muted-foreground">{variant.name}: </span>
+                  <span className="font-medium text-foreground">
+                    {variant.options.join(', ')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         
         {/* Price */}
