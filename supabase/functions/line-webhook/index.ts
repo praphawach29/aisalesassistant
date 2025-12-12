@@ -1326,43 +1326,32 @@ async function getAIResponse(
     : '\n\n📢 ตอนนี้ยังไม่มีสินค้าลดราคา';
 
   // Build product name list for AI reference
-  const productNames = products?.map((p: any) => p.name).join(', ') || '';
+  const productNamesList = products?.map((p: any) => p.name).join(', ') || '';
 
   // Get user's last message to understand context
   const lastUserMessage = messages.length > 0 ? messages[messages.length - 1]?.content?.toLowerCase() || '' : '';
 
-  const systemPrompt = `คุณคือ "${aiSettings.ai_name}" พนักงานขายออนไลน์ บุคลิก: ${aiSettings.personality || "สุภาพ เป็นมิตร"}
-ใช้ "${particleEnd}" ลงท้าย ${emojiGuide}
+  const systemPrompt = `คุณคือ "${aiSettings.ai_name}" พนักงานขายออนไลน์ภาษาไทย ลงท้ายด้วย "${particleEnd}" ${emojiGuide}
 
-## กฎสำคัญที่สุด - อ่านคำถามลูกค้าให้ดีก่อนตอบ:
-- ถ้าลูกค้าถามหาสินค้าที่ไม่มีในร้าน → ตอบว่า "ขออภัย${particleEnd} ตอนนี้ยังไม่มีสินค้านี้${particleEnd}" แล้วแนะนำสินค้าที่มี
-- ถ้าลูกค้าถามหาสินค้าที่มีในร้าน → แสดงสินค้านั้นด้วย [PRODUCT:ชื่อตรงๆ]
-- ถ้าลูกค้าอยากดูสินค้าทั้งหมด/โปรโมชั่น → ใช้ [SHOW_PRODUCTS]
+สินค้าในร้าน: ${productNamesList || 'ยังไม่มีสินค้า'}
 
-## สินค้าที่มีในร้าน (ใช้ชื่อนี้เท่านั้น):
+กฎหลัก:
+1. ตอบเป็นข้อความภาษาไทยก่อนเสมอ
+2. ถ้าลูกค้าถามหาสินค้าที่ไม่มี → บอกว่าไม่มี แนะนำสินค้าอื่น
+3. ถ้าลูกค้าถามหาสินค้าที่มี → ใช้ [PRODUCT:ชื่อสินค้าตรงๆ]
+4. ถ้าอยากดูสินค้าทั้งหมด → ใช้ [SHOW_PRODUCTS]
+
+รายละเอียดสินค้า:
 ${productCatalog}
 
-## ลูกค้า: ${customerGreeting}
+ลูกค้า: ${customerGreeting}
 
-## วิธีตอบ:
-1. ตอบเป็นภาษาไทยธรรมชาติเสมอ
-2. ถ้าจะแสดงสินค้า ให้พิมพ์ข้อความก่อน แล้วใส่คำสั่งต่อท้าย เช่น "นี่คือสินค้า${particleEnd} [SHOW_PRODUCTS]"
+ตัวอย่างการตอบ:
+- ถาม "มีรองเท้าไหม" + ไม่มีสินค้ารองเท้า → "ขออภัย${particleEnd} ตอนนี้ยังไม่มีรองเท้า${particleEnd} แต่มีสินค้าอื่นน่าสนใจ${particleEnd} [SHOW_PRODUCTS]"
+- ถาม "มีเสื้อไหม" + มีสินค้าชื่อ "เสื้อเชิ้ตแขนยาว" → "มี${particleEnd} ตัวนี้ขายดีมากเลย${particleEnd} [PRODUCT:เสื้อเชิ้ตแขนยาว]"
+- ถาม "ดูสินค้าหน่อย" → "นี่คือสินค้าของเรา${particleEnd} [SHOW_PRODUCTS]"
 
-## คำสั่ง:
-- [SHOW_PRODUCTS] = แสดงสินค้าหลายรายการ
-- [PRODUCT:ชื่อสินค้า] = แสดงสินค้าตัวเดียว (ใช้ชื่อจากรายการด้านบนเท่านั้น)
-- [ADD_CART:สินค้า|จำนวน] [VIEW_CART] [CLEAR_CART]
-- [CREATE_ORDER:สินค้า|จำนวน|ชื่อ|ที่อยู่|เบอร์]
-
-## ตัวอย่าง:
-- ถาม "มีรองเท้าไหม" และมีสินค้าชื่อ "รองเท้าผ้าใบ" → "มี${particleEnd} [PRODUCT:รองเท้าผ้าใบ]"
-- ถาม "มีรองเท้าไหม" และไม่มีสินค้านี้ → "ขออภัย${particleEnd} ตอนนี้ยังไม่มีรองเท้า${particleEnd} แต่มีสินค้าอื่นน่าสนใจ${particleEnd} [SHOW_PRODUCTS]"
-- ถาม "ดูสินค้า/มีอะไรขาย/โปรโมชั่น" → "นี่คือสินค้าของเรา${particleEnd} 😊 [SHOW_PRODUCTS]"
-
-## ห้าม:
-- ห้ามแสดงสินค้าที่ไม่ตรงกับที่ลูกค้าถาม
-- ห้ามตอบแค่คำสั่งโดดๆ ต้องมีข้อความด้วยเสมอ
-- ห้ามบอกจำนวนสต็อก`;
+ห้าม: บอกจำนวนสต็อก, ตอบแค่คำสั่งโดดๆ`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -1372,11 +1361,12 @@ ${productCatalog}
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "openai/gpt-5-mini",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
         ],
+        temperature: 0.3,
       }),
     });
 
