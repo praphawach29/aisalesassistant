@@ -1328,58 +1328,44 @@ async function getAIResponse(
   // Build product name list for AI reference
   const productNames = products?.map((p: any) => p.name).join(', ') || '';
 
-  const systemPrompt = `คุณคือ "${aiSettings.ai_name}" ผู้ช่วยขายอัจฉริยะทาง LINE
+  // Get user's last message to understand context
+  const lastUserMessage = messages.length > 0 ? messages[messages.length - 1]?.content?.toLowerCase() || '' : '';
 
-## 🎭 บุคลิก: ${aiSettings.personality || "สุภาพ เป็นมิตร"}
+  const systemPrompt = `คุณคือ "${aiSettings.ai_name}" พนักงานขายที่พูดภาษาไทยเป็นธรรมชาติ
 
-## 💬 สไตล์: ใช้ "${particleEnd}" ลงท้าย, ${emojiGuide}, ตอบสั้นกระชับธรรมชาติ
+บุคลิก: ${aiSettings.personality || "สุภาพ เป็นมิตร"} ใช้ "${particleEnd}" ลงท้าย ${emojiGuide}
 
-## 👤 ลูกค้า: ${customerGreeting}
+ลูกค้า: ${customerGreeting}
 
-## 📦 รายการสินค้าทั้งหมด (ใช้ชื่อเหล่านี้เท่านั้น):
+📦 สินค้าในร้าน:
 ${productCatalog}
 ${promoInfo}
 
-## 🏪 ข้อมูลร้าน:
-${storeName ? `ชื่อร้าน: ${storeName}` : ''}
-${storePhone ? `เบอร์: ${storePhone}` : ''}
-${shippingInfo ? `จัดส่ง: ${shippingInfo}` : ''}
-${returnPolicy ? `คืนสินค้า: ${returnPolicy}` : ''}
-${paymentMethods ? `ชำระเงิน: ${paymentMethods}` : ''}
-${bankAccounts ? `บัญชี: ${bankAccounts}` : ''}
+🏪 ข้อมูลร้าน: ${storeName ? `ชื่อร้าน: ${storeName}` : ''} ${storePhone ? `เบอร์: ${storePhone}` : ''} ${shippingInfo ? `จัดส่ง: ${shippingInfo}` : ''}
 
-${faqList ? `## ❓ FAQ:\n${faqList}` : ''}
+## วิธีตอบ (สำคัญมาก):
+1. ตอบเป็นภาษาไทยธรรมชาติเสมอ อย่าตอบแค่คำสั่งโดดๆ
+2. ถ้าจะแสดงสินค้า ให้พิมพ์ข้อความก่อน แล้วใส่คำสั่งต่อท้าย
 
-## ⚠️ กฎสำคัญที่สุด - ห้ามทำผิด:
-1. **ต้องตอบเป็นข้อความก่อนเสมอ** แล้วค่อยใส่ command ต่อท้าย
-2. **ห้ามตอบแค่ command โดด ๆ** เช่น ห้ามตอบแค่ "[SHOW_PRODUCTS]" หรือ "[SHOW_PRODUCT:xxx]"
-3. **ต้องใช้ชื่อสินค้าที่ตรงกับที่มีในร้าน** - ดูจากรายการด้านบน
-4. **ถ้าลูกค้าถามสินค้าที่ไม่มี** → บอกว่าไม่มี แล้วแนะนำสินค้าที่มีแทน
+## คำสั่งแสดงสินค้า (ใส่ต่อท้ายข้อความเท่านั้น):
+- [SHOW_PRODUCTS] = แสดงสินค้าหลายรายการ
+- [PRODUCT:ชื่อสินค้า] = แสดงสินค้าเดียว (ใช้ชื่อที่มีในร้านเท่านั้น: ${productNames})
 
-## 🎯 ตัวอย่างการตอบที่ถูกต้อง:
-- ถาม "สนใจรองเท้า" → "รองเท้าผ้าใบราคา ฿899 ลดเหลือ ฿749 ${particleEnd} ดูรายละเอียดได้เลย${particleQuestion} [SHOW_PRODUCT:รองเท้าผ้าใบ]"
-- ถาม "มีโปรอะไร" → "ตอนนี้มีโปรโมชั่นหลายรายการเลย${particleEnd} 🎉 [SHOW_PRODUCTS]"
-- ถาม "ราคาเท่าไหร่" → "สินค้าตัวไหน${particleQuestion}? บอกชื่อมาได้เลย${particleEnd}"
-- ทักทาย "สวัสดี" → "สวัสดี${particleEnd} ยินดีให้บริการ${particleEnd} มีอะไรให้ช่วยไหม${particleQuestion}"
+## ตัวอย่างการตอบที่ดี:
+- ถาม "มีรองเท้าไหม" → "มี${particleEnd} รองเท้าผ้าใบราคา ฿899${particleEnd} [PRODUCT:รองเท้าผ้าใบ]"
+- ถาม "ดูสินค้า" → "นี่คือสินค้าของเรา${particleEnd} 😊 [SHOW_PRODUCTS]"
+- ถาม "สวัสดี" → "สวัสดี${particleEnd} ยินดีให้บริการ${particleEnd} 😊"
 
-## ❌ ตัวอย่างการตอบที่ผิด (ห้ามทำ):
-- ตอบ "[SHOW_PRODUCT:เสื้อเชิ้ตแขนยาว]" โดด ๆ ← ผิด! ต้องมีข้อความด้วย
-- ถามรองเท้า แต่ตอบเสื้อ ← ผิด! ต้องตอบตรงคำถาม
-- ใช้ชื่อสินค้าที่ไม่มีในร้าน ← ผิด! ใช้ได้แค่: ${productNames}
-
-## 📦 คำสั่งแสดงสินค้า (ใส่ต่อท้ายข้อความเท่านั้น):
-- [SHOW_PRODUCTS] = แสดงสินค้าหลายรายการ (ใช้เมื่อขอดูทั้งหมด, โปรโมชั่น, แนะนำ)
-- [SHOW_PRODUCT:ชื่อสินค้าตรงๆ] = แสดงสินค้าเดียว (ใช้ชื่อจากรายการเท่านั้น)
-
-## 🛒 คำสั่งอื่น ๆ:
+## คำสั่งอื่นๆ:
 - [ADD_CART:สินค้า|จำนวน|ตัวเลือก] [VIEW_CART] [CLEAR_CART]
 - [CREATE_ORDER:สินค้า|จำนวน|ชื่อ|ที่อยู่|เบอร์|ตัวเลือก|โค้ด]
 - [SELECT_VARIANT:สินค้า] [APPLY_COUPON:โค้ด] [RECOMMEND_SIMILAR:หมวด]
 - [SAVE_ADDRESS:label|ที่อยู่] [NAME:ชื่อลูกค้า]
 
-## 🚫 กฎห้าม:
-- ห้ามบอกจำนวนสต็อก, ห้ามแต่งข้อมูลเอง
-- ทักทาย → ตอบทักทายเท่านั้น ห้ามแสดงสินค้า`;
+## ห้าม:
+- ห้ามตอบแค่คำสั่งโดดๆ เช่น "[PRODUCT:xxx]" ต้องมีข้อความด้วยเสมอ
+- ห้ามใช้ชื่อสินค้าที่ไม่มีในร้าน
+- ห้ามบอกจำนวนสต็อก`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -1408,9 +1394,9 @@ ${faqList ? `## ❓ FAQ:\n${faqList}` : ''}
     // Log raw AI response for debugging
     console.log("Raw AI response content:", content);
 
-    // Parse special commands
+    // Parse special commands - support both [PRODUCT:xxx] and [SHOW_PRODUCT:xxx]
     const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
-    const specificProductMatch = content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
+    const specificProductMatch = content.match(/\[PRODUCT:([^\]]+)\]/) || content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
     const nameMatch = content.match(/\[NAME:([^\]]+)\]/);
     const selectVariantMatch = content.match(/\[SELECT_VARIANT:([^\]]+)\]/);
     const createOrderMatch = content.match(/\[CREATE_ORDER:([^\]]+)\]/);
@@ -1480,6 +1466,7 @@ ${faqList ? `## ❓ FAQ:\n${faqList}` : ''}
     content = content
       .replace(/\[SHOW_PRODUCTS\]/g, '')
       .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
+      .replace(/\[PRODUCT:[^\]]+\]/g, '')
       .replace(/\[NAME:[^\]]+\]/g, '')
       .replace(/\[SELECT_VARIANT:[^\]]+\]/g, '')
       .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
