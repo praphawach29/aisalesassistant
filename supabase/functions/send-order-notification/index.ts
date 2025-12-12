@@ -57,7 +57,7 @@ async function getDecryptedSetting(supabase: any, key: string): Promise<string |
 
 interface NotificationRequest {
   order_id: string;
-  notification_type: 'status_update' | 'tracking_update' | 'custom';
+  notification_type: 'status_update' | 'tracking_update' | 'custom' | 'payment_confirmed' | 'payment_rejected';
   custom_message?: string;
 }
 
@@ -134,6 +134,168 @@ function createStatusUpdateFlexMessage(order: any, statusInfo: { text: string; e
   return {
     type: "flex",
     altText: `อัปเดตสถานะ ${order.order_number}: ${statusInfo.text}`,
+    contents: {
+      type: "bubble",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents
+      }
+    }
+  };
+}
+
+// Create LINE Flex Message for payment confirmation
+function createPaymentConfirmedFlexMessage(order: any) {
+  return {
+    type: "flex",
+    altText: `✅ ยืนยันการชำระเงินออเดอร์ ${order.order_number}`,
+    contents: {
+      type: "bubble",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: "✅ ยืนยันการชำระเงินสำเร็จ!",
+            weight: "bold",
+            size: "lg",
+            color: "#00B900"
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "sm",
+            contents: [
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "หมายเลขออเดอร์:", size: "sm", color: "#666666", flex: 5 },
+                  { type: "text", text: order.order_number, size: "sm", color: "#333333", weight: "bold", flex: 5, align: "end" }
+                ]
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "ยอดรวม:", size: "sm", color: "#666666", flex: 5 },
+                  { type: "text", text: `฿${Number(order.total_amount).toLocaleString()}`, size: "sm", color: "#00B900", weight: "bold", flex: 5, align: "end" }
+                ]
+              }
+            ]
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "text",
+            text: "🎉 เราได้รับชำระเงินแล้ว กำลังเตรียมจัดส่งค่ะ",
+            size: "sm",
+            color: "#333333",
+            margin: "lg",
+            wrap: true
+          },
+          {
+            type: "text",
+            text: "ขอบคุณที่ใช้บริการค่ะ 🙏",
+            size: "sm",
+            color: "#00B900",
+            margin: "md",
+            align: "center"
+          }
+        ]
+      }
+    }
+  };
+}
+
+// Create LINE Flex Message for payment rejection
+function createPaymentRejectedFlexMessage(order: any, reason?: string) {
+  const contents: any[] = [
+    {
+      type: "text",
+      text: "❌ สลิปไม่ผ่านการตรวจสอบ",
+      weight: "bold",
+      size: "lg",
+      color: "#FF0000"
+    },
+    {
+      type: "separator",
+      margin: "lg"
+    },
+    {
+      type: "box",
+      layout: "vertical",
+      margin: "lg",
+      spacing: "sm",
+      contents: [
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "หมายเลขออเดอร์:", size: "sm", color: "#666666", flex: 5 },
+            { type: "text", text: order.order_number, size: "sm", color: "#333333", weight: "bold", flex: 5, align: "end" }
+          ]
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "ยอดที่ต้องชำระ:", size: "sm", color: "#666666", flex: 5 },
+            { type: "text", text: `฿${Number(order.total_amount).toLocaleString()}`, size: "sm", color: "#FF0000", weight: "bold", flex: 5, align: "end" }
+          ]
+        }
+      ]
+    }
+  ];
+
+  if (reason) {
+    contents.push({
+      type: "box",
+      layout: "vertical",
+      margin: "lg",
+      backgroundColor: "#FFF0F0",
+      cornerRadius: "md",
+      paddingAll: "md",
+      contents: [
+        {
+          type: "text",
+          text: "⚠️ เหตุผล:",
+          size: "xs",
+          color: "#666666"
+        },
+        {
+          type: "text",
+          text: reason,
+          size: "sm",
+          color: "#FF0000",
+          wrap: true
+        }
+      ]
+    });
+  }
+
+  contents.push({
+    type: "text",
+    text: "📸 กรุณาส่งสลิปใหม่อีกครั้งค่ะ",
+    size: "sm",
+    color: "#666666",
+    margin: "lg",
+    align: "center",
+    wrap: true
+  });
+
+  return {
+    type: "flex",
+    altText: `❌ สลิปออเดอร์ ${order.order_number} ไม่ผ่าน: ${reason || 'กรุณาส่งใหม่'}`,
     contents: {
       type: "bubble",
       body: {
@@ -365,6 +527,10 @@ serve(async (req) => {
           lineMessage = { type: 'text', text: custom_message };
         } else if (notification_type === 'tracking_update' && order.tracking_number) {
           lineMessage = createTrackingUpdateFlexMessage(order);
+        } else if (notification_type === 'payment_confirmed') {
+          lineMessage = createPaymentConfirmedFlexMessage(order);
+        } else if (notification_type === 'payment_rejected') {
+          lineMessage = createPaymentRejectedFlexMessage(order, custom_message);
         } else if (notification_type === 'status_update') {
           const statusInfo = statusMessages[order.status] || statusMessages['pending'];
           lineMessage = createStatusUpdateFlexMessage(order, statusInfo);
@@ -400,6 +566,30 @@ serve(async (req) => {
           message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
           message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
           message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
+        } else if (notification_type === 'payment_confirmed') {
+          message = `✅ ยืนยันการชำระเงินสำเร็จ!\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n`;
+          message += `💰 ยอดรวม: ฿${Number(order.total_amount).toLocaleString()}\n\n`;
+          message += `──────────────────\n`;
+          message += `🎉 เราได้รับชำระเงินแล้ว\n`;
+          message += `⏳ กำลังเตรียมจัดส่งค่ะ\n\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
+          message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
+        } else if (notification_type === 'payment_rejected') {
+          message = `❌ สลิปไม่ผ่านการตรวจสอบ\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n`;
+          message += `💰 ยอดที่ต้องชำระ: ฿${Number(order.total_amount).toLocaleString()}\n\n`;
+          if (custom_message) {
+            message += `⚠️ เหตุผล: ${custom_message}\n\n`;
+          }
+          message += `──────────────────\n`;
+          message += `📸 กรุณาส่งสลิปใหม่อีกครั้งค่ะ\n\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
+          message += `หากมีข้อสงสัย สอบถามได้เลยค่ะ 🙏`;
         } else if (notification_type === 'status_update') {
           const statusInfo = statusMessages[order.status] || statusMessages['pending'];
           
