@@ -33,21 +33,21 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
   }, [conversationId]);
 
   const createConversation = async (platform: string = 'web') => {
-    const { data, error } = await supabase
+    // Generate ID on client so we don't need SELECT permission on this table
+    const newId = crypto.randomUUID();
+
+    const { error } = await supabase
       .from('chat_conversations')
-      .insert({ platform })
-      .select()
-      .single();
+      .insert({ id: newId, platform });
 
     if (error) {
       console.error('Error creating conversation:', error);
       return null;
     }
 
-    setConversationId(data.id);
-    return data.id;
+    setConversationId(newId);
+    return newId;
   };
-
   const loadMessages = useCallback(async (convId: string) => {
     setIsLoadingHistory(true);
     
