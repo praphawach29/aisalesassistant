@@ -66,6 +66,24 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
     setIsLoading(false);
   };
 
+  const sendPaymentNotification = async (type: 'payment_confirmed' | 'payment_rejected', reason?: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await supabase.functions.invoke('send-order-notification', {
+        body: {
+          order_id: orderId,
+          notification_type: type,
+          custom_message: reason
+        }
+      });
+      console.log(`Payment ${type} notification sent`);
+    } catch (error) {
+      console.error('Error sending payment notification:', error);
+    }
+  };
+
   const handleConfirm = async (slip: PaymentSlip) => {
     setIsProcessing(true);
     try {
@@ -86,7 +104,10 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
         .update({ status: 'confirmed' })
         .eq('id', orderId);
 
-      toast.success('ยืนยันการชำระเงินสำเร็จ');
+      // Send notification to customer
+      await sendPaymentNotification('payment_confirmed');
+
+      toast.success('ยืนยันการชำระเงินสำเร็จ และส่งแจ้งเตือนลูกค้าแล้ว');
       setIsActionOpen(false);
       fetchSlips();
     } catch (error) {
@@ -115,7 +136,10 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
 
       if (error) throw error;
 
-      toast.success('ปฏิเสธสลิปสำเร็จ');
+      // Send notification to customer with rejection reason
+      await sendPaymentNotification('payment_rejected', adminNotes.trim());
+
+      toast.success('ปฏิเสธสลิปสำเร็จ และส่งแจ้งเตือนลูกค้าแล้ว');
       setIsActionOpen(false);
       fetchSlips();
     } catch (error) {
