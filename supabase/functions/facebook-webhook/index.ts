@@ -431,18 +431,31 @@ async function sendProductCarouselToFacebook(recipientId: string, products: Prod
     
     // Price with promotion info
     if (hasPromotion) {
-      subtitle = `🔥 ลด ${discountPercent}% | ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n💰 ประหยัด ฿${savingsAmount.toLocaleString()}`;
+      subtitle = `🔥 ลด ${discountPercent}% | ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})`;
     } else {
       subtitle = `💰 ฿${price.toLocaleString()}`;
+    }
+    
+    // Add variant info if exists
+    if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+      const variantTexts: string[] = [];
+      for (const v of product.variants) {
+        if (v && v.name && v.options && Array.isArray(v.options)) {
+          variantTexts.push(`${v.name}: ${v.options.join(', ')}`);
+        }
+      }
+      if (variantTexts.length > 0) {
+        subtitle += `\n🎨 ${variantTexts.join(' | ')}`;
+      }
     }
     
     // Stock status
     if (isOutOfStock) {
       subtitle += `\n❌ สินค้าหมด`;
     } else if (isLowStock) {
-      subtitle += `\n⚡ เหลือ ${product.stock} ชิ้นสุดท้าย!`;
+      subtitle += `\n⚡ เหลือ ${product.stock} ชิ้น`;
     } else {
-      subtitle += `\n✅ พร้อมจัดส่ง`;
+      subtitle += `\n✅ พร้อมส่ง`;
     }
 
     const element: any = {
