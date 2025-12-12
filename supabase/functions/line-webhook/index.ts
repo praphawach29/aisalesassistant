@@ -1794,6 +1794,24 @@ serve(async (req) => {
       
       console.log(`Sending ${aiMessages.length} messages to AI (including current)`);
 
+      // Send typing indicator to LINE
+      try {
+        await fetch("https://api.line.me/v2/bot/chat/loading/start", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${lineAccessToken}`,
+          },
+          body: JSON.stringify({
+            chatId: userId,
+            loadingSeconds: 10
+          }),
+        });
+        console.log("LINE typing indicator sent");
+      } catch (typingError) {
+        console.log("Typing indicator error (non-critical):", typingError);
+      }
+
       // Call AI
       console.log("Calling Lovable AI...");
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

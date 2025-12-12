@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { ChatBubble } from './ChatBubble';
 import { ChatInput } from './ChatInput';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw } from 'lucide-react';
@@ -162,6 +163,7 @@ export function ChatWindow() {
                   onSelectProduct={handleSelectProduct}
                 />
               ))}
+              {isLoading && <ThinkingIndicator />}
             </>
           )}
         </div>
