@@ -1249,6 +1249,168 @@ serve(async (req) => {
         }
 
         const message = event.message;
+        
+        // Handle image attachments (payment slips)
+        if (message?.attachments && message.attachments.length > 0) {
+          const imageAttachment = message.attachments.find((att: any) => att.type === 'image');
+          
+          if (imageAttachment?.payload?.url) {
+            console.log(`Image received from Facebook user ${senderId}`);
+            const imageUrl = imageAttachment.payload.url;
+            
+            // Find or create conversation
+            let { data: conversation } = await supabase
+              .from("chat_conversations")
+              .select("*")
+              .eq("platform", "facebook")
+              .eq("platform_user_id", senderId)
+              .maybeSingle();
+
+            if (!conversation) {
+              const { data: newConv } = await supabase
+                .from("chat_conversations")
+                .insert({
+                  platform: "facebook",
+                  platform_user_id: senderId,
+                })
+                .select()
+                .single();
+              conversation = newConv;
+            }
+
+            // Find customer's latest pending/confirmed order
+            const { data: pendingOrder } = await supabase
+              .from("orders")
+              .select("*")
+              .eq("customer_facebook_id", senderId)
+              .in("status", ["pending", "confirmed"])
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (!pendingOrder) {
+              await sendToFacebook(
+                senderId,
+                "ขอบคุณค่ะ! 📸\n\nขณะนี้ไม่พบออเดอร์ที่รอชำระเงินค่ะ\n\nหากต้องการสั่งซื้อสินค้า พิมพ์ \"ดูสินค้า\" ได้เลยค่ะ 😊",
+                FB_PAGE_ACCESS_TOKEN
+              );
+              continue;
+            }
+
+            // Save payment slip
+            const { data: newSlip, error: slipError } = await supabase
+              .from("payment_slips")
+              .insert({
+                order_id: pendingOrder.id,
+                platform: "facebook",
+                platform_user_id: senderId,
+                image_url: imageUrl,
+                status: "pending",
+              })
+              .select()
+              .single();
+
+            if (slipError) {
+              console.error("Error saving payment slip:", slipError);
+            }
+
+            // Save to chat messages
+            if (conversation) {
+              await supabase.from("chat_messages").insert({
+                conversation_id: conversation.id,
+                role: "user",
+                content: "[รูปภาพสลิปโอนเงิน]",
+              });
+            }
+
+            // Call AI to analyze the payment slip
+            let autoVerified = false;
+            let analysisMessage = "";
+
+            if (newSlip) {
+              try {
+                console.log("Analyzing payment slip with AI...");
+
+                const analysisResponse = await fetch(
+                  `${SUPABASE_URL}/functions/v1/analyze-payment-slip`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      image_url: imageUrl,
+                      expected_amount: Number(pendingOrder.total_amount),
+                      payment_slip_id: newSlip.id,
+                      order_id: pendingOrder.id,
+                    }),
+                  }
+                );
+
+                if (analysisResponse.ok) {
+                  const analysisResult = await analysisResponse.json();
+                  console.log("AI Analysis result:", analysisResult);
+
+                  if (analysisResult.auto_verified) {
+                    autoVerified = true;
+                    analysisMessage = `\n\n🤖 AI ตรวจสอบสลิปแล้ว:\n• ยอดเงิน: ฿${
+                      analysisResult.analyzed_amount?.toLocaleString() || "ไม่ทราบ"
+                    }\n• ธนาคาร: ${
+                      analysisResult.analyzed_bank || "ไม่ทราบ"
+                    }\n• ความมั่นใจ: ${analysisResult.confidence_score}%\n\n✅ ยืนยันการชำระเงินอัตโนมัติแล้ว!`;
+
+                    // Send notification to customer about auto-confirmation
+                    try {
+                      await supabase.functions.invoke("send-order-notification", {
+                        body: {
+                          order_id: pendingOrder.id,
+                          notification_type: "payment_confirmed",
+                        },
+                      });
+                    } catch (notifError) {
+                      console.error("Error sending auto-confirm notification:", notifError);
+                    }
+                  } else if (analysisResult.analyzed_amount) {
+                    analysisMessage = `\n\n🤖 AI วิเคราะห์สลิป:\n• ยอดเงิน: ฿${
+                      analysisResult.analyzed_amount?.toLocaleString() || "อ่านไม่ได้"
+                    }\n• ธนาคาร: ${
+                      analysisResult.analyzed_bank || "ไม่ทราบ"
+                    }\n• ความมั่นใจ: ${analysisResult.confidence_score}%\n\nรอเจ้าหน้าที่ตรวจสอบเพิ่มเติมค่ะ`;
+                  }
+                }
+              } catch (analysisError) {
+                console.error("Error calling analyze-payment-slip:", analysisError);
+              }
+            }
+
+            if (conversation) {
+              await supabase.from("chat_messages").insert({
+                conversation_id: conversation.id,
+                role: "assistant",
+                content: `รับสลิปเรียบร้อย - ออเดอร์ ${pendingOrder.order_number}${
+                  autoVerified ? " (ยืนยันอัตโนมัติ)" : ""
+                }`,
+              });
+            }
+
+            // Send confirmation
+            let confirmText = "";
+            if (autoVerified) {
+              confirmText = `✅ รับสลิปและยืนยันการชำระเงินเรียบร้อยค่ะ!\n━━━━━━━━━━━━━━━\n\n📋 ออเดอร์: ${
+                pendingOrder.order_number
+              }\n💰 ยอดเงิน: ฿${Number(pendingOrder.total_amount).toLocaleString()}${analysisMessage}\n\nทางร้านจะจัดส่งสินค้าให้เร็วที่สุดค่ะ 🚚\n\nขอบคุณที่ไว้วางใจค่ะ 💕`;
+            } else {
+              confirmText = `✅ รับสลิปเรียบร้อยค่ะ!\n━━━━━━━━━━━━━━━\n\n📋 ออเดอร์: ${
+                pendingOrder.order_number
+              }\n💰 ยอดเงิน: ฿${Number(pendingOrder.total_amount).toLocaleString()}${analysisMessage}\n\nเจ้าหน้าที่จะตรวจสอบและยืนยันการชำระเงินโดยเร็วค่ะ 🙏\n\nขอบคุณที่ไว้วางใจค่ะ 💕`;
+            }
+
+            await sendToFacebook(senderId, confirmText, FB_PAGE_ACCESS_TOKEN);
+            continue;
+          }
+        }
+        
         if (!message?.text) continue;
 
         const userMessage = message.text;

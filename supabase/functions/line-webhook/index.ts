@@ -2309,13 +2309,13 @@ serve(async (req) => {
         }
 
         // Save payment slip
-        const { error: slipError } = await supabase.from('payment_slips').insert({
+        const { data: newSlip, error: slipError } = await supabase.from('payment_slips').insert({
           order_id: pendingOrder.id,
           platform: 'line',
           platform_user_id: userId,
           image_url: imageUrl,
           status: 'pending'
-        });
+        }).select().single();
 
         if (slipError) {
           console.error("Error saving payment slip:", slipError);
@@ -2328,14 +2328,69 @@ serve(async (req) => {
           content: '[รูปภาพสลิปโอนเงิน]'
         });
 
+        // Call AI to analyze the payment slip
+        let autoVerified = false;
+        let analysisMessage = "";
+        
+        if (newSlip) {
+          try {
+            console.log("Analyzing payment slip with AI...");
+            
+            const analysisResponse = await fetch(`${SUPABASE_URL}/functions/v1/analyze-payment-slip`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+              },
+              body: JSON.stringify({
+                image_url: imageUrl,
+                expected_amount: Number(pendingOrder.total_amount),
+                payment_slip_id: newSlip.id,
+                order_id: pendingOrder.id
+              })
+            });
+
+            if (analysisResponse.ok) {
+              const analysisResult = await analysisResponse.json();
+              console.log("AI Analysis result:", analysisResult);
+              
+              if (analysisResult.auto_verified) {
+                autoVerified = true;
+                analysisMessage = `\n\n🤖 AI ตรวจสอบสลิปแล้ว:\n• ยอดเงิน: ฿${analysisResult.analyzed_amount?.toLocaleString() || 'ไม่ทราบ'}\n• ธนาคาร: ${analysisResult.analyzed_bank || 'ไม่ทราบ'}\n• ความมั่นใจ: ${analysisResult.confidence_score}%\n\n✅ ยืนยันการชำระเงินอัตโนมัติแล้ว!`;
+                
+                // Send notification to customer about auto-confirmation
+                try {
+                  await supabase.functions.invoke('send-order-notification', {
+                    body: {
+                      order_id: pendingOrder.id,
+                      notification_type: 'payment_confirmed'
+                    }
+                  });
+                } catch (notifError) {
+                  console.error("Error sending auto-confirm notification:", notifError);
+                }
+              } else if (analysisResult.analyzed_amount) {
+                analysisMessage = `\n\n🤖 AI วิเคราะห์สลิป:\n• ยอดเงิน: ฿${analysisResult.analyzed_amount?.toLocaleString() || 'อ่านไม่ได้'}\n• ธนาคาร: ${analysisResult.analyzed_bank || 'ไม่ทราบ'}\n• ความมั่นใจ: ${analysisResult.confidence_score}%\n\nรอเจ้าหน้าที่ตรวจสอบเพิ่มเติมค่ะ`;
+              }
+            }
+          } catch (analysisError) {
+            console.error("Error calling analyze-payment-slip:", analysisError);
+          }
+        }
+
         await supabase.from('chat_messages').insert({
           conversation_id: conversation.id,
           role: 'assistant',
-          content: `รับสลิปเรียบร้อย - ออเดอร์ ${pendingOrder.order_number}`
+          content: `รับสลิปเรียบร้อย - ออเดอร์ ${pendingOrder.order_number}${autoVerified ? ' (ยืนยันอัตโนมัติ)' : ''}`
         });
 
         // Send confirmation
-        const confirmText = `✅ รับสลิปเรียบร้อยค่ะ!\n━━━━━━━━━━━━━━━\n\n📋 ออเดอร์: ${pendingOrder.order_number}\n💰 ยอดเงิน: ฿${Number(pendingOrder.total_amount).toLocaleString()}\n\nเจ้าหน้าที่จะตรวจสอบและยืนยันการชำระเงินโดยเร็วค่ะ 🙏\n\nขอบคุณที่ไว้วางใจค่ะ 💕`;
+        let confirmText = "";
+        if (autoVerified) {
+          confirmText = `✅ รับสลิปและยืนยันการชำระเงินเรียบร้อยค่ะ!\n━━━━━━━━━━━━━━━\n\n📋 ออเดอร์: ${pendingOrder.order_number}\n💰 ยอดเงิน: ฿${Number(pendingOrder.total_amount).toLocaleString()}${analysisMessage}\n\nทางร้านจะจัดส่งสินค้าให้เร็วที่สุดค่ะ 🚚\n\nขอบคุณที่ไว้วางใจค่ะ 💕`;
+        } else {
+          confirmText = `✅ รับสลิปเรียบร้อยค่ะ!\n━━━━━━━━━━━━━━━\n\n📋 ออเดอร์: ${pendingOrder.order_number}\n💰 ยอดเงิน: ฿${Number(pendingOrder.total_amount).toLocaleString()}${analysisMessage}\n\nเจ้าหน้าที่จะตรวจสอบและยืนยันการชำระเงินโดยเร็วค่ะ 🙏\n\nขอบคุณที่ไว้วางใจค่ะ 💕`;
+        }
 
         await fetch("https://api.line.me/v2/bot/message/reply", {
           method: "POST",

@@ -17,7 +17,9 @@ import {
   Clock, 
   RefreshCw,
   Eye,
-  ZoomIn
+  ZoomIn,
+  Bot,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -31,13 +33,20 @@ interface PaymentSlip {
   admin_notes: string | null;
   confirmed_at: string | null;
   created_at: string;
+  analyzed_amount: number | null;
+  analyzed_date: string | null;
+  analyzed_bank: string | null;
+  analyzed_account: string | null;
+  confidence_score: number | null;
+  auto_verified: boolean;
 }
 
 interface PaymentSlipSectionProps {
   orderId: string;
+  expectedAmount?: number;
 }
 
-export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
+export function PaymentSlipSection({ orderId, expectedAmount }: PaymentSlipSectionProps) {
   const [slips, setSlips] = useState<PaymentSlip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSlip, setSelectedSlip] = useState<PaymentSlip | null>(null);
@@ -45,6 +54,7 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
   const [isActionOpen, setIsActionOpen] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     fetchSlips();
@@ -81,6 +91,38 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
       console.log(`Payment ${type} notification sent`);
     } catch (error) {
       console.error('Error sending payment notification:', error);
+    }
+  };
+
+  const handleAnalyze = async (slip: PaymentSlip) => {
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-payment-slip', {
+        body: {
+          image_url: slip.image_url,
+          expected_amount: expectedAmount,
+          payment_slip_id: slip.id,
+          order_id: orderId
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.auto_verified) {
+        toast.success('ยืนยันการชำระเงินอัตโนมัติสำเร็จ!');
+        await sendPaymentNotification('payment_confirmed');
+      } else if (data?.success) {
+        toast.success(`AI วิเคราะห์สลิปแล้ว: ฿${data.analyzed_amount?.toLocaleString() || 'ไม่ทราบ'}`);
+      } else {
+        toast.error('ไม่สามารถวิเคราะห์สลิปได้');
+      }
+      
+      fetchSlips();
+    } catch (error) {
+      console.error('Error analyzing slip:', error);
+      toast.error('เกิดข้อผิดพลาดในการวิเคราะห์');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -156,8 +198,11 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
     setIsActionOpen(true);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (slip: PaymentSlip) => {
+    if (slip.auto_verified && slip.status === 'confirmed') {
+      return <Badge className="bg-blue-500"><Bot className="w-3 h-3 mr-1" /> ยืนยันอัตโนมัติ</Badge>;
+    }
+    switch (slip.status) {
       case 'confirmed':
         return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" /> ยืนยันแล้ว</Badge>;
       case 'rejected':
@@ -165,6 +210,52 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
       default:
         return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" /> รอตรวจสอบ</Badge>;
     }
+  };
+
+  const getConfidenceBadge = (score: number | null) => {
+    if (score === null) return null;
+    if (score >= 80) {
+      return <Badge variant="outline" className="text-green-600 border-green-600">ความมั่นใจ {score}%</Badge>;
+    } else if (score >= 50) {
+      return <Badge variant="outline" className="text-yellow-600 border-yellow-600">ความมั่นใจ {score}%</Badge>;
+    } else {
+      return <Badge variant="outline" className="text-red-600 border-red-600">ความมั่นใจ {score}%</Badge>;
+    }
+  };
+
+  const renderAIAnalysis = (slip: PaymentSlip) => {
+    if (!slip.analyzed_amount && !slip.analyzed_bank) return null;
+    
+    const amountMismatch = expectedAmount && slip.analyzed_amount && 
+      Math.abs(slip.analyzed_amount - expectedAmount) > expectedAmount * 0.05;
+    
+    return (
+      <div className="mt-2 p-2 rounded-md bg-muted/50 text-xs space-y-1">
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <Bot className="w-3 h-3" />
+          <span className="font-medium">AI วิเคราะห์:</span>
+        </div>
+        {slip.analyzed_amount && (
+          <div className={`flex items-center gap-1 ${amountMismatch ? 'text-orange-600' : 'text-foreground'}`}>
+            {amountMismatch && <AlertTriangle className="w-3 h-3" />}
+            <span>ยอดเงิน: ฿{slip.analyzed_amount.toLocaleString()}</span>
+            {amountMismatch && expectedAmount && (
+              <span className="text-muted-foreground">(คาดหวัง ฿{expectedAmount.toLocaleString()})</span>
+            )}
+          </div>
+        )}
+        {slip.analyzed_bank && (
+          <div>ธนาคาร: {slip.analyzed_bank}</div>
+        )}
+        {slip.analyzed_date && (
+          <div>วันที่: {slip.analyzed_date}</div>
+        )}
+        {slip.analyzed_account && (
+          <div>เลขบัญชี: xxx-{slip.analyzed_account}</div>
+        )}
+        {getConfidenceBadge(slip.confidence_score)}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -194,58 +285,74 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
           {slips.map((slip) => (
             <div
               key={slip.id}
-              className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30"
+              className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30"
             >
-              {/* Thumbnail */}
-              <div 
-                className="w-16 h-16 rounded-md overflow-hidden cursor-pointer bg-muted flex-shrink-0"
-                onClick={() => { setSelectedSlip(slip); setIsPreviewOpen(true); }}
-              >
-                <img 
-                  src={slip.image_url} 
-                  alt="Payment slip" 
-                  className="w-full h-full object-cover hover:scale-110 transition-transform"
-                />
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  {getStatusBadge(slip.status)}
-                  <span className="text-xs text-muted-foreground">
-                    {slip.platform === 'line' ? '🟢' : '🔵'}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(slip.created_at).toLocaleString('th-TH')}
-                </p>
-                {slip.admin_notes && (
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                    หมายเหตุ: {slip.admin_notes}
-                  </p>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="icon"
+              <div className="flex items-start gap-3">
+                {/* Thumbnail */}
+                <div 
+                  className="w-16 h-16 rounded-md overflow-hidden cursor-pointer bg-muted flex-shrink-0"
                   onClick={() => { setSelectedSlip(slip); setIsPreviewOpen(true); }}
-                  title="ดูสลิป"
                 >
-                  <Eye className="w-4 h-4" />
-                </Button>
-                {slip.status === 'pending' && (
+                  <img 
+                    src={slip.image_url} 
+                    alt="Payment slip" 
+                    className="w-full h-full object-cover hover:scale-110 transition-transform"
+                  />
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    {getStatusBadge(slip)}
+                    <span className="text-xs text-muted-foreground">
+                      {slip.platform === 'line' ? '🟢' : '🔵'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(slip.created_at).toLocaleString('th-TH')}
+                  </p>
+                  {slip.admin_notes && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                      หมายเหตุ: {slip.admin_notes}
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 flex-shrink-0">
                   <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => openActionDialog(slip)}
+                    variant="outline"
+                    size="icon"
+                    onClick={() => { setSelectedSlip(slip); setIsPreviewOpen(true); }}
+                    title="ดูสลิป"
                   >
-                    ตรวจสอบ
+                    <Eye className="w-4 h-4" />
                   </Button>
-                )}
+                  {slip.status === 'pending' && !slip.analyzed_amount && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAnalyze(slip)}
+                      disabled={isAnalyzing}
+                      title="ให้ AI วิเคราะห์"
+                    >
+                      {isAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                    </Button>
+                  )}
+                  {slip.status === 'pending' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => openActionDialog(slip)}
+                    >
+                      ตรวจสอบ
+                    </Button>
+                  )}
+                </div>
               </div>
+              
+              {/* AI Analysis Results */}
+              {renderAIAnalysis(slip)}
             </div>
           ))}
         </CardContent>
@@ -267,19 +374,36 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
                 alt="Payment slip" 
                 className="w-full rounded-lg max-h-[70vh] object-contain"
               />
-              <div className="flex items-center justify-between">
-                {getStatusBadge(selectedSlip.status)}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                {getStatusBadge(selectedSlip)}
                 <span className="text-sm text-muted-foreground">
                   {new Date(selectedSlip.created_at).toLocaleString('th-TH')}
                 </span>
               </div>
+              
+              {/* AI Analysis in preview */}
+              {renderAIAnalysis(selectedSlip)}
+              
               {selectedSlip.status === 'pending' && (
-                <Button 
-                  onClick={() => { setIsPreviewOpen(false); openActionDialog(selectedSlip); }}
-                  className="w-full"
-                >
-                  ตรวจสอบและยืนยัน/ปฏิเสธ
-                </Button>
+                <div className="flex gap-2">
+                  {!selectedSlip.analyzed_amount && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => handleAnalyze(selectedSlip)}
+                      disabled={isAnalyzing}
+                      className="flex-1"
+                    >
+                      {isAnalyzing ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Bot className="w-4 h-4 mr-2" />}
+                      ให้ AI วิเคราะห์
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={() => { setIsPreviewOpen(false); openActionDialog(selectedSlip); }}
+                    className="flex-1"
+                  >
+                    ตรวจสอบและยืนยัน/ปฏิเสธ
+                  </Button>
+                </div>
               )}
             </div>
           )}
@@ -301,6 +425,16 @@ export function PaymentSlipSection({ orderId }: PaymentSlipSectionProps) {
                   className="w-full h-full object-contain"
                 />
               </div>
+
+              {/* AI Analysis in action dialog */}
+              {renderAIAnalysis(selectedSlip)}
+
+              {/* Expected amount info */}
+              {expectedAmount && (
+                <div className="p-3 rounded-md bg-primary/10 text-sm">
+                  <span className="font-medium">ยอดที่ต้องชำระ:</span> ฿{expectedAmount.toLocaleString()}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">หมายเหตุ (สำหรับกรณีปฏิเสธ)</label>

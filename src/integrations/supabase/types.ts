@@ -525,6 +525,12 @@ export type Database = {
       payment_slips: {
         Row: {
           admin_notes: string | null
+          analyzed_account: string | null
+          analyzed_amount: number | null
+          analyzed_bank: string | null
+          analyzed_date: string | null
+          auto_verified: boolean
+          confidence_score: number | null
           confirmed_at: string | null
           confirmed_by: string | null
           created_at: string
@@ -538,6 +544,12 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          analyzed_account?: string | null
+          analyzed_amount?: number | null
+          analyzed_bank?: string | null
+          analyzed_date?: string | null
+          auto_verified?: boolean
+          confidence_score?: number | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
@@ -551,6 +563,12 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          analyzed_account?: string | null
+          analyzed_amount?: number | null
+          analyzed_bank?: string | null
+          analyzed_date?: string | null
+          auto_verified?: boolean
+          confidence_score?: number | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
