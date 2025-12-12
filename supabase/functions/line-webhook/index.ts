@@ -137,12 +137,14 @@ ${faqList ? `## FAQ:\n${faqList}` : ''}
 ## กฎการแสดงสินค้า:
 - ถ้าลูกค้าถามหาสินค้าที่มี → ตอบอธิบายก่อน แล้วใส่ [PRODUCT:ชื่อสินค้า] ต่อท้าย
 - ถ้าลูกค้าอยากดูทั้งหมด → ใส่ [SHOW_PRODUCTS] ต่อท้าย
+- ถ้าลูกค้าถามโปรโมชั่น/ลดราคา → ตอบสั้นๆ แล้วใส่ [SHOW_PROMOTIONS] ต่อท้าย (ระบบจะแสดง Flex Carousel อัตโนมัติ)
 - ถ้าสินค้าไม่มี → บอกว่าไม่มี แนะนำสินค้าอื่น
 
 ## ห้าม:
 - ห้ามบอกจำนวนสต็อก
 - ห้ามตอบแค่คำสั่งโดดๆ ต้องมีข้อความด้วยเสมอ
 - ห้ามแต่งข้อมูลที่ไม่มี
+- ห้ามตอบรายการโปรโมชั่นยาวๆ เป็นข้อความ ให้ใช้ [SHOW_PROMOTIONS] แทน
 
 ${custom_rules ? `## กฎพิเศษ:\n${custom_rules}` : ''}`;
 }
@@ -190,11 +192,13 @@ function buildProductCarousel(products: Product[]) {
 // ============= AI Response Parser =============
 function parseAIResponse(content: string, products: Product[]) {
   const showProducts = content.includes('[SHOW_PRODUCTS]');
+  const showPromotions = content.includes('[SHOW_PROMOTIONS]');
   const productMatch = content.match(/\[PRODUCT:([^\]]+)\]/);
   
   // Clean the text
   let text = content
     .replace(/\[SHOW_PRODUCTS\]/g, '')
+    .replace(/\[SHOW_PROMOTIONS\]/g, '')
     .replace(/\[PRODUCT:[^\]]+\]/g, '')
     .trim();
 
@@ -208,7 +212,10 @@ function parseAIResponse(content: string, products: Product[]) {
     );
   }
 
-  return { text, showProducts, specificProduct };
+  // Get promotion products
+  const promotionProducts = products.filter(p => p.promotion_price && p.promotion_price < p.price);
+
+  return { text, showProducts, showPromotions, specificProduct, promotionProducts };
 }
 
 // ============= Main Handler =============
@@ -402,7 +409,7 @@ serve(async (req) => {
       console.log("AI response:", aiContent);
 
       // Parse AI response
-      const { text, showProducts, specificProduct } = parseAIResponse(aiContent, productList);
+      const { text, showProducts, showPromotions, specificProduct, promotionProducts } = parseAIResponse(aiContent, productList);
 
       // Build LINE messages
       const lineMessages: any[] = [];
@@ -419,6 +426,9 @@ serve(async (req) => {
           altText: specificProduct.name,
           contents: buildProductFlexMessage(specificProduct)
         });
+      } else if (showPromotions && promotionProducts.length > 0) {
+        // Show promotion products carousel
+        lineMessages.push(buildProductCarousel(promotionProducts));
       } else if (showProducts && productList.length > 0) {
         lineMessages.push(buildProductCarousel(productList));
       }
