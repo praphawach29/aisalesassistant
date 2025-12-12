@@ -1146,6 +1146,30 @@ serve(async (req) => {
       // Build system prompt
       const systemPrompt = buildSystemPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage);
 
+      // ============= Extract Last Discussed Product from History =============
+      // This is CRITICAL to avoid product confusion (e.g., เสื้อยืด vs เสื้อเชิ้ต)
+      let lastDiscussedProduct: Product | null = null;
+      if (historyMessages && historyMessages.length > 0) {
+        // Scan history from newest to oldest to find the last product mentioned
+        for (let i = historyMessages.length - 1; i >= 0; i--) {
+          const msg = historyMessages[i];
+          const content = msg.content.toLowerCase();
+          
+          // Find product matches in this message
+          for (const product of productList) {
+            const productNameLower = product.name.toLowerCase();
+            // Check for exact product name match or [PRODUCT:name] tag
+            if (content.includes(productNameLower) || 
+                content.includes(`[product:${productNameLower}`) ||
+                content.includes(`[product:${product.name}`)) {
+              lastDiscussedProduct = product;
+              break;
+            }
+          }
+          if (lastDiscussedProduct) break;
+        }
+      }
+
       // Build messages for AI - include FULL conversation history
       // historyMessages contains previous messages, plus we add current user message
       const aiMessages: { role: string; content: string }[] = [];
@@ -1155,6 +1179,14 @@ serve(async (req) => {
         for (const m of historyMessages) {
           aiMessages.push({ role: m.role, content: m.content });
         }
+      }
+      
+      // Add context reminder about last discussed product BEFORE user's new message
+      // This explicitly tells AI what product context to use
+      if (lastDiscussedProduct) {
+        const contextReminder = `[CONTEXT: กำลังคุยเรื่องสินค้า "${lastDiscussedProduct.name}" - ถ้าลูกค้าบอกแค่สี/ไซส์/จำนวน ให้อ้างอิงถึงสินค้านี้เสมอ ห้ามเปลี่ยนเป็นสินค้าอื่น!]`;
+        aiMessages.push({ role: "system", content: contextReminder });
+        console.log(`Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
       }
       
       // Add current user message

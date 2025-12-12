@@ -717,6 +717,43 @@ async function getAIResponse(
   // Build system prompt using the same function as LINE and web chat
   const systemPrompt = buildSystemPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage);
 
+  // ============= Extract Last Discussed Product from History =============
+  // This is CRITICAL to avoid product confusion (e.g., เสื้อยืด vs เสื้อเชิ้ต)
+  let lastDiscussedProduct: Product | null = null;
+  if (messages && messages.length > 0) {
+    // Scan history from newest to oldest to find the last product mentioned
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      const content = msg.content.toLowerCase();
+      
+      // Find product matches in this message
+      for (const product of productList) {
+        const productNameLower = product.name.toLowerCase();
+        // Check for exact product name match or [PRODUCT:name] tag
+        if (content.includes(productNameLower) || 
+            content.includes(`[product:${productNameLower}`) ||
+            content.includes(`[product:${product.name}`)) {
+          lastDiscussedProduct = product;
+          break;
+        }
+      }
+      if (lastDiscussedProduct) break;
+    }
+  }
+
+  // Build AI messages with context reminder
+  const aiMessages: Array<{ role: string; content: string }> = [...messages];
+  
+  // Add context reminder about last discussed product BEFORE user's new message
+  // This explicitly tells AI what product context to use
+  if (lastDiscussedProduct && aiMessages.length > 0) {
+    const contextReminder = `[CONTEXT: กำลังคุยเรื่องสินค้า "${lastDiscussedProduct.name}" - ถ้าลูกค้าบอกแค่สี/ไซส์/จำนวน ให้อ้างอิงถึงสินค้านี้เสมอ ห้ามเปลี่ยนเป็นสินค้าอื่น!]`;
+    // Insert context before the last user message
+    const lastUserIndex = aiMessages.length - 1;
+    aiMessages.splice(lastUserIndex, 0, { role: "system", content: contextReminder });
+    console.log(`Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
+  }
+
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -728,7 +765,7 @@ async function getAIResponse(
         model: "openai/gpt-5-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          ...aiMessages,
         ],
       }),
     });
