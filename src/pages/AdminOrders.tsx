@@ -48,6 +48,7 @@ import {
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Order, OrderItem } from '@/types';
+import { PaymentSlipSection } from '@/components/admin/PaymentSlipSection';
 
 type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
@@ -594,6 +595,9 @@ export default function AdminOrders() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Payment Slips */}
+              <PaymentSlipSection orderId={selectedOrder.id} />
 
               {/* Tracking */}
               {selectedOrder.tracking_number && (
