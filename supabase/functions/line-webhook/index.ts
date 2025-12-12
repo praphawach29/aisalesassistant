@@ -1275,6 +1275,109 @@ serve(async (req) => {
         console.log("Greeting detected - will respond with greeting only");
       }
 
+      // Detect "ขอดูรายละเอียด" button press - respond with text only (no Flex)
+      const detailRequestPattern = /^ขอดูรายละเอียด\s+(.+)$/i;
+      const detailMatch = userMessage.trim().match(detailRequestPattern);
+      
+      if (detailMatch) {
+        const productName = detailMatch[1];
+        console.log(`Detail request detected for: ${productName}`);
+        
+        // Fetch products to find the one they asked about
+        const { data: products } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true);
+        
+        const product = products?.find(p => 
+          p.name.toLowerCase() === productName.toLowerCase() ||
+          p.name.toLowerCase().includes(productName.toLowerCase()) ||
+          productName.toLowerCase().includes(p.name.toLowerCase())
+        );
+        
+        if (product) {
+          // Save user message
+          await supabase.from('chat_messages').insert({
+            conversation_id: conversation.id,
+            role: 'user',
+            content: userMessage
+          });
+          
+          // Build detailed text response
+          let detailText = `📦 ${product.name}\n\n`;
+          
+          if (product.description) {
+            detailText += `📝 รายละเอียด:\n${product.description}\n\n`;
+          }
+          
+          // Price info
+          if (product.promotion_price) {
+            const discountPercent = Math.round((1 - product.promotion_price / product.price) * 100);
+            detailText += `💰 ราคา: ฿${product.promotion_price.toLocaleString()} (ปกติ ฿${product.price.toLocaleString()}) ลด ${discountPercent}%\n`;
+          } else {
+            detailText += `💰 ราคา: ฿${product.price.toLocaleString()}\n`;
+          }
+          
+          // Category
+          if (product.category) {
+            detailText += `📂 หมวดหมู่: ${product.category}\n`;
+          }
+          
+          // Variants
+          if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+            detailText += `\n🎨 ตัวเลือก:\n`;
+            for (const variant of product.variants) {
+              if (variant.name && variant.options && Array.isArray(variant.options)) {
+                detailText += `• ${variant.name}: ${variant.options.join(', ')}\n`;
+              }
+            }
+          }
+          
+          // Stock status
+          if (product.stock > 0) {
+            detailText += `\n✅ สินค้าพร้อมจัดส่ง\n`;
+          } else {
+            detailText += `\n❌ สินค้าหมดชั่วคราว\n`;
+          }
+          
+          // Call to action
+          detailText += `\n━━━━━━━━━━━━━━━━\n`;
+          detailText += `สนใจสั่งซื้อไหมคะ? 😊\n`;
+          detailText += `พิมพ์บอกสี/ไซส์/จำนวนที่ต้องการได้เลยค่ะ`;
+          
+          // Save AI response
+          await supabase.from('chat_messages').insert({
+            conversation_id: conversation.id,
+            role: 'assistant',
+            content: detailText
+          });
+          
+          // Update conversation
+          await supabase
+            .from('chat_conversations')
+            .update({
+              last_message: detailText.substring(0, 100),
+              last_message_at: new Date().toISOString()
+            })
+            .eq('id', conversation.id);
+          
+          // Send text-only reply (no Flex)
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [{ type: "text", text: detailText }]
+            }),
+          });
+          
+          continue; // Skip AI processing for this message
+        }
+      }
+
       // Save user message BEFORE calling AI
       await supabase.from('chat_messages').insert({
         conversation_id: conversation.id,
