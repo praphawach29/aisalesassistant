@@ -1280,12 +1280,16 @@ serve(async (req) => {
         };
 
         // Get conversation history
-        const { data: history } = await supabase
+        // CRITICAL: Order by descending to get NEWEST messages, then reverse for AI
+        const { data: rawHistory } = await supabase
           .from("chat_messages")
           .select("*")
           .eq("conversation_id", conversation.id)
-          .order("created_at", { ascending: true })
+          .order("created_at", { ascending: false })
           .limit(20);
+        
+        // Reverse to get chronological order (oldest to newest) for AI
+        const history = rawHistory ? [...rawHistory].reverse() : [];
 
         const isFirstMessage = !history || history.length === 0;
 
@@ -1293,6 +1297,9 @@ serve(async (req) => {
           role: m.role,
           content: m.content,
         })) || [{ role: "user", content: userMessage }];
+        
+        // Add current user message
+        messages.push({ role: "user", content: userMessage });
 
         // Get AI response
         const aiResult = await getAIResponse(messages, supabase, customerContext, isFirstMessage);

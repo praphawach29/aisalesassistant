@@ -1062,12 +1062,16 @@ serve(async (req) => {
       }
 
       // Get conversation history FIRST (before saving new message)
-      const { data: historyMessages } = await supabase
+      // CRITICAL: Order by descending to get NEWEST messages, then reverse for AI
+      const { data: rawHistoryMessages } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(20);
+      
+      // Reverse to get chronological order (oldest to newest) for AI
+      const historyMessages = rawHistoryMessages ? [...rawHistoryMessages].reverse() : [];
 
       const isFirstMessage = !historyMessages || historyMessages.length === 0;
 
