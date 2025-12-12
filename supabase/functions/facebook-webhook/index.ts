@@ -138,7 +138,7 @@ async function validateCoupon(code: string, orderAmount: number, supabase: any):
 }
 
 interface ProductAction {
-  action: 'show_all' | 'show_single';
+  action: 'show_all' | 'show_single' | 'show_promotions';
   productName?: string;
 }
 
@@ -284,14 +284,20 @@ async function sendProductCarouselToFacebook(recipientId: string, products: Prod
   const elements = products.slice(0, 10).map(product => {
     const price = product.promotion_price || product.price;
     const originalPrice = product.promotion_price ? product.price : null;
+    const hasPromotion = originalPrice && product.promotion_price && product.promotion_price < product.price;
+    const discountPercent = hasPromotion 
+      ? Math.round(((product.price - product.promotion_price!) / product.price) * 100) 
+      : 0;
     
-    let subtitle = product.description?.slice(0, 80) || '';
-    if (originalPrice) {
-      subtitle = `💰 ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n${subtitle}`;
+    let subtitle = '';
+    if (hasPromotion) {
+      subtitle = `🔥 ลด ${discountPercent}% | ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})`;
     } else {
-      subtitle = `💰 ฿${price.toLocaleString()}\n${subtitle}`;
+      subtitle = `💰 ฿${price.toLocaleString()}`;
     }
-    subtitle += product.stock > 0 ? `\n✅ มีสินค้า ${product.stock} ชิ้น` : `\n❌ สินค้าหมด`;
+    if (product.description) {
+      subtitle += `\n${product.description.slice(0, 40)}`;
+    }
 
     const element: any = {
       title: product.name.slice(0, 80),
@@ -349,24 +355,26 @@ async function sendSingleProductToFacebook(recipientId: string, product: Product
 
   const price = product.promotion_price || product.price;
   const originalPrice = product.promotion_price ? product.price : null;
+  const hasPromotion = originalPrice && product.promotion_price && product.promotion_price < product.price;
+  const discountPercent = hasPromotion 
+    ? Math.round(((product.price - product.promotion_price!) / product.price) * 100) 
+    : 0;
 
   let subtitle = "";
-  if (originalPrice) {
-    subtitle += `💰 ราคา: ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n`;
+  if (hasPromotion) {
+    subtitle += `🔥 ลด ${discountPercent}% | ฿${price.toLocaleString()} (เดิม ฿${originalPrice.toLocaleString()})\n`;
   } else {
     subtitle += `💰 ราคา: ฿${price.toLocaleString()}\n`;
   }
   
   if (product.description) {
-    subtitle += `${product.description.slice(0, 50)}...\n`;
+    subtitle += `${product.description.slice(0, 40)}\n`;
   }
-  
-  subtitle += product.stock > 0 ? `✅ มีสินค้า ${product.stock} ชิ้น` : `❌ สินค้าหมด`;
 
   // Add variant info if exists
   if (product.variants && product.variants.length > 0) {
     const variantText = product.variants.map(v => `${v.name}: ${v.options.join(', ')}`).join(' | ');
-    subtitle += `\n🎨 ${variantText}`;
+    subtitle += `🎨 ${variantText}`;
   }
 
   const element: any = {
@@ -414,6 +422,16 @@ async function sendSingleProductToFacebook(recipientId: string, product: Product
     const error = await response.text();
     console.error("Facebook single product send error:", error);
   }
+}
+
+// Send Promotion Products Carousel to Facebook
+async function sendPromotionCarouselToFacebook(recipientId: string, products: Product[], accessToken: string) {
+  const promotionProducts = products.filter(p => p.promotion_price && p.promotion_price < p.price);
+  if (promotionProducts.length === 0) {
+    await sendToFacebook(recipientId, "ขออภัยค่ะ ตอนนี้ไม่มีสินค้าโปรโมชั่นค่ะ 😊", accessToken);
+    return;
+  }
+  await sendProductCarouselToFacebook(recipientId, promotionProducts, accessToken);
 }
 
 async function getAIResponse(
@@ -523,17 +541,21 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
 
 ### 🔴 กฎแสดงหลายสินค้า [SHOW_PRODUCTS] - ใช้เมื่อ:
 - "ดูสินค้า", "มีอะไรขายบ้าง", "ดูรายการสินค้า", "แนะนำสินค้า"
-- "โปรโมชั่น", "สอบถามโปรโมชั่น", "มีโปรโมชั่นไหม", "โปรโมชั่นวันนี้"
-- "ลดราคา", "มีอะไรลดราคา", "สินค้าลดราคา", "ของลดราคา"
 - "สินค้ายอดนิยม"
-**ตัวอย่างการตอบ:** "มีสินค้าลดราคาหลายรายการค่ะ 🎉 [SHOW_PRODUCTS]"
+**ตัวอย่างการตอบ:** "นี่คือสินค้าของเราค่ะ 😊 [SHOW_PRODUCTS]"
+
+### 🟢 กฎแสดงสินค้าโปรโมชั่น [SHOW_PROMOTIONS] - ใช้เมื่อ:
+- "โปรโมชั่น", "สอบถามโปรโมชั่น", "มีโปรโมชั่นไหม", "โปรโมชั่นวันนี้"
+- "ลดราคา", "มีอะไรลดราคา", "สินค้าลดราคา", "ของลดราคา", "สินค้าลด"
+**ตัวอย่างการตอบ:** "มีสินค้าโปรโมชั่นหลายรายการค่ะ 🎉 [SHOW_PROMOTIONS]"
 
 ### 🟡 กฎแสดงสินค้าเดียว [SHOW_PRODUCT:ชื่อ] - ใช้เมื่อ:
 - ลูกค้าถามชื่อสินค้าเฉพาะเจาะจง เช่น "มีเสื้อไหม", "ขอดูกางเกง"
 **ตัวอย่างการตอบ:** "มีค่ะ ดูรายละเอียดได้เลยค่ะ 😊 [SHOW_PRODUCT:ชื่อเต็มของสินค้าจากรายการ]"
 
 ### ⚠️ ห้ามสับสน!
-- ห้ามใช้ [SHOW_PRODUCT:xxx] เมื่อลูกค้าถามเรื่องโปรโมชั่น/ลดราคาทั่วไป → ต้องใช้ [SHOW_PRODUCTS]
+- ห้ามใช้ [SHOW_PRODUCT:xxx] เมื่อลูกค้าถามเรื่องโปรโมชั่น/ลดราคาทั่วไป → ต้องใช้ [SHOW_PROMOTIONS]
+- ห้ามตอบรายการโปรโมชั่นยาวๆ เป็นข้อความ ให้ใช้ [SHOW_PROMOTIONS] แทน
 - [SHOW_PRODUCT:xxx] ใช้เฉพาะเมื่อลูกค้าระบุชื่อสินค้าที่ต้องการดูเท่านั้น
 
 ## 🎟️ ระบบคูปอง:
@@ -586,6 +608,7 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
     const clearCartMatch = content.match(/\[CLEAR_CART\]/);
     const checkoutCartMatch = content.match(/\[CHECKOUT_CART:([^\]]+)\]/);
     const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
+    const showPromotionsMatch = content.match(/\[SHOW_PROMOTIONS\]/);
     const showSingleProductMatch = content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
 
     // Parse order data if present
@@ -630,7 +653,9 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
 
     // Parse product action if present
     let productAction: ProductAction | undefined;
-    if (showProductsMatch) {
+    if (showPromotionsMatch) {
+      productAction = { action: 'show_promotions' };
+    } else if (showProductsMatch) {
       productAction = { action: 'show_all' };
     } else if (showSingleProductMatch) {
       productAction = { 
@@ -660,6 +685,7 @@ ${storeInfoSection ? `ข้อมูลร้านค้า:\n${storeInfoSecti
       .replace(/\[CLEAR_CART\]/g, '')
       .replace(/\[CHECKOUT_CART:[^\]]+\]/g, '')
       .replace(/\[SHOW_PRODUCTS\]/g, '')
+      .replace(/\[SHOW_PROMOTIONS\]/g, '')
       .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
       .replace(/\[SAVE_ADDRESS:[^\]]+\]/g, '')
       .trim();
@@ -1333,7 +1359,32 @@ serve(async (req) => {
           const productAction = aiResult.productAction;
           console.log("Product action:", productAction);
 
-          if (productAction.action === 'show_all') {
+          if (productAction.action === 'show_promotions') {
+            // Fetch promotion products only
+            const { data: products } = await supabase
+              .from("products")
+              .select("*")
+              .eq("is_active", true)
+              .not("promotion_price", "is", null);
+
+            if (products && products.length > 0) {
+              // Filter products with actual promotion
+              const promoProducts = products.filter(p => p.promotion_price && p.promotion_price < p.price);
+              if (promoProducts.length > 0) {
+                // Send text message first
+                if (responseMessage) {
+                  await sendToFacebook(senderId, responseMessage, FB_PAGE_ACCESS_TOKEN);
+                }
+                // Then send promotion carousel
+                await sendProductCarouselToFacebook(senderId, promoProducts, FB_PAGE_ACCESS_TOKEN);
+                productCarouselSent = true;
+              } else {
+                responseMessage = "ขออภัยค่ะ ตอนนี้ไม่มีสินค้าโปรโมชั่นค่ะ 😊";
+              }
+            } else {
+              responseMessage = "ขออภัยค่ะ ตอนนี้ไม่มีสินค้าโปรโมชั่นค่ะ 😊";
+            }
+          } else if (productAction.action === 'show_all') {
             // Fetch all active products
             const { data: products } = await supabase
               .from("products")
