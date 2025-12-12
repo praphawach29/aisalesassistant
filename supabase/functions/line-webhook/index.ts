@@ -877,14 +877,36 @@ function parseAIResponse(content: string, products: Product[]) {
     .replace(/\[CART_CHECKOUT:[^\]]*\]/g, '')
     .trim();
 
-  // Find specific product
+  // Find specific product - prioritize exact match, then partial match
   let specificProduct: Product | undefined;
   if (productMatch) {
-    const productName = productMatch[1].trim();
-    specificProduct = products.find(p => 
-      p.name.toLowerCase().includes(productName.toLowerCase()) ||
-      productName.toLowerCase().includes(p.name.toLowerCase())
-    );
+    const productName = productMatch[1].trim().toLowerCase();
+    
+    // Priority 1: Exact match
+    specificProduct = products.find(p => p.name.toLowerCase() === productName);
+    
+    // Priority 2: Name starts with the search term
+    if (!specificProduct) {
+      specificProduct = products.find(p => p.name.toLowerCase().startsWith(productName));
+    }
+    
+    // Priority 3: Search term starts with the product name
+    if (!specificProduct) {
+      specificProduct = products.find(p => productName.startsWith(p.name.toLowerCase()));
+    }
+    
+    // Priority 4: Contains match (but be more strict - require significant overlap)
+    if (!specificProduct) {
+      specificProduct = products.find(p => {
+        const pName = p.name.toLowerCase();
+        // Avoid matching "เสื้อยืด" with "เสื้อเชิ้ต" - require at least 60% overlap
+        const minLength = Math.min(pName.length, productName.length);
+        const overlapRatio = minLength / Math.max(pName.length, productName.length);
+        return overlapRatio > 0.6 && (pName.includes(productName) || productName.includes(pName));
+      });
+    }
+    
+    console.log(`Product match: "${productMatch[1]}" -> ${specificProduct?.name || 'NOT FOUND'}`);
   }
 
   // Get promotion products
