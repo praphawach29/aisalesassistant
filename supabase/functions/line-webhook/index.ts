@@ -1196,18 +1196,28 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "LINE not configured" }), { status: 500, headers: corsHeaders });
     }
 
-    // Verify LINE signature
+    // Verify LINE signature - MANDATORY
     const body = await req.text();
     const signature = req.headers.get("x-line-signature");
     
-    if (signature) {
-      const hmac = createHmac("sha256", lineChannelSecret);
-      hmac.update(body);
-      const expectedSignature = hmac.digest("base64");
-      if (signature !== expectedSignature) {
-        console.error("Invalid LINE signature");
-        return new Response("Invalid signature", { status: 401, headers: corsHeaders });
-      }
+    if (!signature) {
+      console.error("Missing LINE signature header");
+      return new Response(
+        JSON.stringify({ error: "Missing x-line-signature header" }), 
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const hmac = createHmac("sha256", lineChannelSecret);
+    hmac.update(body);
+    const expectedSignature = hmac.digest("base64");
+    
+    if (signature !== expectedSignature) {
+      console.error("Invalid LINE signature");
+      return new Response(
+        JSON.stringify({ error: "Invalid signature" }), 
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const webhook = JSON.parse(body);
