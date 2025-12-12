@@ -83,7 +83,7 @@ interface CartItem {
 }
 
 interface CartAction {
-  type: 'add' | 'view' | 'clear' | 'checkout';
+  type: 'add' | 'view' | 'clear' | 'checkout' | 'remove';
   productName?: string;
   quantity?: number;
   variants?: string;
@@ -163,6 +163,7 @@ ${faqList ? `## FAQ:\n${faqList}` : ''}
 
 ## กฎการจัดการตะกร้า:
 - ถ้าลูกค้าบอก "เพิ่มลงตะกร้า [ชื่อสินค้า]" → ใส่ [CART_ADD:ชื่อสินค้า|จำนวน|ตัวเลือก] (จำนวนเริ่มต้น=1, ตัวเลือกไม่มี=ว่าง)
+- ถ้าลูกค้าบอก "ลบ [ชื่อสินค้า] ออกจากตะกร้า" หรือ "เอา [ชื่อสินค้า] ออก" → ใส่ [CART_REMOVE:ชื่อสินค้า]
 - ถ้าลูกค้าถาม "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ใส่ [CART_VIEW]
 - ถ้าลูกค้าบอก "ล้างตะกร้า" หรือ "เคลียร์ตะกร้า" → ใส่ [CART_CLEAR]
 - ถ้าลูกค้าบอก "สั่งซื้อตะกร้า" หรือ "ชำระเงินตะกร้า" → ใส่ [CART_CHECKOUT]
@@ -438,35 +439,58 @@ function buildProductCarousel(products: Product[]) {
 function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
   const itemContents: any[] = cartItems.map((item, index) => ({
     type: "box",
-    layout: "horizontal",
+    layout: "vertical",
     contents: [
       {
-        type: "text",
-        text: `${index + 1}. ${item.product_name}${item.variants ? ` (${item.variants})` : ''}`,
-        size: "sm",
-        color: "#333333",
-        flex: 3,
-        wrap: true
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          {
+            type: "text",
+            text: `${index + 1}. ${item.product_name}${item.variants ? ` (${item.variants})` : ''}`,
+            size: "sm",
+            color: "#333333",
+            flex: 4,
+            wrap: true
+          },
+          {
+            type: "text",
+            text: `x${item.quantity}`,
+            size: "sm",
+            color: "#666666",
+            flex: 1,
+            align: "center"
+          },
+          {
+            type: "text",
+            text: `฿${(item.price * item.quantity).toLocaleString()}`,
+            size: "sm",
+            color: "#E74C3C",
+            flex: 2,
+            align: "end",
+            weight: "bold"
+          }
+        ]
       },
       {
-        type: "text",
-        text: `x${item.quantity}`,
-        size: "sm",
-        color: "#666666",
-        flex: 1,
-        align: "center"
-      },
-      {
-        type: "text",
-        text: `฿${(item.price * item.quantity).toLocaleString()}`,
-        size: "sm",
-        color: "#E74C3C",
-        flex: 2,
-        align: "end",
-        weight: "bold"
+        type: "button",
+        action: {
+          type: "message",
+          label: "❌ ลบ",
+          text: `ลบ ${item.product_name} ออกจากตะกร้า`
+        },
+        style: "secondary",
+        height: "sm",
+        margin: "sm",
+        color: "#EF4444"
       }
     ],
-    margin: "md"
+    margin: "md",
+    paddingBottom: "sm",
+    borderWidth: "1px",
+    borderColor: "#E5E7EB",
+    cornerRadius: "md",
+    paddingAll: "sm"
   }));
 
   return {
@@ -724,6 +748,7 @@ function parseAIResponse(content: string, products: Product[]) {
   
   // Cart commands
   const cartAddMatch = content.match(/\[CART_ADD:([^\]]+)\]/);
+  const cartRemoveMatch = content.match(/\[CART_REMOVE:([^\]]+)\]/);
   const cartView = content.includes('[CART_VIEW]');
   const cartClear = content.includes('[CART_CLEAR]');
   const cartCheckoutMatch = content.match(/\[CART_CHECKOUT:?([^\]]*)\]/);
@@ -734,6 +759,7 @@ function parseAIResponse(content: string, products: Product[]) {
     .replace(/\[SHOW_PROMOTIONS\]/g, '')
     .replace(/\[PRODUCT:[^\]]+\]/g, '')
     .replace(/\[CART_ADD:[^\]]+\]/g, '')
+    .replace(/\[CART_REMOVE:[^\]]+\]/g, '')
     .replace(/\[CART_VIEW\]/g, '')
     .replace(/\[CART_CLEAR\]/g, '')
     .replace(/\[CART_CHECKOUT:[^\]]*\]/g, '')
@@ -762,6 +788,11 @@ function parseAIResponse(content: string, products: Product[]) {
       productName: parts[0]?.trim(),
       quantity: parseInt(parts[1]) || 1,
       variants: parts[2]?.trim() || undefined
+    };
+  } else if (cartRemoveMatch) {
+    cartAction = {
+      type: 'remove',
+      productName: cartRemoveMatch[1].trim()
     };
   } else if (cartView) {
     cartAction = { type: 'view' };
@@ -1048,6 +1079,47 @@ serve(async (req) => {
             }
           } else {
             lineMessages.push({ type: "text", text: `ขออภัยค่ะ ไม่พบสินค้า "${cartAction.productName}" ค่ะ` });
+          }
+        } else if (cartAction.type === 'remove' && cartAction.productName) {
+          // Find item in cart by product name
+          const { data: cartItems } = await supabase
+            .from('shopping_carts')
+            .select('*')
+            .eq('platform_user_id', userId);
+
+          const itemToRemove = cartItems?.find(item => 
+            item.product_name.toLowerCase().includes(cartAction.productName!.toLowerCase()) ||
+            cartAction.productName!.toLowerCase().includes(item.product_name.toLowerCase())
+          );
+
+          if (itemToRemove) {
+            // Delete the item
+            await supabase
+              .from('shopping_carts')
+              .delete()
+              .eq('id', itemToRemove.id);
+
+            // Get remaining cart count
+            const { data: remainingItems } = await supabase
+              .from('shopping_carts')
+              .select('*')
+              .eq('platform_user_id', userId);
+
+            const cartCount = remainingItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+            
+            if (cartCount > 0) {
+              lineMessages.push({ 
+                type: "text", 
+                text: `🗑️ ลบ "${itemToRemove.product_name}" ออกจากตะกร้าแล้วค่ะ!\n\nตะกร้ายังมี ${cartCount} ชิ้น พิมพ์ "ดูตะกร้า" เพื่อดูรายการค่ะ 🛒` 
+              });
+            } else {
+              lineMessages.push({ 
+                type: "text", 
+                text: `🗑️ ลบ "${itemToRemove.product_name}" ออกจากตะกร้าแล้วค่ะ!\n\nตะกร้าว่างเปล่าแล้ว พิมพ์ "ดูสินค้า" เพื่อเลือกสินค้าได้เลยค่ะ` 
+              });
+            }
+          } else {
+            lineMessages.push({ type: "text", text: `ไม่พบสินค้า "${cartAction.productName}" ในตะกร้าค่ะ\n\nพิมพ์ "ดูตะกร้า" เพื่อดูรายการสินค้าในตะกร้าค่ะ` });
           }
         } else if (cartAction.type === 'view') {
           // Get cart items
