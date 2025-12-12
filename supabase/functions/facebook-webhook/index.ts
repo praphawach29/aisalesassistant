@@ -1091,9 +1091,165 @@ serve(async (req) => {
     for (const entry of body.entry || []) {
       for (const event of entry.messaging || []) {
         const senderId = event.sender?.id;
-        const message = event.message;
+        if (!senderId) continue;
 
-        if (!senderId || !message?.text) continue;
+        // Handle postback events (button clicks)
+        if (event.postback) {
+          const payload = event.postback.payload;
+          console.log(`Facebook postback from ${senderId}: ${payload}`);
+
+          // Handle DETAIL_ postback - show product details as text
+          if (payload && payload.startsWith('DETAIL_')) {
+            const productId = payload.replace('DETAIL_', '');
+            console.log(`Detail request for product ID: ${productId}`);
+
+            // Fetch product
+            const { data: product } = await supabase
+              .from("products")
+              .select("*")
+              .eq("id", productId)
+              .eq("is_active", true)
+              .maybeSingle();
+
+            if (product) {
+              // Find or create conversation
+              let { data: conversation } = await supabase
+                .from("chat_conversations")
+                .select("*")
+                .eq("platform", "facebook")
+                .eq("platform_user_id", senderId)
+                .maybeSingle();
+
+              if (!conversation) {
+                const { data: newConv } = await supabase
+                  .from("chat_conversations")
+                  .insert({
+                    platform: "facebook",
+                    platform_user_id: senderId,
+                  })
+                  .select()
+                  .single();
+                conversation = newConv;
+              }
+
+              // Build detailed text response (same as LINE)
+              let detailText = `📦 ${product.name}\n\n`;
+              
+              if (product.description) {
+                detailText += `📝 รายละเอียด:\n${product.description}\n\n`;
+              }
+              
+              // Price info
+              if (product.promotion_price && product.promotion_price < product.price) {
+                const discountPercent = Math.round((1 - product.promotion_price / product.price) * 100);
+                const savings = product.price - product.promotion_price;
+                detailText += `💰 ราคา: ฿${product.promotion_price.toLocaleString()} (ปกติ ฿${product.price.toLocaleString()})\n`;
+                detailText += `🔥 ลดราคา ${discountPercent}% ประหยัด ฿${savings.toLocaleString()}\n`;
+              } else {
+                detailText += `💰 ราคา: ฿${product.price.toLocaleString()}\n`;
+              }
+              
+              // Category
+              if (product.category) {
+                detailText += `📂 หมวดหมู่: ${product.category}\n`;
+              }
+              
+              // Variants
+              if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+                detailText += `\n🎨 ตัวเลือก:\n`;
+                for (const variant of product.variants as any[]) {
+                  if (variant.name && variant.options && Array.isArray(variant.options)) {
+                    detailText += `• ${variant.name}: ${variant.options.join(', ')}\n`;
+                  }
+                }
+              }
+              
+              // Stock status
+              if (product.stock > 0) {
+                if (product.stock <= 5) {
+                  detailText += `\n⚡ เหลือเพียง ${product.stock} ชิ้นสุดท้าย!\n`;
+                } else {
+                  detailText += `\n✅ สินค้าพร้อมจัดส่ง\n`;
+                }
+              } else {
+                detailText += `\n❌ สินค้าหมดชั่วคราว\n`;
+              }
+              
+              // Call to action
+              detailText += `\n━━━━━━━━━━━━━━━━\n`;
+              detailText += `สนใจสั่งซื้อไหมคะ? 😊\n`;
+              detailText += `พิมพ์บอกสี/ไซส์/จำนวนที่ต้องการได้เลยค่ะ`;
+
+              // Save messages
+              if (conversation) {
+                await supabase.from("chat_messages").insert({
+                  conversation_id: conversation.id,
+                  role: "user",
+                  content: `ขอดูรายละเอียด ${product.name}`
+                });
+                
+                await supabase.from("chat_messages").insert({
+                  conversation_id: conversation.id,
+                  role: "assistant",
+                  content: detailText
+                });
+                
+                await supabase
+                  .from("chat_conversations")
+                  .update({
+                    last_message: detailText.substring(0, 100),
+                    last_message_at: new Date().toISOString()
+                  })
+                  .eq("id", conversation.id);
+              }
+
+              // Send text response
+              await sendToFacebook(senderId, detailText, FB_PAGE_ACCESS_TOKEN);
+            } else {
+              await sendToFacebook(senderId, "ขออภัยค่ะ ไม่พบสินค้านี้ในระบบ", FB_PAGE_ACCESS_TOKEN);
+            }
+            
+            continue; // Skip to next event
+          }
+
+          // Handle ADD_CART_ postback
+          if (payload && payload.startsWith('ADD_CART_')) {
+            const productId = payload.replace('ADD_CART_', '');
+            // Convert to a message for AI to process
+            const { data: product } = await supabase
+              .from("products")
+              .select("name")
+              .eq("id", productId)
+              .maybeSingle();
+            
+            if (product) {
+              // Treat as if user typed "เพิ่มลงตะกร้า [product name]"
+              event.message = { text: `เพิ่ม ${product.name} ลงตะกร้า` };
+            } else {
+              continue;
+            }
+          }
+
+          // Handle ORDER_ postback
+          if (payload && payload.startsWith('ORDER_')) {
+            const productId = payload.replace('ORDER_', '');
+            const { data: product } = await supabase
+              .from("products")
+              .select("name")
+              .eq("id", productId)
+              .maybeSingle();
+            
+            if (product) {
+              // Treat as if user typed "สั่งซื้อ [product name]"
+              event.message = { text: `สั่งซื้อ ${product.name}` };
+            } else {
+              continue;
+            }
+          }
+        }
+
+        const message = event.message;
+        if (!message?.text) continue;
 
         const userMessage = message.text;
         console.log(`Facebook message from ${senderId}: ${userMessage}`);
