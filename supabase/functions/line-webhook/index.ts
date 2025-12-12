@@ -70,6 +70,27 @@ interface Product {
   image_url?: string;
   category?: string;
   stock: number;
+  variants?: any[];
+}
+
+interface CartItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  price: number;
+  variants?: string;
+}
+
+interface CartAction {
+  type: 'add' | 'view' | 'clear' | 'checkout';
+  productName?: string;
+  quantity?: number;
+  variants?: string;
+  customerName?: string;
+  customerAddress?: string;
+  customerPhone?: string;
+  couponCode?: string;
 }
 
 // ============= Build System Prompt (Same as Web Chat) =============
@@ -139,6 +160,13 @@ ${faqList ? `## FAQ:\n${faqList}` : ''}
 - ถ้าลูกค้าอยากดูทั้งหมด → ใส่ [SHOW_PRODUCTS] ต่อท้าย
 - ถ้าลูกค้าถามโปรโมชั่น/ลดราคา → ตอบสั้นๆ แล้วใส่ [SHOW_PROMOTIONS] ต่อท้าย (ระบบจะแสดง Flex Carousel อัตโนมัติ)
 - ถ้าสินค้าไม่มี → บอกว่าไม่มี แนะนำสินค้าอื่น
+
+## กฎการจัดการตะกร้า:
+- ถ้าลูกค้าบอก "เพิ่มลงตะกร้า [ชื่อสินค้า]" → ใส่ [CART_ADD:ชื่อสินค้า|จำนวน|ตัวเลือก] (จำนวนเริ่มต้น=1, ตัวเลือกไม่มี=ว่าง)
+- ถ้าลูกค้าถาม "ดูตะกร้า" หรือ "ตะกร้าของฉัน" → ใส่ [CART_VIEW]
+- ถ้าลูกค้าบอก "ล้างตะกร้า" หรือ "เคลียร์ตะกร้า" → ใส่ [CART_CLEAR]
+- ถ้าลูกค้าบอก "สั่งซื้อตะกร้า" หรือ "ชำระเงินตะกร้า" → ใส่ [CART_CHECKOUT]
+- ถ้าลูกค้าให้ข้อมูลสั่งซื้อครบ (ชื่อ, ที่อยู่, เบอร์โทร) → ใส่ [CART_CHECKOUT:ชื่อ|ที่อยู่|เบอร์โทร|โค้ดคูปอง]
 
 ## ห้าม:
 - ห้ามบอกจำนวนสต็อก
@@ -318,6 +346,64 @@ function buildProductFlexMessage(product: Product) {
     paddingAll: "0px"
   } : undefined;
 
+  // Footer buttons - Add to Cart, Order Now, View Details
+  const footerContents: any[] = [];
+
+  if (!isOutOfStock) {
+    // Add to Cart button
+    footerContents.push({
+      type: "button",
+      action: {
+        type: "message",
+        label: "🛒 เพิ่มลงตะกร้า",
+        text: `เพิ่มลงตะกร้า ${product.name}`
+      },
+      style: "secondary",
+      color: "#10B981",
+      height: "sm"
+    });
+    
+    // Order Now button
+    footerContents.push({
+      type: "button",
+      action: {
+        type: "message",
+        label: "⚡ สั่งซื้อเลย",
+        text: `สั่งซื้อ ${product.name}`
+      },
+      style: "primary",
+      color: "#E74C3C",
+      height: "sm",
+      margin: "sm"
+    });
+  } else {
+    // Out of stock button
+    footerContents.push({
+      type: "button",
+      action: {
+        type: "message",
+        label: "สินค้าหมด",
+        text: `สอบถามสินค้า ${product.name}`
+      },
+      style: "primary",
+      color: "#9CA3AF",
+      height: "sm"
+    });
+  }
+
+  // View Details button
+  footerContents.push({
+    type: "button",
+    action: {
+      type: "message",
+      label: "📦 ดูรายละเอียด",
+      text: `ขอดูรายละเอียด ${product.name}`
+    },
+    style: "secondary",
+    height: "sm",
+    margin: "sm"
+  });
+
   return {
     type: "bubble",
     size: "mega",
@@ -332,30 +418,7 @@ function buildProductFlexMessage(product: Product) {
     footer: {
       type: "box",
       layout: "vertical",
-      contents: [
-        {
-          type: "button",
-          action: {
-            type: "message",
-            label: isOutOfStock ? "สินค้าหมด" : "🛒 สั่งซื้อเลย",
-            text: isOutOfStock ? `สอบถามสินค้า ${product.name}` : `สั่งซื้อ ${product.name}`
-          },
-          style: "primary",
-          color: isOutOfStock ? "#9CA3AF" : "#E74C3C",
-          height: "sm"
-        },
-        {
-          type: "button",
-          action: {
-            type: "message",
-            label: "📦 ดูรายละเอียดเพิ่มเติม",
-            text: `ขอดูรายละเอียด ${product.name}`
-          },
-          style: "secondary",
-          height: "sm",
-          margin: "sm"
-        }
-      ],
+      contents: footerContents,
       spacing: "none",
       paddingAll: "lg"
     }
@@ -371,17 +434,309 @@ function buildProductCarousel(products: Product[]) {
   };
 }
 
+// ============= Cart Message Builders =============
+function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
+  const itemContents: any[] = cartItems.map((item, index) => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      {
+        type: "text",
+        text: `${index + 1}. ${item.product_name}${item.variants ? ` (${item.variants})` : ''}`,
+        size: "sm",
+        color: "#333333",
+        flex: 3,
+        wrap: true
+      },
+      {
+        type: "text",
+        text: `x${item.quantity}`,
+        size: "sm",
+        color: "#666666",
+        flex: 1,
+        align: "center"
+      },
+      {
+        type: "text",
+        text: `฿${(item.price * item.quantity).toLocaleString()}`,
+        size: "sm",
+        color: "#E74C3C",
+        flex: 2,
+        align: "end",
+        weight: "bold"
+      }
+    ],
+    margin: "md"
+  }));
+
+  return {
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: "🛒 ตะกร้าสินค้า",
+          weight: "bold",
+          size: "xl",
+          color: "#1F2937"
+        },
+        {
+          type: "text",
+          text: `${cartItems.length} รายการ`,
+          size: "sm",
+          color: "#666666",
+          margin: "sm"
+        }
+      ],
+      backgroundColor: "#F3F4F6",
+      paddingAll: "lg"
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        ...itemContents,
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            {
+              type: "text",
+              text: "รวมทั้งหมด",
+              size: "lg",
+              weight: "bold",
+              color: "#1F2937"
+            },
+            {
+              type: "text",
+              text: `฿${totalAmount.toLocaleString()}`,
+              size: "xl",
+              weight: "bold",
+              color: "#E74C3C",
+              align: "end"
+            }
+          ],
+          margin: "lg"
+        }
+      ],
+      paddingAll: "lg"
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "button",
+          action: {
+            type: "message",
+            label: "✅ สั่งซื้อตะกร้า",
+            text: "สั่งซื้อตะกร้า"
+          },
+          style: "primary",
+          color: "#10B981",
+          height: "sm"
+        },
+        {
+          type: "button",
+          action: {
+            type: "message",
+            label: "🗑️ ล้างตะกร้า",
+            text: "ล้างตะกร้า"
+          },
+          style: "secondary",
+          height: "sm",
+          margin: "sm"
+        },
+        {
+          type: "button",
+          action: {
+            type: "message",
+            label: "🛍️ ดูสินค้าเพิ่ม",
+            text: "ดูสินค้าทั้งหมด"
+          },
+          style: "secondary",
+          height: "sm",
+          margin: "sm"
+        }
+      ],
+      paddingAll: "lg"
+    }
+  };
+}
+
+function buildOrderConfirmationFlex(orderNumber: string, totalAmount: number, discountAmount: number) {
+  const finalAmount = totalAmount - discountAmount;
+  
+  const contents: any[] = [
+    {
+      type: "text",
+      text: "✅ สั่งซื้อสำเร็จ!",
+      weight: "bold",
+      size: "xl",
+      color: "#10B981",
+      align: "center"
+    },
+    {
+      type: "text",
+      text: `หมายเลขออเดอร์: ${orderNumber}`,
+      size: "lg",
+      color: "#1F2937",
+      align: "center",
+      margin: "lg",
+      weight: "bold"
+    }
+  ];
+
+  if (discountAmount > 0) {
+    contents.push({
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "ราคารวม", size: "sm", color: "#666666" },
+            { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "sm", color: "#666666", align: "end" }
+          ]
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "ส่วนลด", size: "sm", color: "#10B981" },
+            { type: "text", text: `-฿${discountAmount.toLocaleString()}`, size: "sm", color: "#10B981", align: "end" }
+          ],
+          margin: "sm"
+        },
+        {
+          type: "separator",
+          margin: "md"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            { type: "text", text: "ยอดสุทธิ", size: "lg", weight: "bold", color: "#1F2937" },
+            { type: "text", text: `฿${finalAmount.toLocaleString()}`, size: "lg", weight: "bold", color: "#E74C3C", align: "end" }
+          ],
+          margin: "md"
+        }
+      ],
+      margin: "lg",
+      backgroundColor: "#F9FAFB",
+      cornerRadius: "md",
+      paddingAll: "md"
+    });
+  } else {
+    contents.push({
+      type: "text",
+      text: `ยอดรวม: ฿${totalAmount.toLocaleString()}`,
+      size: "lg",
+      color: "#E74C3C",
+      align: "center",
+      margin: "md",
+      weight: "bold"
+    });
+  }
+
+  contents.push({
+    type: "text",
+    text: "กรุณาชำระเงินและแจ้งสลิปโอนเงินค่ะ 🙏",
+    size: "sm",
+    color: "#666666",
+    align: "center",
+    margin: "lg",
+    wrap: true
+  });
+
+  return {
+    type: "bubble",
+    size: "mega",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: contents,
+      paddingAll: "xl"
+    }
+  };
+}
+
+// ============= Coupon Validation =============
+async function validateCoupon(supabase: any, code: string, totalAmount: number): Promise<{ valid: boolean; discountAmount: number; message: string }> {
+  const { data: coupon, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('code', code.toUpperCase())
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error || !coupon) {
+    return { valid: false, discountAmount: 0, message: 'ไม่พบโค้ดส่วนลดนี้ค่ะ' };
+  }
+
+  const now = new Date();
+  
+  if (coupon.valid_from && new Date(coupon.valid_from) > now) {
+    return { valid: false, discountAmount: 0, message: 'โค้ดส่วนลดยังไม่เริ่มใช้งานค่ะ' };
+  }
+  
+  if (coupon.valid_until && new Date(coupon.valid_until) < now) {
+    return { valid: false, discountAmount: 0, message: 'โค้ดส่วนลดหมดอายุแล้วค่ะ' };
+  }
+
+  if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
+    return { valid: false, discountAmount: 0, message: 'โค้ดส่วนลดถูกใช้หมดแล้วค่ะ' };
+  }
+
+  if (coupon.min_order_amount && totalAmount < coupon.min_order_amount) {
+    return { valid: false, discountAmount: 0, message: `ยอดขั้นต่ำ ฿${coupon.min_order_amount.toLocaleString()} ค่ะ` };
+  }
+
+  let discountAmount = 0;
+  if (coupon.discount_type === 'percentage') {
+    discountAmount = Math.round(totalAmount * (coupon.discount_value / 100));
+  } else {
+    discountAmount = coupon.discount_value;
+  }
+
+  // Update used count
+  await supabase
+    .from('coupons')
+    .update({ used_count: coupon.used_count + 1 })
+    .eq('id', coupon.id);
+
+  return { valid: true, discountAmount, message: `ใช้โค้ด ${code} ลด ฿${discountAmount.toLocaleString()} ค่ะ` };
+}
+
 // ============= AI Response Parser =============
 function parseAIResponse(content: string, products: Product[]) {
   const showProducts = content.includes('[SHOW_PRODUCTS]');
   const showPromotions = content.includes('[SHOW_PROMOTIONS]');
   const productMatch = content.match(/\[PRODUCT:([^\]]+)\]/);
   
+  // Cart commands
+  const cartAddMatch = content.match(/\[CART_ADD:([^\]]+)\]/);
+  const cartView = content.includes('[CART_VIEW]');
+  const cartClear = content.includes('[CART_CLEAR]');
+  const cartCheckoutMatch = content.match(/\[CART_CHECKOUT:?([^\]]*)\]/);
+
   // Clean the text
   let text = content
     .replace(/\[SHOW_PRODUCTS\]/g, '')
     .replace(/\[SHOW_PROMOTIONS\]/g, '')
     .replace(/\[PRODUCT:[^\]]+\]/g, '')
+    .replace(/\[CART_ADD:[^\]]+\]/g, '')
+    .replace(/\[CART_VIEW\]/g, '')
+    .replace(/\[CART_CLEAR\]/g, '')
+    .replace(/\[CART_CHECKOUT:[^\]]*\]/g, '')
     .trim();
 
   // Find specific product
@@ -397,7 +752,38 @@ function parseAIResponse(content: string, products: Product[]) {
   // Get promotion products
   const promotionProducts = products.filter(p => p.promotion_price && p.promotion_price < p.price);
 
-  return { text, showProducts, showPromotions, specificProduct, promotionProducts };
+  // Parse cart action
+  let cartAction: CartAction | undefined;
+  
+  if (cartAddMatch) {
+    const parts = cartAddMatch[1].split('|');
+    cartAction = {
+      type: 'add',
+      productName: parts[0]?.trim(),
+      quantity: parseInt(parts[1]) || 1,
+      variants: parts[2]?.trim() || undefined
+    };
+  } else if (cartView) {
+    cartAction = { type: 'view' };
+  } else if (cartClear) {
+    cartAction = { type: 'clear' };
+  } else if (cartCheckoutMatch) {
+    const params = cartCheckoutMatch[1];
+    if (params) {
+      const parts = params.split('|');
+      cartAction = {
+        type: 'checkout',
+        customerName: parts[0]?.trim(),
+        customerAddress: parts[1]?.trim(),
+        customerPhone: parts[2]?.trim(),
+        couponCode: parts[3]?.trim() || undefined
+      };
+    } else {
+      cartAction = { type: 'checkout' };
+    }
+  }
+
+  return { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction };
 }
 
 // ============= Main Handler =============
@@ -591,7 +977,7 @@ serve(async (req) => {
       console.log("AI response:", aiContent);
 
       // Parse AI response
-      const { text, showProducts, showPromotions, specificProduct, promotionProducts } = parseAIResponse(aiContent, productList);
+      const { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction } = parseAIResponse(aiContent, productList);
 
       // Build LINE messages
       const lineMessages: any[] = [];
@@ -601,18 +987,224 @@ serve(async (req) => {
         lineMessages.push({ type: "text", text });
       }
 
-      // Add product display if needed
-      if (specificProduct) {
-        lineMessages.push({
-          type: "flex",
-          altText: specificProduct.name,
-          contents: buildProductFlexMessage(specificProduct)
-        });
-      } else if (showPromotions && promotionProducts.length > 0) {
-        // Show promotion products carousel
-        lineMessages.push(buildProductCarousel(promotionProducts));
-      } else if (showProducts && productList.length > 0) {
-        lineMessages.push(buildProductCarousel(productList));
+      // Handle cart actions
+      if (cartAction) {
+        console.log("Cart action:", cartAction);
+
+        if (cartAction.type === 'add' && cartAction.productName) {
+          // Find product
+          const product = productList.find(p => 
+            p.name.toLowerCase().includes(cartAction.productName!.toLowerCase()) ||
+            cartAction.productName!.toLowerCase().includes(p.name.toLowerCase())
+          );
+
+          if (product) {
+            if (product.stock < (cartAction.quantity || 1)) {
+              lineMessages.push({ type: "text", text: `ขออภัยค่ะ สินค้า "${product.name}" มีไม่เพียงพอ (เหลือ ${product.stock} ชิ้น) ค่ะ` });
+            } else {
+              // Check if item already in cart
+              const { data: existingItem } = await supabase
+                .from('shopping_carts')
+                .select('*')
+                .eq('platform_user_id', userId)
+                .eq('product_id', product.id)
+                .maybeSingle();
+
+              const price = product.promotion_price || product.price;
+
+              if (existingItem) {
+                // Update quantity
+                await supabase
+                  .from('shopping_carts')
+                  .update({ 
+                    quantity: existingItem.quantity + (cartAction.quantity || 1),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', existingItem.id);
+              } else {
+                // Insert new item
+                await supabase.from('shopping_carts').insert({
+                  platform_user_id: userId,
+                  conversation_id: conversation.id,
+                  product_id: product.id,
+                  product_name: product.name,
+                  quantity: cartAction.quantity || 1,
+                  price: price,
+                  variants: cartAction.variants || null
+                });
+              }
+
+              // Get updated cart
+              const { data: cartItems } = await supabase
+                .from('shopping_carts')
+                .select('*')
+                .eq('platform_user_id', userId);
+
+              const cartCount = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+              lineMessages.push({ 
+                type: "text", 
+                text: `✅ เพิ่ม "${product.name}" ลงตะกร้าแล้วค่ะ! (ตะกร้ามี ${cartCount} ชิ้น)\n\nพิมพ์ "ดูตะกร้า" เพื่อดูรายการทั้งหมดค่ะ 🛒` 
+              });
+            }
+          } else {
+            lineMessages.push({ type: "text", text: `ขออภัยค่ะ ไม่พบสินค้า "${cartAction.productName}" ค่ะ` });
+          }
+        } else if (cartAction.type === 'view') {
+          // Get cart items
+          const { data: cartItems } = await supabase
+            .from('shopping_carts')
+            .select('*')
+            .eq('platform_user_id', userId);
+
+          if (cartItems && cartItems.length > 0) {
+            const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            lineMessages.push({
+              type: "flex",
+              altText: "ตะกร้าสินค้า",
+              contents: buildCartSummaryFlex(cartItems as CartItem[], totalAmount)
+            });
+          } else {
+            lineMessages.push({ type: "text", text: "ตะกร้าของคุณยังว่างเปล่าค่ะ 🛒\n\nพิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าได้เลยค่ะ" });
+          }
+        } else if (cartAction.type === 'clear') {
+          // Clear cart
+          await supabase
+            .from('shopping_carts')
+            .delete()
+            .eq('platform_user_id', userId);
+
+          lineMessages.push({ type: "text", text: "🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ!\n\nพิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าใหม่ได้เลยค่ะ" });
+        } else if (cartAction.type === 'checkout') {
+          // Get cart items
+          const { data: cartItems } = await supabase
+            .from('shopping_carts')
+            .select('*')
+            .eq('platform_user_id', userId);
+
+          if (!cartItems || cartItems.length === 0) {
+            lineMessages.push({ type: "text", text: "ตะกร้าของคุณยังว่างเปล่าค่ะ กรุณาเพิ่มสินค้าก่อนนะคะ 🛒" });
+          } else if (!cartAction.customerName || !cartAction.customerAddress || !cartAction.customerPhone) {
+            // Ask for customer info
+            const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            lineMessages.push({ 
+              type: "text", 
+              text: `📋 ยอดสั่งซื้อ ฿${totalAmount.toLocaleString()}\n\nกรุณาแจ้งข้อมูลจัดส่งค่ะ:\n• ชื่อ-นามสกุล\n• ที่อยู่จัดส่ง\n• เบอร์โทรศัพท์\n${cartAction.couponCode ? '' : '• โค้ดส่วนลด (ถ้ามี)'}`
+            });
+          } else {
+            // Process checkout
+            const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            let discountAmount = 0;
+
+            // Validate coupon if provided
+            if (cartAction.couponCode) {
+              const couponResult = await validateCoupon(supabase, cartAction.couponCode, totalAmount);
+              if (couponResult.valid) {
+                discountAmount = couponResult.discountAmount;
+              } else {
+                lineMessages.push({ type: "text", text: couponResult.message });
+              }
+            }
+
+            // Check stock
+            let stockOk = true;
+            for (const item of cartItems) {
+              const product = productList.find(p => p.id === item.product_id);
+              if (product && product.stock < item.quantity) {
+                lineMessages.push({ 
+                  type: "text", 
+                  text: `ขออภัยค่ะ สินค้า "${item.product_name}" มีไม่เพียงพอ (เหลือ ${product.stock} ชิ้น) กรุณาปรับจำนวนค่ะ` 
+                });
+                stockOk = false;
+                break;
+              }
+            }
+
+            if (stockOk) {
+              // Create order
+              const { data: order, error: orderError } = await supabase
+                .from('orders')
+                .insert({
+                  customer_name: cartAction.customerName,
+                  customer_address: cartAction.customerAddress,
+                  customer_phone: cartAction.customerPhone,
+                  customer_line_id: userId,
+                  platform: 'line',
+                  total_amount: totalAmount,
+                  discount_amount: discountAmount,
+                  coupon_code: cartAction.couponCode || null,
+                  status: 'pending'
+                })
+                .select()
+                .single();
+
+              if (orderError || !order) {
+                console.error("Order creation error:", orderError);
+                lineMessages.push({ type: "text", text: "ขออภัยค่ะ ไม่สามารถสร้างออเดอร์ได้ กรุณาลองใหม่ค่ะ" });
+              } else {
+                // Create order items
+                const orderItems = cartItems.map(item => ({
+                  order_id: order.id,
+                  product_id: item.product_id,
+                  product_name: item.product_name,
+                  quantity: item.quantity,
+                  price: item.price
+                }));
+
+                await supabase.from('order_items').insert(orderItems);
+
+                // Deduct stock
+                for (const item of cartItems) {
+                  const product = productList.find(p => p.id === item.product_id);
+                  if (product) {
+                    await supabase
+                      .from('products')
+                      .update({ stock: product.stock - item.quantity })
+                      .eq('id', product.id);
+                  }
+                }
+
+                // Clear cart
+                await supabase
+                  .from('shopping_carts')
+                  .delete()
+                  .eq('platform_user_id', userId);
+
+                // Update conversation with customer info
+                await supabase
+                  .from('chat_conversations')
+                  .update({
+                    customer_name: cartAction.customerName,
+                    customer_phone: cartAction.customerPhone,
+                    customer_address: cartAction.customerAddress
+                  })
+                  .eq('id', conversation.id);
+
+                // Send confirmation
+                lineMessages.push({
+                  type: "flex",
+                  altText: `สั่งซื้อสำเร็จ! ${order.order_number}`,
+                  contents: buildOrderConfirmationFlex(order.order_number, totalAmount, discountAmount)
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Add product display if needed (only if no cart action handled)
+      if (!cartAction) {
+        if (specificProduct) {
+          lineMessages.push({
+            type: "flex",
+            altText: specificProduct.name,
+            contents: buildProductFlexMessage(specificProduct)
+          });
+        } else if (showPromotions && promotionProducts.length > 0) {
+          // Show promotion products carousel
+          lineMessages.push(buildProductCarousel(promotionProducts));
+        } else if (showProducts && productList.length > 0) {
+          lineMessages.push(buildProductCarousel(productList));
+        }
       }
 
       // Ensure at least one message
