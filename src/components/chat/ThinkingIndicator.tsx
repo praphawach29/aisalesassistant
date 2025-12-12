@@ -11,9 +11,9 @@ export function ThinkingIndicator() {
       <div className="flex flex-col gap-2 max-w-[80%]">
         <div className="rounded-2xl px-5 py-3.5 bg-gradient-to-r from-muted to-muted/80 rounded-bl-md shadow-sm border border-border/50">
           <div className="flex gap-2 items-center">
-            <span className="w-3 h-3 bg-primary rounded-full shadow-sm" />
-            <span className="w-3 h-3 bg-primary/80 rounded-full shadow-sm" />
-            <span className="w-3 h-3 bg-primary/60 rounded-full shadow-sm" />
+            <span className="w-3 h-3 bg-primary rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
+            <span className="w-3 h-3 bg-primary/80 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '200ms', animationDuration: '1.2s' }} />
+            <span className="w-3 h-3 bg-primary/60 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '400ms', animationDuration: '1.2s' }} />
           </div>
         </div>
       </div>
