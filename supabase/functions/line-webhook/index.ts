@@ -783,100 +783,242 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
   };
 }
 
-function buildOrderConfirmationFlex(orderNumber: string, totalAmount: number, discountAmount: number) {
-  const finalAmount = totalAmount - discountAmount;
-  
-  const contents: any[] = [
-    {
-      type: "text",
-      text: "✅ สั่งซื้อสำเร็จ!",
-      weight: "bold",
-      size: "xl",
-      color: "#10B981",
-      align: "center"
-    },
-    {
-      type: "text",
-      text: `หมายเลขออเดอร์: ${orderNumber}`,
-      size: "lg",
-      color: "#1F2937",
-      align: "center",
-      margin: "lg",
-      weight: "bold"
-    }
-  ];
+interface OrderConfirmationData {
+  orderNumber: string;
+  totalAmount: number;
+  discountAmount: number;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  items: Array<{ product_name: string; quantity: number; price: number; variants?: string }>;
+  couponCode?: string;
+}
 
-  if (discountAmount > 0) {
-    contents.push({
+function buildOrderConfirmationFlex(data: OrderConfirmationData) {
+  const finalAmount = data.totalAmount - data.discountAmount;
+  
+  // Header section
+  const headerContents: any[] = [
+    {
       type: "box",
-      layout: "vertical",
+      layout: "horizontal",
       contents: [
         {
-          type: "box",
-          layout: "horizontal",
-          contents: [
-            { type: "text", text: "ราคารวม", size: "sm", color: "#666666" },
-            { type: "text", text: `฿${totalAmount.toLocaleString()}`, size: "sm", color: "#666666", align: "end" }
-          ]
+          type: "text",
+          text: "✅",
+          size: "xxl"
         },
         {
           type: "box",
-          layout: "horizontal",
+          layout: "vertical",
           contents: [
-            { type: "text", text: "ส่วนลด", size: "sm", color: "#10B981" },
-            { type: "text", text: `-฿${discountAmount.toLocaleString()}`, size: "sm", color: "#10B981", align: "end" }
-          ],
-          margin: "sm"
-        },
-        {
-          type: "separator",
-          margin: "md"
-        },
-        {
-          type: "box",
-          layout: "horizontal",
-          contents: [
-            { type: "text", text: "ยอดสุทธิ", size: "lg", weight: "bold", color: "#1F2937" },
-            { type: "text", text: `฿${finalAmount.toLocaleString()}`, size: "lg", weight: "bold", color: "#E74C3C", align: "end" }
+            {
+              type: "text",
+              text: "สั่งซื้อสำเร็จ!",
+              weight: "bold",
+              size: "xl",
+              color: "#FFFFFF"
+            },
+            {
+              type: "text",
+              text: data.orderNumber,
+              size: "sm",
+              color: "#FFFFFF",
+              margin: "xs"
+            }
           ],
           margin: "md"
         }
-      ],
-      margin: "lg",
-      backgroundColor: "#F9FAFB",
-      cornerRadius: "md",
-      paddingAll: "md"
-    });
-  } else {
-    contents.push({
-      type: "text",
-      text: `ยอดรวม: ฿${totalAmount.toLocaleString()}`,
-      size: "lg",
-      color: "#E74C3C",
-      align: "center",
-      margin: "md",
-      weight: "bold"
-    });
+      ]
+    }
+  ];
+
+  // Order items section
+  const itemContents: any[] = data.items.map((item, index) => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      {
+        type: "text",
+        text: `${item.product_name}${item.variants ? ` (${item.variants})` : ''} x${item.quantity}`,
+        size: "sm",
+        color: "#333333",
+        flex: 3,
+        wrap: true
+      },
+      {
+        type: "text",
+        text: `฿${(item.price * item.quantity).toLocaleString()}`,
+        size: "sm",
+        color: "#1F2937",
+        flex: 1,
+        align: "end",
+        weight: "bold"
+      }
+    ],
+    margin: index === 0 ? "none" : "sm"
+  }));
+
+  // Price summary section
+  const priceContents: any[] = [];
+  
+  if (data.discountAmount > 0) {
+    priceContents.push(
+      {
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { type: "text", text: "ราคารวม", size: "sm", color: "#666666" },
+          { type: "text", text: `฿${data.totalAmount.toLocaleString()}`, size: "sm", color: "#666666", align: "end" }
+        ]
+      },
+      {
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { type: "text", text: `🎉 ส่วนลด${data.couponCode ? ` (${data.couponCode})` : ''}`, size: "sm", color: "#10B981" },
+          { type: "text", text: `-฿${data.discountAmount.toLocaleString()}`, size: "sm", color: "#10B981", align: "end", weight: "bold" }
+        ],
+        margin: "sm"
+      }
+    );
   }
 
-  contents.push({
-    type: "text",
-    text: "กรุณาชำระเงินและแจ้งสลิปโอนเงินค่ะ 🙏",
-    size: "sm",
-    color: "#666666",
-    align: "center",
-    margin: "lg",
-    wrap: true
+  priceContents.push({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      { type: "text", text: "💰 ยอดชำระ", size: "lg", weight: "bold", color: "#1F2937" },
+      { type: "text", text: `฿${finalAmount.toLocaleString()}`, size: "xl", weight: "bold", color: "#E74C3C", align: "end" }
+    ],
+    margin: data.discountAmount > 0 ? "md" : "none"
   });
+
+  // Customer info section
+  const customerContents: any[] = [
+    {
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        { type: "text", text: "👤 ชื่อ:", size: "sm", color: "#666666", flex: 1 },
+        { type: "text", text: data.customerName, size: "sm", color: "#1F2937", flex: 3, wrap: true }
+      ]
+    },
+    {
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        { type: "text", text: "📱 เบอร์:", size: "sm", color: "#666666", flex: 1 },
+        { type: "text", text: data.customerPhone, size: "sm", color: "#1F2937", flex: 3 }
+      ],
+      margin: "sm"
+    },
+    {
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        { type: "text", text: "📍 ที่อยู่:", size: "sm", color: "#666666", flex: 1 },
+        { type: "text", text: data.customerAddress, size: "sm", color: "#1F2937", flex: 3, wrap: true }
+      ],
+      margin: "sm"
+    }
+  ];
 
   return {
     type: "bubble",
     size: "mega",
+    header: {
+      type: "box",
+      layout: "vertical",
+      contents: headerContents,
+      backgroundColor: "#10B981",
+      paddingAll: "lg"
+    },
     body: {
       type: "box",
       layout: "vertical",
-      contents: contents,
-      paddingAll: "xl"
+      contents: [
+        // Order items section
+        {
+          type: "text",
+          text: "📦 รายการสินค้า",
+          weight: "bold",
+          size: "md",
+          color: "#1F2937"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          contents: itemContents,
+          margin: "md",
+          backgroundColor: "#F9FAFB",
+          cornerRadius: "md",
+          paddingAll: "md"
+        },
+        // Separator
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        // Price summary
+        {
+          type: "box",
+          layout: "vertical",
+          contents: priceContents,
+          margin: "lg"
+        },
+        // Separator
+        {
+          type: "separator",
+          margin: "lg"
+        },
+        // Customer info
+        {
+          type: "text",
+          text: "📋 ข้อมูลจัดส่ง",
+          weight: "bold",
+          size: "md",
+          color: "#1F2937",
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          contents: customerContents,
+          margin: "md",
+          backgroundColor: "#F9FAFB",
+          cornerRadius: "md",
+          paddingAll: "md"
+        }
+      ],
+      paddingAll: "lg"
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "text",
+          text: "💳 กรุณาชำระเงินและแจ้งสลิปโอนเงิน",
+          size: "sm",
+          color: "#666666",
+          align: "center",
+          wrap: true
+        },
+        {
+          type: "button",
+          action: {
+            type: "message",
+            label: "📝 ดูประวัติออเดอร์",
+            text: "ประวัติออเดอร์"
+          },
+          style: "secondary",
+          height: "sm",
+          margin: "md"
+        }
+      ],
+      paddingAll: "lg",
+      backgroundColor: "#F9FAFB"
     }
   };
 }
@@ -1600,7 +1742,21 @@ serve(async (req) => {
                 lineMessages.push({
                   type: "flex",
                   altText: `สั่งซื้อสำเร็จ! ${order.order_number}`,
-                  contents: buildOrderConfirmationFlex(order.order_number, totalAmount, discountAmount)
+                  contents: buildOrderConfirmationFlex({
+                    orderNumber: order.order_number,
+                    totalAmount: totalAmount,
+                    discountAmount: discountAmount,
+                    customerName: cartAction.customerName!,
+                    customerPhone: cartAction.customerPhone!,
+                    customerAddress: cartAction.customerAddress!,
+                    items: cartItems.map(item => ({
+                      product_name: item.product_name,
+                      quantity: item.quantity,
+                      price: item.price,
+                      variants: item.variants || undefined
+                    })),
+                    couponCode: cartAction.couponCode || undefined
+                  })
                 });
               }
             }
