@@ -10,10 +10,10 @@ export function ThinkingIndicator() {
       
       <div className="flex flex-col gap-2 max-w-[80%]">
         <div className="rounded-2xl px-5 py-3.5 bg-gradient-to-r from-muted to-muted/80 rounded-bl-md shadow-sm border border-border/50">
-          <div className="flex gap-1.5 items-center">
-            <span className="w-3 h-3 bg-primary rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0ms', animationDuration: '0.6s' }} />
-            <span className="w-3 h-3 bg-primary/80 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '150ms', animationDuration: '0.6s' }} />
-            <span className="w-3 h-3 bg-primary/60 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '300ms', animationDuration: '0.6s' }} />
+          <div className="flex gap-2 items-center">
+            <span className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-sm" style={{ animationDelay: '0ms', animationDuration: '1s' }} />
+            <span className="w-3 h-3 bg-primary/80 rounded-full animate-pulse shadow-sm" style={{ animationDelay: '333ms', animationDuration: '1s' }} />
+            <span className="w-3 h-3 bg-primary/60 rounded-full animate-pulse shadow-sm" style={{ animationDelay: '666ms', animationDuration: '1s' }} />
           </div>
         </div>
       </div>
