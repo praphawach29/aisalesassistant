@@ -81,7 +81,7 @@ export default function AdminBroadcast() {
     setIsLoadingData(false);
   };
 
-  const handleSendBroadcast = async () => {
+  const handleSendBroadcast = async (selectedPlatform: 'line' | 'facebook' | 'all') => {
     if (!message.trim()) {
       toast.error('กรุณากรอกข้อความ');
       return;
@@ -94,7 +94,7 @@ export default function AdminBroadcast() {
       const { data: broadcast, error: insertError } = await supabase
         .from('broadcast_messages')
         .insert({
-          platform: 'line',
+          platform: selectedPlatform,
           message_type: 'text',
           content: message.trim(),
           target_audience: targetAudience,
@@ -110,7 +110,8 @@ export default function AdminBroadcast() {
         body: {
           broadcast_id: broadcast.id,
           message: message.trim(),
-          target_audience: targetAudience
+          target_audience: targetAudience,
+          platform: selectedPlatform
         }
       });
 
@@ -161,7 +162,7 @@ export default function AdminBroadcast() {
   }
 
   return (
-    <AdminLayout title="Broadcast LINE">
+    <AdminLayout title="Broadcast">
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Send Broadcast Form */}
         <Card>
@@ -171,7 +172,7 @@ export default function AdminBroadcast() {
               ส่งข้อความ Broadcast
             </CardTitle>
             <CardDescription>
-              ส่งข้อความโปรโมชั่นหรือประกาศไปยังลูกค้าทุกคนผ่าน LINE
+              ส่งข้อความโปรโมชั่นหรือประกาศไปยังลูกค้าผ่าน LINE และ Facebook
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -219,18 +220,33 @@ export default function AdminBroadcast() {
               </p>
             </div>
 
-            <Button 
-              onClick={handleSendBroadcast} 
-              disabled={isSending || !message.trim()}
-              className="w-full gap-2"
-            >
-              {isSending ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              ส่ง Broadcast
-            </Button>
+            <div className="grid grid-cols-3 gap-2">
+              <Button 
+                onClick={() => handleSendBroadcast('line')} 
+                disabled={isSending || !message.trim()}
+                className="gap-2 bg-green-600 hover:bg-green-700"
+              >
+                {isSending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>🟢</span>}
+                LINE
+              </Button>
+              <Button 
+                onClick={() => handleSendBroadcast('facebook')} 
+                disabled={isSending || !message.trim()}
+                className="gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                {isSending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>🔵</span>}
+                Facebook
+              </Button>
+              <Button 
+                onClick={() => handleSendBroadcast('all')} 
+                disabled={isSending || !message.trim()}
+                variant="default"
+                className="gap-2"
+              >
+                {isSending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                ทั้งหมด
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -263,7 +279,10 @@ export default function AdminBroadcast() {
                       className="p-4 rounded-lg border bg-card"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        {getStatusBadge(broadcast.status)}
+                        <div className="flex items-center gap-2">
+                          <span>{broadcast.platform === 'line' ? '🟢' : broadcast.platform === 'facebook' ? '🔵' : '📢'}</span>
+                          {getStatusBadge(broadcast.status)}
+                        </div>
                         <span className="text-xs text-muted-foreground">
                           {new Date(broadcast.created_at).toLocaleString('th-TH')}
                         </span>

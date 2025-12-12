@@ -38,6 +38,63 @@ async function getDecryptedSetting(supabase: any, key: string): Promise<string |
   return await decrypt(data.value);
 }
 
+// Send LINE message
+async function sendLineMessage(userId: string, messages: any[], accessToken: string): Promise<boolean> {
+  try {
+    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ to: userId, messages })
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('LINE send error:', error);
+    return false;
+  }
+}
+
+// Send Facebook message
+async function sendFacebookMessage(userId: string, message: string, imageUrl: string | null, accessToken: string): Promise<boolean> {
+  try {
+    // Send text message
+    const textResponse = await fetch(`https://graph.facebook.com/v18.0/me/messages?access_token=${accessToken}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: userId },
+        message: { text: message }
+      })
+    });
+    
+    if (!textResponse.ok) return false;
+    
+    // Send image if provided
+    if (imageUrl) {
+      await fetch(`https://graph.facebook.com/v18.0/me/messages?access_token=${accessToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: userId },
+          message: {
+            attachment: {
+              type: 'image',
+              payload: { url: imageUrl, is_reusable: true }
+            }
+          }
+        })
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Facebook send error:', error);
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -81,7 +138,7 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const body = await req.json();
-    const { broadcast_id, message, image_url, target_audience = 'all' } = body;
+    const { broadcast_id, message, image_url, target_audience = 'all', platform = 'line' } = body;
 
     if (!broadcast_id || !message) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), { 
@@ -90,109 +147,101 @@ serve(async (req) => {
       });
     }
 
-    // Get LINE access token
-    const lineAccessToken = await getDecryptedSetting(supabase, 'LINE_CHANNEL_ACCESS_TOKEN');
-    if (!lineAccessToken) {
-      await supabase.from('broadcast_messages').update({ 
-        status: 'failed',
-        completed_at: new Date().toISOString()
-      }).eq('id', broadcast_id);
+    // Get access tokens based on platform
+    let lineAccessToken: string | null = null;
+    let facebookAccessToken: string | null = null;
 
+    if (platform === 'line' || platform === 'all') {
+      lineAccessToken = await getDecryptedSetting(supabase, 'LINE_CHANNEL_ACCESS_TOKEN');
+    }
+    if (platform === 'facebook' || platform === 'all') {
+      facebookAccessToken = await getDecryptedSetting(supabase, 'FACEBOOK_PAGE_ACCESS_TOKEN');
+    }
+
+    if (platform === 'line' && !lineAccessToken) {
+      await supabase.from('broadcast_messages').update({ 
+        status: 'failed', completed_at: new Date().toISOString()
+      }).eq('id', broadcast_id);
       return new Response(JSON.stringify({ error: 'LINE token not configured' }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
+    if (platform === 'facebook' && !facebookAccessToken) {
+      await supabase.from('broadcast_messages').update({ 
+        status: 'failed', completed_at: new Date().toISOString()
+      }).eq('id', broadcast_id);
+      return new Response(JSON.stringify({ error: 'Facebook token not configured' }), { 
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
     // Update broadcast status to sending
-    await supabase.from('broadcast_messages').update({ 
-      status: 'sending' 
-    }).eq('id', broadcast_id);
+    await supabase.from('broadcast_messages').update({ status: 'sending' }).eq('id', broadcast_id);
 
-    // Get all LINE users based on target audience
-    let query = supabase
-      .from('chat_conversations')
-      .select('platform_user_id')
-      .eq('platform', 'line')
-      .not('platform_user_id', 'is', null);
+    // Get users based on platform and target audience
+    const platformsToSend = platform === 'all' ? ['line', 'facebook'] : [platform];
+    let allUsers: { platform: string; platform_user_id: string }[] = [];
 
-    if (target_audience === 'with_orders') {
-      // Get users who have made orders
-      const { data: orderUsers } = await supabase
-        .from('orders')
-        .select('customer_line_id')
-        .not('customer_line_id', 'is', null);
-      
-      const lineIds = [...new Set(orderUsers?.map(o => o.customer_line_id).filter(Boolean))];
-      if (lineIds.length > 0) {
-        query = query.in('platform_user_id', lineIds);
+    for (const p of platformsToSend) {
+      let query = supabase
+        .from('chat_conversations')
+        .select('platform, platform_user_id')
+        .eq('platform', p)
+        .not('platform_user_id', 'is', null);
+
+      if (target_audience === 'with_orders') {
+        const orderField = p === 'line' ? 'customer_line_id' : 'customer_facebook_id';
+        const { data: orderUsers } = await supabase
+          .from('orders')
+          .select(orderField)
+          .not(orderField, 'is', null);
+        
+        const ids = [...new Set(orderUsers?.map((o: any) => o[orderField]).filter(Boolean))];
+        if (ids.length > 0) {
+          query = query.in('platform_user_id', ids);
+        }
+      } else if (target_audience === 'recent') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        query = query.gte('last_message_at', thirtyDaysAgo.toISOString());
       }
-    } else if (target_audience === 'recent') {
-      // Get users active in last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      query = query.gte('last_message_at', thirtyDaysAgo.toISOString());
+
+      const { data: users } = await query;
+      if (users) {
+        allUsers = [...allUsers, ...users.filter(u => u.platform_user_id)];
+      }
     }
 
-    const { data: users, error: usersError } = await query;
-
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
-      await supabase.from('broadcast_messages').update({ 
-        status: 'failed',
-        completed_at: new Date().toISOString()
-      }).eq('id', broadcast_id);
-
-      return new Response(JSON.stringify({ error: 'Failed to fetch users' }), { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
-
-    const uniqueUserIds = [...new Set(users?.map(u => u.platform_user_id).filter(Boolean))];
-    console.log(`Sending broadcast to ${uniqueUserIds.length} LINE users`);
+    // Remove duplicates
+    const uniqueUsers = Array.from(new Map(allUsers.map(u => [`${u.platform}-${u.platform_user_id}`, u])).values());
+    console.log(`Sending broadcast to ${uniqueUsers.length} users across platforms`);
 
     let successCount = 0;
     let failedCount = 0;
 
     // Send message to each user
-    for (const userId of uniqueUserIds) {
+    for (const userInfo of uniqueUsers) {
       try {
-        const messages: any[] = [];
-        
-        // Add text message
-        messages.push({ type: 'text', text: message });
-        
-        // Add image if provided
-        if (image_url) {
-          messages.push({
-            type: 'image',
-            originalContentUrl: image_url,
-            previewImageUrl: image_url
-          });
+        let success = false;
+
+        if (userInfo.platform === 'line' && lineAccessToken) {
+          const messages: any[] = [{ type: 'text', text: message }];
+          if (image_url) {
+            messages.push({ type: 'image', originalContentUrl: image_url, previewImageUrl: image_url });
+          }
+          success = await sendLineMessage(userInfo.platform_user_id, messages, lineAccessToken);
+        } else if (userInfo.platform === 'facebook' && facebookAccessToken) {
+          success = await sendFacebookMessage(userInfo.platform_user_id, message, image_url, facebookAccessToken);
         }
 
-        const response = await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${lineAccessToken}`
-          },
-          body: JSON.stringify({
-            to: userId,
-            messages: messages
-          })
-        });
-
-        if (response.ok) {
+        if (success) {
           successCount++;
         } else {
-          const errorText = await response.text();
-          console.error(`Failed to send to ${userId}:`, errorText);
           failedCount++;
         }
       } catch (error) {
-        console.error(`Error sending to ${userId}:`, error);
+        console.error(`Error sending to ${userInfo.platform_user_id}:`, error);
         failedCount++;
       }
 
@@ -203,7 +252,7 @@ serve(async (req) => {
     // Update broadcast record
     await supabase.from('broadcast_messages').update({
       status: 'completed',
-      sent_count: uniqueUserIds.length,
+      sent_count: uniqueUsers.length,
       success_count: successCount,
       failed_count: failedCount,
       completed_at: new Date().toISOString()
@@ -211,7 +260,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      sent_count: uniqueUserIds.length,
+      sent_count: uniqueUsers.length,
       success_count: successCount,
       failed_count: failedCount
     }), {
