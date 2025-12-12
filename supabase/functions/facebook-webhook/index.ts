@@ -444,22 +444,74 @@ function formatCartSummaryMessage(cartItems: Array<{product_name: string; quanti
   return message;
 }
 
-// Format order confirmation message
-function formatOrderConfirmationMessage(orderNumber: string, items: Array<{product_name: string; quantity: number; price: number}>, totalAmount: number, customerName: string, customerAddress: string): string {
+// Enhanced order confirmation message interface
+interface OrderConfirmationData {
+  orderNumber: string;
+  items: Array<{
+    product_name: string;
+    quantity: number;
+    price: number;
+    variants?: string;
+  }>;
+  totalAmount: number;
+  discountAmount?: number;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  couponCode?: string;
+}
+
+// Format order confirmation message (enhanced to match LINE)
+function formatOrderConfirmationMessage(data: OrderConfirmationData): string {
+  const { orderNumber, items, totalAmount, discountAmount, customerName, customerPhone, customerAddress, couponCode } = data;
+  
   let message = `✅ ยืนยันการสั่งซื้อสำเร็จ!\n`;
-  message += `━━━━━━━━━━━━━━━\n\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  
+  // Order number
   message += `📋 หมายเลขออเดอร์: ${orderNumber}\n\n`;
   
+  // Items list with details
   message += `📦 รายการสินค้า:\n`;
+  message += `──────────────────\n`;
   for (const item of items) {
-    message += `• ${item.product_name} x${item.quantity} = ฿${(item.price * item.quantity).toLocaleString()}\n`;
+    const itemTotal = item.price * item.quantity;
+    message += `• ${item.product_name}\n`;
+    if (item.variants) {
+      message += `  🎨 ${item.variants}\n`;
+    }
+    message += `  📦 จำนวน: ${item.quantity} ชิ้น\n`;
+    message += `  💵 ราคา: ฿${itemTotal.toLocaleString()}\n\n`;
   }
   
-  message += `\n💰 ยอดรวม: ฿${totalAmount.toLocaleString()}\n\n`;
+  // Price summary
+  message += `──────────────────\n`;
+  message += `💰 สรุปยอดชำระ:\n`;
+  
+  // Calculate subtotal
+  const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  message += `   รวมสินค้า: ฿${subtotal.toLocaleString()}\n`;
+  
+  // Show discount if applicable
+  if (discountAmount && discountAmount > 0) {
+    message += `   🎉 ส่วนลด${couponCode ? ` (${couponCode})` : ''}: -฿${discountAmount.toLocaleString()}\n`;
+  }
+  
+  message += `   ──────────────\n`;
+  message += `   💎 ยอดชำระสุทธิ: ฿${totalAmount.toLocaleString()}\n\n`;
+  
+  // Customer information
   message += `🚚 ข้อมูลจัดส่ง:\n`;
-  message += `   ชื่อ: ${customerName}\n`;
-  message += `   ที่อยู่: ${customerAddress}\n\n`;
-  message += `ขอบคุณที่ใช้บริการค่ะ 🙏`;
+  message += `──────────────────\n`;
+  message += `👤 ชื่อ: ${customerName}\n`;
+  message += `📞 เบอร์โทร: ${customerPhone}\n`;
+  message += `📍 ที่อยู่: ${customerAddress}\n\n`;
+  
+  // Footer
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `💳 กรุณาชำระเงินและแจ้งหลักฐาน\n`;
+  message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
+  message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
   
   return message;
 }
@@ -1586,13 +1638,16 @@ serve(async (req) => {
 
                 console.log(`Facebook cart order created: ${order.order_number}`);
 
-                responseMessage = formatOrderConfirmationMessage(
-                  order.order_number,
-                  orderItems,
-                  totalAmount,
-                  cartAction.customerName,
-                  cartAction.customerAddress
-                );
+                responseMessage = formatOrderConfirmationMessage({
+                  orderNumber: order.order_number,
+                  items: orderItems,
+                  totalAmount: totalAmount,
+                  discountAmount: undefined,
+                  customerName: cartAction.customerName,
+                  customerPhone: cartAction.customerPhone,
+                  customerAddress: cartAction.customerAddress,
+                  couponCode: cartAction.couponCode
+                });
               } else {
                 console.error("Error creating order:", orderError);
                 responseMessage = "ขออภัยค่ะ เกิดข้อผิดพลาดในการสร้างออเดอร์ กรุณาลองใหม่อีกครั้ง";
@@ -1661,17 +1716,21 @@ serve(async (req) => {
 
               console.log(`Facebook direct order created: ${order.order_number}`);
 
-              responseMessage = formatOrderConfirmationMessage(
-                order.order_number,
-                [{
-                  product_name: product.name + (orderData.variants ? ` (${orderData.variants})` : ''),
+              responseMessage = formatOrderConfirmationMessage({
+                orderNumber: order.order_number,
+                items: [{
+                  product_name: product.name,
                   quantity: orderData.quantity,
-                  price: price
+                  price: price,
+                  variants: orderData.variants
                 }],
-                totalAmount,
-                orderData.customerName,
-                orderData.customerAddress
-              );
+                totalAmount: totalAmount,
+                discountAmount: undefined,
+                customerName: orderData.customerName,
+                customerPhone: orderData.customerPhone,
+                customerAddress: orderData.customerAddress,
+                couponCode: orderData.couponCode
+              });
             }
           } else {
             responseMessage = "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ";
