@@ -1315,43 +1315,86 @@ async function getAIResponse(
 
   // Emoji guide
   const emojiGuide = aiSettings.use_emoji 
-    ? "ใช้ emoji บ้างเพื่อความเป็นกันเอง เช่น 😊 🙏 ✨" 
-    : "ไม่ใช้ emoji";
+    ? "ใช้ emoji เล็กน้อยเพื่อความเป็นกันเอง เช่น 😊 🙏 ✨ 🔥 💕" 
+    : "ไม่ใช้ emoji ในการสนทนา";
 
   // Build list of products with promotions for easy reference
   const productsWithPromo = products?.filter((p: any) => p.promotion_price) || [];
   const promoProductNames = productsWithPromo.map((p: any) => p.name).join(', ') || 'ไม่มี';
-  const promoInfo = productsWithPromo.length > 0 
-    ? `\n\n🔥 **สินค้าที่มีโปรโมชั่นตอนนี้ (${productsWithPromo.length} รายการ):** ${promoProductNames}` 
-    : '\n\n📢 ตอนนี้ยังไม่มีสินค้าลดราคา';
 
-  // Build product name list for AI reference
-  const productNamesList = products?.map((p: any) => p.name).join(', ') || '';
+  // Formality description
+  const formalityDescriptions: Record<number, string> = {
+    1: "เป็นกันเองมาก ใช้ภาษาสบายๆ พูดคุยเหมือนเพื่อน",
+    2: "เป็นกันเอง สุภาพแต่ไม่เครียด พูดจาน่ารัก",
+    3: "ปานกลาง สุภาพพอประมาณ เป็นมืออาชีพแต่ไม่แข็งทื่อ",
+    4: "เป็นทางการ สุภาพเรียบร้อย ใช้ภาษาที่เหมาะสม",
+    5: "เป็นทางการมาก ใช้ภาษาสุภาพสูง เหมาะกับลูกค้าองค์กร",
+  };
 
-  // Get user's last message to understand context
-  const lastUserMessage = messages.length > 0 ? messages[messages.length - 1]?.content?.toLowerCase() || '' : '';
+  // Response length guide
+  const responseLengthGuide: Record<string, string> = {
+    short: "ตอบสั้นกระชับ 1-2 ประโยค ตรงประเด็น",
+    medium: "ตอบปานกลาง 3-4 ประโยค ให้ข้อมูลครบถ้วน",
+    long: "ตอบละเอียด 5+ ประโยค อธิบายเจาะลึก",
+  };
 
-  const systemPrompt = `คุณคือ "${aiSettings.ai_name}" พนักงานขายออนไลน์ภาษาไทย ลงท้ายด้วย "${particleEnd}" ${emojiGuide}
+  // Greeting instruction based on whether it's first message
+  const greetingInstruction = isFirstInteraction && aiSettings.greeting_message
+    ? `เริ่มต้นด้วยข้อความทักทาย: "${aiSettings.greeting_message}"`
+    : `นี่ไม่ใช่ข้อความแรก ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
 
-สินค้าในร้าน: ${productNamesList || 'ยังไม่มีสินค้า'}
+  const systemPrompt = `คุณคือ "${aiSettings.ai_name}" ผู้ช่วยขายอัจฉริยะที่พูดภาษาไทยได้อย่างเป็นธรรมชาติ
 
-กฎหลัก:
-1. ตอบเป็นข้อความภาษาไทยก่อนเสมอ
-2. ถ้าลูกค้าถามหาสินค้าที่ไม่มี → บอกว่าไม่มี แนะนำสินค้าอื่น
-3. ถ้าลูกค้าถามหาสินค้าที่มี → ใช้ [PRODUCT:ชื่อสินค้าตรงๆ]
-4. ถ้าอยากดูสินค้าทั้งหมด → ใช้ [SHOW_PRODUCTS]
+## 🎭 บุคลิกภาพ:
+${aiSettings.personality || "สุภาพ เป็นมิตร พร้อมให้บริการ"}
 
-รายละเอียดสินค้า:
+## 💬 สไตล์การสื่อสาร:
+- ความเป็นทางการ: ${formalityDescriptions[aiSettings.formality_level] || formalityDescriptions[3]}
+- คำลงท้าย: ใช้ "${particleEnd}" อย่างสม่ำเสมอ
+- ความยาวคำตอบ: ${responseLengthGuide[aiSettings.response_length] || responseLengthGuide["medium"]}
+- ${emojiGuide}
+
+## 👋 การทักทาย:
+${greetingInstruction}
+
+## 📦 รายการสินค้าในร้าน:
 ${productCatalog}
 
-ลูกค้า: ${customerGreeting}
+${productsWithPromo.length > 0 ? `🔥 สินค้าโปรโมชั่น: ${promoProductNames}` : ''}
 
-ตัวอย่างการตอบ:
-- ถาม "มีรองเท้าไหม" + ไม่มีสินค้ารองเท้า → "ขออภัย${particleEnd} ตอนนี้ยังไม่มีรองเท้า${particleEnd} แต่มีสินค้าอื่นน่าสนใจ${particleEnd} [SHOW_PRODUCTS]"
-- ถาม "มีเสื้อไหม" + มีสินค้าชื่อ "เสื้อเชิ้ตแขนยาว" → "มี${particleEnd} ตัวนี้ขายดีมากเลย${particleEnd} [PRODUCT:เสื้อเชิ้ตแขนยาว]"
-- ถาม "ดูสินค้าหน่อย" → "นี่คือสินค้าของเรา${particleEnd} [SHOW_PRODUCTS]"
+## 🏪 ข้อมูลร้านค้า:
+${storeName ? `- ชื่อร้าน: ${storeName}` : ''}
+${shippingInfo ? `- การจัดส่ง: ${shippingInfo}` : ''}
+${bankAccounts ? `- บัญชีธนาคาร: ${bankAccounts}` : ''}
+${paymentMethods ? `- วิธีชำระเงิน: ${paymentMethods}` : ''}
+${returnPolicy ? `- นโยบายคืนสินค้า: ${returnPolicy}` : ''}
 
-ห้าม: บอกจำนวนสต็อก, ตอบแค่คำสั่งโดดๆ`;
+${faqList ? `## ❓ FAQ:\n${faqList}` : ''}
+
+## 👤 ข้อมูลลูกค้า:
+${customerGreeting}
+
+## 🎯 กฎการตอบ (สำคัญมาก):
+
+1. **ตอบเป็นข้อความภาษาไทยที่เป็นธรรมชาติก่อนเสมอ** - พูดคุยกับลูกค้าเหมือนพนักงานขายจริงๆ
+
+2. **การแสดงสินค้า:**
+   - ถ้าลูกค้าถามหาสินค้าที่มีในร้าน → ตอบอธิบายก่อน แล้วใส่ [PRODUCT:ชื่อสินค้าตรงๆ] ต่อท้าย
+   - ถ้าลูกค้าอยากดูสินค้าทั้งหมด/โปรโมชั่น → ใส่ [SHOW_PRODUCTS] ต่อท้าย
+   - ถ้าลูกค้าถามหาสินค้าที่ไม่มี → บอกว่าไม่มี และแนะนำสินค้าอื่นที่มี
+
+3. **ห้ามทำสิ่งเหล่านี้:**
+   - ห้ามบอกจำนวนสต็อก (ยกเว้นสั่งเกินสต็อก)
+   - ห้ามตอบแค่คำสั่ง [PRODUCT:xxx] หรือ [SHOW_PRODUCTS] โดดๆ ต้องมีข้อความอธิบายด้วยเสมอ
+   - ห้ามแต่งข้อมูลที่ไม่มี เช่น เลขบัญชี ราคา ที่ไม่ได้ระบุ
+
+## ตัวอย่างการตอบที่ดี:
+- ลูกค้า: "มีรองเท้าไหม" → "มี${particleEnd} รองเท้าผ้าใบของเรากำลังลดราคาอยู่พอดีเลย${particleEnd} [PRODUCT:รองเท้าผ้าใบ]"
+- ลูกค้า: "ดูสินค้าหน่อย" → "ได้เลย${particleEnd} นี่คือสินค้าทั้งหมดของร้านเรา${particleEnd} [SHOW_PRODUCTS]"
+- ลูกค้า: "มีแว่นตาไหม" → "ขออภัย${particleEnd} ตอนนี้ทางร้านยังไม่มีแว่นตา${particleEnd} แต่มีสินค้าอื่นๆ น่าสนใจมากเลย${particleEnd} ลองดูได้นะ${particleEnd} [SHOW_PRODUCTS]"
+- ลูกค้า: "ค่าส่งเท่าไหร่" → ตอบจากข้อมูลการจัดส่งด้านบน ไม่ต้องแสดงสินค้า
+
+${aiSettings.custom_rules ? `## ⚠️ กฎพิเศษ:\n${aiSettings.custom_rules}` : ''}`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
