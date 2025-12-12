@@ -1389,6 +1389,35 @@ serve(async (req) => {
           }
         }
 
+        // Check for delivery confirmation request
+        const confirmKeywords = ['ได้รับแล้ว', 'รับของแล้ว', 'ได้รับสินค้าแล้ว', 'received', 'ยืนยันรับสินค้า'];
+        const isConfirmRequest = confirmKeywords.some(keyword => 
+          userMessage.toLowerCase().includes(keyword.toLowerCase())
+        );
+        const confirmOrderMatch = userMessage.match(/ORD-\d{8}-\d{4}/i);
+
+        if (isConfirmRequest && confirmOrderMatch) {
+          const orderNumber = confirmOrderMatch[0].toUpperCase();
+          console.log("Delivery confirmation requested for:", orderNumber);
+
+          const { data: order } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("order_number", orderNumber)
+            .eq("customer_facebook_id", senderId)
+            .maybeSingle();
+
+          if (order && order.status === 'shipped') {
+            await supabase.from("orders").update({ status: 'delivered' }).eq("id", order.id);
+            await sendToFacebook(
+              senderId,
+              `✅ ยืนยันรับสินค้าเรียบร้อยค่ะ\n━━━━━━━━━━━━━━━\n\n📋 หมายเลข: ${orderNumber}\n📦 สถานะ: ส่งสำเร็จ\n\nขอบคุณที่ไว้วางใจร้านเรานะคะ! 🙏😊`,
+              FB_PAGE_ACCESS_TOKEN
+            );
+            continue;
+          }
+        }
+
         // Check for order cancellation request
         const cancelKeywords = ['ยกเลิกออเดอร์', 'ยกเลิกคำสั่งซื้อ', 'ยกเลิก', 'cancel'];
         const isCancelRequest = cancelKeywords.some(keyword => 

@@ -157,6 +157,54 @@ export type Database = {
           },
         ]
       }
+      broadcast_messages: {
+        Row: {
+          completed_at: string | null
+          content: string
+          created_at: string
+          failed_count: number | null
+          id: string
+          image_url: string | null
+          message_type: string
+          platform: string
+          sent_by: string | null
+          sent_count: number | null
+          status: string
+          success_count: number | null
+          target_audience: string
+        }
+        Insert: {
+          completed_at?: string | null
+          content: string
+          created_at?: string
+          failed_count?: number | null
+          id?: string
+          image_url?: string | null
+          message_type?: string
+          platform?: string
+          sent_by?: string | null
+          sent_count?: number | null
+          status?: string
+          success_count?: number | null
+          target_audience?: string
+        }
+        Update: {
+          completed_at?: string | null
+          content?: string
+          created_at?: string
+          failed_count?: number | null
+          id?: string
+          image_url?: string | null
+          message_type?: string
+          platform?: string
+          sent_by?: string | null
+          sent_count?: number | null
+          status?: string
+          success_count?: number | null
+          target_audience?: string
+        }
+        Relationships: []
+      }
       chat_conversations: {
         Row: {
           created_at: string
@@ -470,6 +518,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      payment_slips: {
+        Row: {
+          admin_notes: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          image_url: string
+          order_id: string
+          platform: string
+          platform_user_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          order_id: string
+          platform?: string
+          platform_user_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          order_id?: string
+          platform?: string
+          platform_user_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_slips_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {

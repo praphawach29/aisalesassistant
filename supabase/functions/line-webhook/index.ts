@@ -1215,32 +1215,147 @@ serve(async (req) => {
 
     // Process each event
     for (const event of webhook.events || []) {
-      if (event.type !== "message" || event.message?.type !== "text") continue;
+      // Handle text messages
+      if (event.type === "message" && event.message?.type === "text") {
+        const userId = event.source?.userId;
+        const userMessage = event.message.text;
+        const replyToken = event.replyToken;
 
-      const userId = event.source?.userId;
-      const userMessage = event.message.text;
-      const replyToken = event.replyToken;
+        if (!userId || !userMessage || !replyToken) continue;
 
-      if (!userId || !userMessage || !replyToken) continue;
+        console.log(`Message from ${userId}: ${userMessage}`);
 
-      console.log(`Message from ${userId}: ${userMessage}`);
-
-      // Get or create conversation
-      let { data: conversation } = await supabase
-        .from('chat_conversations')
-        .select('*')
-        .eq('platform', 'line')
-        .eq('platform_user_id', userId)
-        .maybeSingle();
-
-      if (!conversation) {
-        const { data: newConv } = await supabase
+        // Get or create conversation
+        let { data: conversation } = await supabase
           .from('chat_conversations')
-          .insert({ platform: 'line', platform_user_id: userId })
-          .select()
-          .single();
-        conversation = newConv;
-      }
+          .select('*')
+          .eq('platform', 'line')
+          .eq('platform_user_id', userId)
+          .maybeSingle();
+
+        if (!conversation) {
+          const { data: newConv } = await supabase
+            .from('chat_conversations')
+            .insert({ platform: 'line', platform_user_id: userId })
+            .select()
+            .single();
+          conversation = newConv;
+        }
+
+        // Check for delivery confirmation request
+        const confirmKeywords = ['ได้รับแล้ว', 'รับของแล้ว', 'ได้รับสินค้าแล้ว', 'received', 'ยืนยันรับสินค้า'];
+        const isConfirmRequest = confirmKeywords.some(keyword => 
+          userMessage.toLowerCase().includes(keyword.toLowerCase())
+        );
+        const confirmOrderMatch = userMessage.match(/ORD-\d{8}-\d{4}/i);
+
+        if (isConfirmRequest && confirmOrderMatch) {
+          const orderNumber = confirmOrderMatch[0].toUpperCase();
+          console.log("Delivery confirmation requested for:", orderNumber);
+
+          // Find order and verify it belongs to this customer
+          const { data: order } = await supabase
+            .from("orders")
+            .select("*")
+            .eq("order_number", orderNumber)
+            .eq("customer_line_id", userId)
+            .maybeSingle();
+
+          if (!order) {
+            await fetch("https://api.line.me/v2/bot/message/reply", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${lineAccessToken}`,
+              },
+              body: JSON.stringify({
+                replyToken,
+                messages: [{ 
+                  type: "text", 
+                  text: `ขออภัยค่ะ ไม่พบออเดอร์หมายเลข ${orderNumber} ในระบบของคุณ 😔` 
+                }]
+              }),
+            });
+            continue;
+          }
+
+          // Check if order status is 'shipped'
+          if (order.status !== 'shipped') {
+            const statusMessages: Record<string, string> = {
+              'pending': 'ออเดอร์นี้ยังรอดำเนินการอยู่ค่ะ ⏳',
+              'confirmed': 'ออเดอร์นี้ยืนยันแล้วแต่ยังไม่จัดส่งค่ะ ✅',
+              'delivered': 'ออเดอร์นี้ยืนยันรับสินค้าไปแล้วค่ะ 📦',
+              'cancelled': 'ออเดอร์นี้ถูกยกเลิกไปแล้วค่ะ ❌'
+            };
+
+            await fetch("https://api.line.me/v2/bot/message/reply", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${lineAccessToken}`,
+              },
+              body: JSON.stringify({
+                replyToken,
+                messages: [{ 
+                  type: "text", 
+                  text: `${statusMessages[order.status] || 'ไม่สามารถยืนยันรับสินค้าได้ค่ะ'}\n\nหากมีปัญหา กรุณาติดต่อเจ้าหน้าที่ค่ะ` 
+                }]
+              }),
+            });
+            continue;
+          }
+
+          // Update order status to delivered
+          const { error: updateError } = await supabase
+            .from("orders")
+            .update({ status: 'delivered' })
+            .eq("id", order.id);
+
+          if (updateError) {
+            console.error("Error updating order:", updateError);
+            await fetch("https://api.line.me/v2/bot/message/reply", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${lineAccessToken}`,
+              },
+              body: JSON.stringify({
+                replyToken,
+                messages: [{ 
+                  type: "text", 
+                  text: `ขออภัยค่ะ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งค่ะ` 
+                }]
+              }),
+            });
+            continue;
+          }
+
+          const confirmMessage = `✅ ยืนยันรับสินค้าเรียบร้อยค่ะ\n━━━━━━━━━━━━━━━\n\n📋 หมายเลข: ${orderNumber}\n📦 สถานะ: ส่งสำเร็จ\n\nขอบคุณที่ไว้วางใจร้านเรานะคะ! 🙏😊\nหวังว่าจะได้รับใช้อีกนะคะ 💕`;
+
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "user",
+            content: userMessage,
+          });
+          await supabase.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: `ยืนยันรับสินค้า ${orderNumber} สำเร็จ`,
+          });
+
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [{ type: "text", text: confirmMessage }]
+            }),
+          });
+          continue;
+        }
 
       // Get conversation history FIRST (before saving new message)
       // CRITICAL: Order by descending to get NEWEST messages, then reverse for AI
@@ -2087,6 +2202,152 @@ serve(async (req) => {
         console.error("LINE reply error:", await replyResponse.text());
       } else {
         console.log("LINE reply sent successfully");
+      }
+      } // End of text message handling
+    } // End of event loop
+    
+    // Handle image messages for payment slips
+    for (const event of webhook.events || []) {
+      if (event.type === "message" && event.message?.type === "image") {
+        const userId = event.source?.userId;
+        const replyToken = event.replyToken;
+        const messageId = event.message.id;
+
+        if (!userId || !replyToken || !messageId) continue;
+
+        console.log(`Image message from ${userId}`);
+
+        // Get conversation
+        let { data: conversation } = await supabase
+          .from('chat_conversations')
+          .select('*')
+          .eq('platform', 'line')
+          .eq('platform_user_id', userId)
+          .maybeSingle();
+
+        if (!conversation) {
+          const { data: newConv } = await supabase
+            .from('chat_conversations')
+            .insert({ platform: 'line', platform_user_id: userId })
+            .select()
+            .single();
+          conversation = newConv;
+        }
+
+        // Download the image from LINE
+        const imageResponse = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+          headers: {
+            Authorization: `Bearer ${lineAccessToken}`
+          }
+        });
+
+        if (!imageResponse.ok) {
+          console.error("Failed to download image from LINE");
+          continue;
+        }
+
+        const imageBlob = await imageResponse.blob();
+        const imageBuffer = await imageBlob.arrayBuffer();
+        const fileName = `${userId}_${Date.now()}.jpg`;
+
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('payment-slips')
+          .upload(fileName, new Uint8Array(imageBuffer), {
+            contentType: 'image/jpeg'
+          });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [{ type: "text", text: "ขออภัยค่ะ ไม่สามารถอัปโหลดรูปได้ กรุณาลองใหม่อีกครั้งค่ะ 😔" }]
+            }),
+          });
+          continue;
+        }
+
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('payment-slips')
+          .getPublicUrl(fileName);
+
+        const imageUrl = publicUrlData.publicUrl;
+
+        // Find customer's latest pending/confirmed order
+        const { data: pendingOrder } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('customer_line_id', userId)
+          .in('status', ['pending', 'confirmed'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!pendingOrder) {
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [{ 
+                type: "text", 
+                text: "ขอบคุณค่ะ! 📸\n\nขณะนี้ไม่พบออเดอร์ที่รอชำระเงินค่ะ\n\nหากต้องการสั่งซื้อสินค้า พิมพ์ \"ดูสินค้า\" ได้เลยค่ะ 😊" 
+              }]
+            }),
+          });
+          continue;
+        }
+
+        // Save payment slip
+        const { error: slipError } = await supabase.from('payment_slips').insert({
+          order_id: pendingOrder.id,
+          platform: 'line',
+          platform_user_id: userId,
+          image_url: imageUrl,
+          status: 'pending'
+        });
+
+        if (slipError) {
+          console.error("Error saving payment slip:", slipError);
+        }
+
+        // Save to chat messages
+        await supabase.from('chat_messages').insert({
+          conversation_id: conversation.id,
+          role: 'user',
+          content: '[รูปภาพสลิปโอนเงิน]'
+        });
+
+        await supabase.from('chat_messages').insert({
+          conversation_id: conversation.id,
+          role: 'assistant',
+          content: `รับสลิปเรียบร้อย - ออเดอร์ ${pendingOrder.order_number}`
+        });
+
+        // Send confirmation
+        const confirmText = `✅ รับสลิปเรียบร้อยค่ะ!\n━━━━━━━━━━━━━━━\n\n📋 ออเดอร์: ${pendingOrder.order_number}\n💰 ยอดเงิน: ฿${Number(pendingOrder.total_amount).toLocaleString()}\n\nเจ้าหน้าที่จะตรวจสอบและยืนยันการชำระเงินโดยเร็วค่ะ 🙏\n\nขอบคุณที่ไว้วางใจค่ะ 💕`;
+
+        await fetch("https://api.line.me/v2/bot/message/reply", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${lineAccessToken}`,
+          },
+          body: JSON.stringify({
+            replyToken,
+            messages: [{ type: "text", text: confirmText }]
+          }),
+        });
       }
     }
 

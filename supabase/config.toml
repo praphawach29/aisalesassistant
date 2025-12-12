@@ -20,3 +20,6 @@ verify_jwt = true
 
 [functions.settings-crypto]
 verify_jwt = true
+
+[functions.send-broadcast]
+verify_jwt = true

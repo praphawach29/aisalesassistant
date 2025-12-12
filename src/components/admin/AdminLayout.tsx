@@ -22,7 +22,8 @@ import {
   MessageSquareText,
   Bot,
   Ticket,
-  MapPin
+  MapPin,
+  Radio
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -41,6 +42,7 @@ const menuItems = [
   { path: '/admin/ai-settings', label: 'ตั้งค่า AI', icon: Bot },
   { path: '/admin/coupons', label: 'คูปอง', icon: Ticket },
   { path: '/admin/addresses', label: 'ที่อยู่ลูกค้า', icon: MapPin },
+  { path: '/admin/broadcast', label: 'Broadcast', icon: Radio },
   { path: '/admin/integrations', label: 'Integration', icon: Plug },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];
