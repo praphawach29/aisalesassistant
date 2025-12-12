@@ -378,7 +378,7 @@ serve(async (req) => {
       }
     }
 
-    // Send to Facebook (text only for now)
+    // Send to Facebook with enhanced formatting
     if (order.platform === 'facebook' && order.customer_facebook_id) {
       if (!facebookToken) {
         console.error('Facebook access token not configured');
@@ -389,14 +389,44 @@ serve(async (req) => {
         if (notification_type === 'custom' && custom_message) {
           message = custom_message;
         } else if (notification_type === 'tracking_update' && order.tracking_number) {
-          message = `📦 อัพเดทออเดอร์ ${order.order_number}\n\n🚚 หมายเลขพัสดุ: ${order.tracking_number}\n\nคุณสามารถติดตามพัสดุได้แล้วค่ะ`;
+          message = `🚚 อัปเดตการจัดส่ง!\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n\n`;
+          message += `📦 หมายเลขพัสดุ:\n`;
+          message += `   ${order.tracking_number}\n\n`;
+          message += `──────────────────\n`;
+          message += `📍 สามารถติดตามพัสดุได้แล้วค่ะ\n`;
+          message += `🔎 นำเลขพัสดุไปค้นหาที่เว็บขนส่ง\n\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
+          message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
         } else if (notification_type === 'status_update') {
           const statusInfo = statusMessages[order.status] || statusMessages['pending'];
-          message = `${statusInfo.emoji} อัปเดตออเดอร์ ${order.order_number}\n\nสถานะ: ${statusInfo.text}`;
           
+          message = `${statusInfo.emoji} อัปเดตสถานะออเดอร์\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n\n`;
+          message += `📊 สถานะ: ${statusInfo.text}\n`;
+          
+          // Add tracking number if shipped
           if (order.tracking_number && order.status === 'shipped') {
-            message += `\n\n🚚 หมายเลขพัสดุ: ${order.tracking_number}`;
+            message += `\n📦 หมายเลขพัสดุ:\n`;
+            message += `   ${order.tracking_number}\n`;
+            message += `\n📍 สามารถติดตามพัสดุได้แล้วค่ะ\n`;
           }
+          
+          // Status-specific messages
+          if (order.status === 'confirmed') {
+            message += `\n⏳ กำลังเตรียมสินค้าให้ค่ะ\n`;
+          } else if (order.status === 'delivered') {
+            message += `\n✅ สินค้าถึงมือแล้ว หากมีปัญหาแจ้งได้เลยค่ะ\n`;
+          } else if (order.status === 'cancelled') {
+            message += `\n❌ ออเดอร์ถูกยกเลิก หากมีข้อสงสัยแจ้งได้เลยค่ะ\n`;
+          }
+          
+          message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
+          message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
         }
 
         if (message) {
