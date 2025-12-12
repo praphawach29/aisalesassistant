@@ -167,6 +167,7 @@ export type Database = {
           image_url: string | null
           message_type: string
           platform: string
+          scheduled_at: string | null
           sent_by: string | null
           sent_count: number | null
           status: string
@@ -182,6 +183,7 @@ export type Database = {
           image_url?: string | null
           message_type?: string
           platform?: string
+          scheduled_at?: string | null
           sent_by?: string | null
           sent_count?: number | null
           status?: string
@@ -197,6 +199,7 @@ export type Database = {
           image_url?: string | null
           message_type?: string
           platform?: string
+          scheduled_at?: string | null
           sent_by?: string | null
           sent_count?: number | null
           status?: string
