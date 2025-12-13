@@ -685,7 +685,7 @@ export default function AdminProducts() {
               )}
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-380px)] sm:h-[400px] lg:h-[500px]">
+            <ScrollArea className="h-[calc(100vh-320px)] sm:h-[calc(100vh-340px)] lg:h-[calc(100vh-360px)]">
               <div className="space-y-1.5 sm:space-y-2 lg:space-y-3 px-3 sm:px-4 lg:px-0 pb-4">
                 {filteredProducts.map((product) => (
                   <div
