@@ -294,29 +294,29 @@ export default function AdminAISettings() {
     <AdminLayout title="ตั้งค่า AI">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
+            <div className="p-2 bg-primary/10 rounded-lg shrink-0">
               <Bot className="w-6 h-6 text-primary" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold">AI Personality Settings</h2>
-              <p className="text-sm text-muted-foreground">กำหนดบุคลิกและสไตล์การสื่อสารของ AI</p>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold truncate">AI Personality Settings</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">กำหนดบุคลิกและสไตล์การสื่อสารของ AI</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsTestOpen(true)}>
-              <FlaskConical className="w-4 h-4 mr-2" />
-              ทดสอบ AI
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsTestOpen(true)} className="flex-1 sm:flex-none">
+              <FlaskConical className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">ทดสอบ AI</span>
             </Button>
             <Dialog open={isSaveTemplateOpen} onOpenChange={setIsSaveTemplateOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
-                  บันทึกเป็น Template
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  <Plus className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">บันทึกเป็น Template</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-[95vw] sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>บันทึกเป็น Template ใหม่</DialogTitle>
                 </DialogHeader>
@@ -344,21 +344,21 @@ export default function AdminAISettings() {
                 </div>
               </DialogContent>
             </Dialog>
-            <Button onClick={handleSaveSettings} disabled={isSaving}>
-              <Save className="w-4 h-4 mr-2" />
-              {isSaving ? 'กำลังบันทึก...' : 'บันทึกและใช้งาน'}
+            <Button size="sm" onClick={handleSaveSettings} disabled={isSaving} className="flex-1 sm:flex-none">
+              <Save className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">{isSaving ? 'กำลังบันทึก...' : 'บันทึกและใช้งาน'}</span>
             </Button>
           </div>
         </div>
 
         {/* Templates Section */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">เลือก Template สำเร็จรูป</CardTitle>
-            <CardDescription>เลือก Template ที่ต้องการแล้วปรับแต่งเพิ่มเติมได้</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">เลือก Template สำเร็จรูป</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">เลือก Template ที่ต้องการแล้วปรับแต่งเพิ่มเติมได้</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <CardContent className="px-3 sm:px-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
               {templates.map((template) => (
                 <AITemplateCard
                   key={template.id}
@@ -374,11 +374,11 @@ export default function AdminAISettings() {
 
         {/* Settings Form */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">ปรับแต่งเพิ่มเติม</CardTitle>
-            <CardDescription>ปรับค่าต่างๆ ให้ตรงกับความต้องการของคุณ</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">ปรับแต่งเพิ่มเติม</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">ปรับค่าต่างๆ ให้ตรงกับความต้องการของคุณ</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             <AISettingsForm
               settings={settings}
               onChange={setSettings}

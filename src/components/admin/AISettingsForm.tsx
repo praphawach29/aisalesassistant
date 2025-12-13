@@ -36,28 +36,29 @@ export function AISettingsForm({ settings, onChange }: AISettingsFormProps) {
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
       {/* Basic Info Section */}
-      <div className="space-y-4">
-        <h4 className="font-medium text-sm text-muted-foreground">ข้อมูลพื้นฐาน</h4>
+      <div className="space-y-3 sm:space-y-4">
+        <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">ข้อมูลพื้นฐาน</h4>
         
-        <div className="space-y-2">
-          <Label htmlFor="ai_name">ชื่อ AI</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="ai_name" className="text-xs sm:text-sm">ชื่อ AI</Label>
           <Input
             id="ai_name"
             value={settings.ai_name}
             onChange={(e) => handleChange('ai_name', e.target.value)}
             placeholder="เช่น น้องช้อป, คุณเอ, พี่เซลล์"
+            className="text-sm"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="gender">เพศ</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="gender" className="text-xs sm:text-sm">เพศ</Label>
           <Select
             value={settings.gender}
             onValueChange={(value) => handleChange('gender', value)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="text-sm">
               <SelectValue placeholder="เลือกเพศ" />
             </SelectTrigger>
             <SelectContent>
@@ -68,26 +69,27 @@ export function AISettingsForm({ settings, onChange }: AISettingsFormProps) {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="personality">บุคลิก/ลักษณะนิสัย</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="personality" className="text-xs sm:text-sm">บุคลิก/ลักษณะนิสัย</Label>
           <Textarea
             id="personality"
             value={settings.personality}
             onChange={(e) => handleChange('personality', e.target.value)}
             placeholder="อธิบายบุคลิกของ AI เช่น ร่าเริง เป็นกันเอง สนุกสนาน..."
             rows={3}
+            className="text-sm"
           />
         </div>
       </div>
 
       {/* Communication Style Section */}
-      <div className="space-y-4">
-        <h4 className="font-medium text-sm text-muted-foreground">สไตล์การสื่อสาร</h4>
+      <div className="space-y-3 sm:space-y-4">
+        <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">สไตล์การสื่อสาร</h4>
         
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           <div className="flex items-center justify-between">
-            <Label>ระดับความเป็นทางการ</Label>
-            <span className="text-sm text-muted-foreground">
+            <Label className="text-xs sm:text-sm">ระดับความเป็นทางการ</Label>
+            <span className="text-xs sm:text-sm text-muted-foreground">
               {formalityLabels[settings.formality_level]}
             </span>
           </div>
@@ -99,7 +101,7 @@ export function AISettingsForm({ settings, onChange }: AISettingsFormProps) {
             step={1}
             className="w-full"
           />
-          <div className="flex justify-between text-xs text-muted-foreground">
+          <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground">
             <span>เป็นกันเอง</span>
             <span>เป็นทางการ</span>
           </div>
@@ -107,8 +109,8 @@ export function AISettingsForm({ settings, onChange }: AISettingsFormProps) {
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label>ใช้ Emoji</Label>
-            <p className="text-xs text-muted-foreground">เช่น 😊 🙏 ✨</p>
+            <Label className="text-xs sm:text-sm">ใช้ Emoji</Label>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">เช่น 😊 🙏 ✨</p>
           </div>
           <Switch
             checked={settings.use_emoji}
@@ -116,13 +118,13 @@ export function AISettingsForm({ settings, onChange }: AISettingsFormProps) {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="response_length">ความยาวคำตอบ</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="response_length" className="text-xs sm:text-sm">ความยาวคำตอบ</Label>
           <Select
             value={settings.response_length}
             onValueChange={(value) => handleChange('response_length', value)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="text-sm">
               <SelectValue placeholder="เลือกความยาว" />
             </SelectTrigger>
             <SelectContent>
@@ -135,43 +137,46 @@ export function AISettingsForm({ settings, onChange }: AISettingsFormProps) {
       </div>
 
       {/* Scripts Section */}
-      <div className="space-y-4 md:col-span-2">
-        <h4 className="font-medium text-sm text-muted-foreground">สคริปต์และกฎ</h4>
+      <div className="space-y-3 sm:space-y-4 md:col-span-2">
+        <h4 className="font-medium text-xs sm:text-sm text-muted-foreground">สคริปต์และกฎ</h4>
         
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="greeting_message">ข้อความทักทายเริ่มต้น</Label>
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+          <div className="space-y-1.5 sm:space-y-2">
+            <Label htmlFor="greeting_message" className="text-xs sm:text-sm">ข้อความทักทายเริ่มต้น</Label>
             <Textarea
               id="greeting_message"
               value={settings.greeting_message}
               onChange={(e) => handleChange('greeting_message', e.target.value)}
               placeholder="ข้อความที่จะใช้ทักทายลูกค้าเมื่อเริ่มสนทนา"
               rows={3}
+              className="text-sm"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="closing_message">ข้อความปิดท้าย/ขอบคุณ</Label>
+          <div className="space-y-1.5 sm:space-y-2">
+            <Label htmlFor="closing_message" className="text-xs sm:text-sm">ข้อความปิดท้าย/ขอบคุณ</Label>
             <Textarea
               id="closing_message"
               value={settings.closing_message}
               onChange={(e) => handleChange('closing_message', e.target.value)}
               placeholder="ข้อความที่จะใช้ขอบคุณหรือปิดท้ายการสนทนา"
               rows={3}
+              className="text-sm"
             />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="custom_rules">กฎพิเศษ / เรื่องที่ห้ามพูด</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="custom_rules" className="text-xs sm:text-sm">กฎพิเศษ / เรื่องที่ห้ามพูด</Label>
           <Textarea
             id="custom_rules"
             value={settings.custom_rules}
             onChange={(e) => handleChange('custom_rules', e.target.value)}
             placeholder="กำหนดกฎพิเศษ เช่น ห้ามพูดเรื่องการเมือง, ห้ามเปิดเผยสต็อก, ห้ามพูดถึงคู่แข่ง..."
             rows={4}
+            className="text-sm"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
             คั่นแต่ละกฎด้วยเครื่องหมาย , (comma)
           </p>
         </div>
