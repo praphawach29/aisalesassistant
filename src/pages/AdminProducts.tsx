@@ -322,342 +322,346 @@ export default function AdminProducts() {
   return (
     <AdminLayout title="จัดการสินค้า">
       {/* Actions Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex gap-2 mb-4 sm:mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="ค้นหาสินค้า..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-9 sm:h-10"
           />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={fetchProducts} disabled={isLoadingData}>
-            <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openCreateDialog} className="gap-2">
-                <Plus className="w-4 h-4" />
-                เพิ่มสินค้า
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {selectedProduct ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">ชื่อสินค้า *</Label>
+        <Button variant="outline" size="icon" onClick={fetchProducts} disabled={isLoadingData} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
+          <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openCreateDialog} className="gap-2 h-9 sm:h-10 px-3 sm:px-4 shrink-0">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">เพิ่มสินค้า</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="text-base sm:text-lg">
+                {selectedProduct ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className="text-sm">ชื่อสินค้า *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="กรอกชื่อสินค้า"
+                  maxLength={200}
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className="text-sm">รายละเอียด</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="กรอกรายละเอียดสินค้า"
+                  rows={2}
+                  maxLength={1000}
+                  className="min-h-[60px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="price" className="text-sm">ราคา (฿) *</Label>
                   <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="กรอกชื่อสินค้า"
-                    maxLength={200}
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    placeholder="0.00"
+                    className="h-9"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">รายละเอียด</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="กรอกรายละเอียดสินค้า"
-                    rows={3}
-                    maxLength={1000}
+                <div className="space-y-1.5">
+                  <Label htmlFor="promotion_price" className="text-sm">ราคาโปรฯ (฿)</Label>
+                  <Input
+                    id="promotion_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.promotion_price}
+                    onChange={(e) => setFormData({ ...formData, promotion_price: e.target.value })}
+                    placeholder="0.00"
+                    className="h-9"
                   />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="price">ราคา (฿) *</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="promotion_price">ราคาโปรโมชั่น (฿)</Label>
-                    <Input
-                      id="promotion_price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.promotion_price}
-                      onChange={(e) => setFormData({ ...formData, promotion_price: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="stock" className="text-sm">จำนวนสต็อก</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    min="0"
+                    value={formData.stock}
+                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                    placeholder="0"
+                    className="h-9"
+                  />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="stock">จำนวนสต็อก</Label>
-                    <Input
-                      id="stock"
-                      type="number"
-                      min="0"
-                      value={formData.stock}
-                      onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="category">หมวดหมู่</Label>
-                    <Input
-                      id="category"
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      placeholder="เช่น เสื้อผ้า, อาหาร"
-                      maxLength={100}
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="category" className="text-sm">หมวดหมู่</Label>
+                  <Input
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder="เช่น เสื้อผ้า"
+                    maxLength={100}
+                    className="h-9"
+                  />
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label>รูปภาพสินค้า</Label>
-                  
-                  {formData.image_url ? (
-                    <div className="relative inline-block">
-                      <img 
-                        src={formData.image_url} 
-                        alt="Product preview" 
-                        className="w-32 h-32 object-cover rounded-lg border"
+              <div className="space-y-1.5">
+                <Label className="text-sm">รูปภาพสินค้า</Label>
+                
+                {formData.image_url ? (
+                  <div className="relative inline-block">
+                    <img 
+                      src={formData.image_url} 
+                      alt="Product preview" 
+                      className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 w-6 h-6"
+                      onClick={removeImage}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <label className="cursor-pointer">
+                      <div className="flex items-center justify-center gap-2 px-4 py-6 sm:py-8 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
+                        {isUploading ? (
+                          <RefreshCw className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <Upload className="w-5 h-5 text-muted-foreground" />
+                            <span className="text-xs sm:text-sm text-muted-foreground">คลิกเพื่ออัพโหลดรูป</span>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={isUploading}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-xs text-muted-foreground text-center">
+                      JPG, PNG, WEBP (ไม่เกิน 5MB)
+                    </span>
+                  </div>
+                )}
+
+                {/* Alternative: URL input */}
+                <div className="pt-2">
+                  <Label htmlFor="image_url" className="text-xs text-muted-foreground">หรือกรอก URL</Label>
+                  <Input
+                    id="image_url"
+                    type="url"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    placeholder="https://example.com/image.jpg"
+                    className="mt-1 h-9"
+                  />
+                </div>
+              </div>
+
+              {/* Product Variants Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">ตัวเลือกสินค้า</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        variants: [...formData.variants, { name: '', options: [''] }]
+                      });
+                    }}
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    เพิ่ม
+                  </Button>
+                </div>
+                
+                {formData.variants.map((variant, variantIndex) => (
+                  <div key={variantIndex} className="p-2 sm:p-3 border rounded-lg space-y-2 bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={variant.name}
+                        onChange={(e) => {
+                          const newVariants = [...formData.variants];
+                          newVariants[variantIndex].name = e.target.value;
+                          setFormData({ ...formData, variants: newVariants });
+                        }}
+                        placeholder="ชื่อ (เช่น สี, ไซส์)"
+                        className="flex-1 h-8 text-sm"
                       />
                       <Button
                         type="button"
-                        variant="destructive"
+                        variant="ghost"
                         size="icon"
-                        className="absolute -top-2 -right-2 w-6 h-6"
-                        onClick={removeImage}
+                        className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
+                        onClick={() => {
+                          const newVariants = formData.variants.filter((_, i) => i !== variantIndex);
+                          setFormData({ ...formData, variants: newVariants });
+                        }}
                       >
-                        <X className="w-3 h-3" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <label className="cursor-pointer">
-                        <div className="flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
-                          {isUploading ? (
-                            <RefreshCw className="w-5 h-5 animate-spin" />
-                          ) : (
-                            <>
-                              <Upload className="w-5 h-5 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">คลิกเพื่ออัพโหลดรูป</span>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          disabled={isUploading}
-                          className="hidden"
-                        />
-                      </label>
-                      <span className="text-xs text-muted-foreground text-center">
-                        รองรับ JPG, PNG, WEBP (ไม่เกิน 5MB)
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Alternative: URL input */}
-                  <div className="pt-2">
-                    <Label htmlFor="image_url" className="text-xs text-muted-foreground">หรือกรอก URL</Label>
-                    <Input
-                      id="image_url"
-                      type="url"
-                      value={formData.image_url}
-                      onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                      placeholder="https://example.com/image.jpg"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-
-                {/* Product Variants Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>ตัวเลือกสินค้า (สี, ไซส์, ขนาด)</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setFormData({
-                          ...formData,
-                          variants: [...formData.variants, { name: '', options: [''] }]
-                        });
-                      }}
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      เพิ่มตัวเลือก
-                    </Button>
-                  </div>
-                  
-                  {formData.variants.map((variant, variantIndex) => (
-                    <div key={variantIndex} className="p-3 border rounded-lg space-y-2 bg-muted/30">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={variant.name}
-                          onChange={(e) => {
-                            const newVariants = [...formData.variants];
-                            newVariants[variantIndex].name = e.target.value;
-                            setFormData({ ...formData, variants: newVariants });
-                          }}
-                          placeholder="ชื่อตัวเลือก (เช่น สี, ไซส์)"
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => {
-                            const newVariants = formData.variants.filter((_, i) => i !== variantIndex);
-                            setFormData({ ...formData, variants: newVariants });
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2 items-center">
-                        {variant.options.map((option, optionIndex) => (
-                          <div key={optionIndex} className="flex items-center gap-1">
-                            <Input
-                              value={option}
-                              onChange={(e) => {
+                    
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {variant.options.map((option, optionIndex) => (
+                        <div key={optionIndex} className="flex items-center gap-0.5">
+                          <Input
+                            value={option}
+                            onChange={(e) => {
+                              const newVariants = [...formData.variants];
+                              newVariants[variantIndex].options[optionIndex] = e.target.value;
+                              setFormData({ ...formData, variants: newVariants });
+                            }}
+                            placeholder="ค่า"
+                            className="w-20 sm:w-24 h-7 text-sm"
+                          />
+                          {variant.options.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
                                 const newVariants = [...formData.variants];
-                                newVariants[variantIndex].options[optionIndex] = e.target.value;
+                                newVariants[variantIndex].options = variant.options.filter((_, i) => i !== optionIndex);
                                 setFormData({ ...formData, variants: newVariants });
                               }}
-                              placeholder="ค่า"
-                              className="w-24"
-                            />
-                            {variant.options.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={() => {
-                                  const newVariants = [...formData.variants];
-                                  newVariants[variantIndex].options = variant.options.filter((_, i) => i !== optionIndex);
-                                  setFormData({ ...formData, variants: newVariants });
-                                }}
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8"
-                          onClick={() => {
-                            const newVariants = [...formData.variants];
-                            newVariants[variantIndex].options.push('');
-                            setFormData({ ...formData, variants: newVariants });
-                          }}
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          เพิ่ม
-                        </Button>
-                      </div>
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs px-2"
+                        onClick={() => {
+                          const newVariants = [...formData.variants];
+                          newVariants[variantIndex].options.push('');
+                          setFormData({ ...formData, variants: newVariants });
+                        }}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
                     </div>
-                  ))}
-                  
-                  {formData.variants.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-2">
-                      ยังไม่มีตัวเลือกสินค้า คลิก "เพิ่มตัวเลือก" เพื่อเพิ่ม
-                    </p>
+                  </div>
+                ))}
+                
+                {formData.variants.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    ยังไม่มีตัวเลือกสินค้า
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between py-1">
+                <Label htmlFor="is_active" className="text-sm">เปิดใช้งาน</Label>
+                <Switch
+                  id="is_active"
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)}
+                  className="flex-1 h-9 sm:h-10"
+                >
+                  ยกเลิก
+                </Button>
+                <Button type="submit" disabled={isSaving} className="flex-1 h-9 sm:h-10">
+                  {isSaving ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : selectedProduct ? (
+                    'บันทึก'
+                  ) : (
+                    'เพิ่มสินค้า'
                   )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="is_active">เปิดใช้งาน</Label>
-                  <Switch
-                    id="is_active"
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setIsDialogOpen(false)}
-                    className="flex-1"
-                  >
-                    ยกเลิก
-                  </Button>
-                  <Button type="submit" disabled={isSaving} className="flex-1">
-                    {isSaving ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : selectedProduct ? (
-                      'บันทึก'
-                    ) : (
-                      'เพิ่มสินค้า'
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Products Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
         <Card>
-          <CardContent className="p-4 lg:pt-6">
+          <CardContent className="p-2 sm:p-4">
             <div className="text-center">
-              <p className="text-xl lg:text-2xl font-bold">{products.length}</p>
-              <p className="text-xs lg:text-sm text-muted-foreground">สินค้าทั้งหมด</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold">{products.length}</p>
+              <p className="text-[10px] sm:text-xs lg:text-sm text-muted-foreground">ทั้งหมด</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 lg:pt-6">
+          <CardContent className="p-2 sm:p-4">
             <div className="text-center">
-              <p className="text-xl lg:text-2xl font-bold text-green-600">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">
                 {products.filter(p => p.is_active).length}
               </p>
-              <p className="text-xs lg:text-sm text-muted-foreground">เปิดใช้งาน</p>
+              <p className="text-[10px] sm:text-xs lg:text-sm text-muted-foreground">เปิดใช้งาน</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 lg:pt-6">
+          <CardContent className="p-2 sm:p-4">
             <div className="text-center">
-              <p className="text-xl lg:text-2xl font-bold text-orange-500">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-orange-500">
                 {products.filter(p => p.stock <= 5).length}
               </p>
-              <p className="text-xs lg:text-sm text-muted-foreground">สต็อกต่ำ</p>
+              <p className="text-[10px] sm:text-xs lg:text-sm text-muted-foreground">สต็อกต่ำ</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 lg:pt-6">
+          <CardContent className="p-2 sm:p-4">
             <div className="text-center">
-              <p className="text-xl lg:text-2xl font-bold text-red-500">
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-red-500">
                 {products.filter(p => p.stock === 0).length}
               </p>
-              <p className="text-xs lg:text-sm text-muted-foreground">หมดสต็อก</p>
+              <p className="text-[10px] sm:text-xs lg:text-sm text-muted-foreground">หมดสต็อก</p>
             </div>
           </CardContent>
         </Card>
@@ -665,31 +669,31 @@ export default function AdminProducts() {
 
       {/* Products List */}
       <Card>
-        <CardHeader className="py-4">
-          <CardTitle className="text-base lg:text-lg">รายการสินค้า ({filteredProducts.length})</CardTitle>
+        <CardHeader className="py-3 px-3 sm:px-6 sm:py-4">
+          <CardTitle className="text-sm sm:text-base lg:text-lg">รายการสินค้า ({filteredProducts.length})</CardTitle>
         </CardHeader>
-        <CardContent className="p-0 lg:p-6 lg:pt-0">
+        <CardContent className="p-0 sm:p-4 lg:p-6 lg:pt-0">
           {filteredProducts.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>{searchQuery ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}</p>
+            <div className="text-center py-8 sm:py-12 text-muted-foreground">
+              <Package className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+              <p className="text-sm sm:text-base">{searchQuery ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}</p>
               {!searchQuery && (
-                <Button onClick={openCreateDialog} className="mt-4 gap-2">
+                <Button onClick={openCreateDialog} className="mt-3 sm:mt-4 gap-2 h-9">
                   <Plus className="w-4 h-4" />
                   เพิ่มสินค้าแรก
                 </Button>
               )}
             </div>
           ) : (
-            <ScrollArea className="h-[400px] lg:h-[500px]">
-              <div className="space-y-2 lg:space-y-3 px-4 lg:px-0 pb-4">
+            <ScrollArea className="h-[calc(100vh-380px)] sm:h-[400px] lg:h-[500px]">
+              <div className="space-y-1.5 sm:space-y-2 lg:space-y-3 px-3 sm:px-4 lg:px-0 pb-4">
                 {filteredProducts.map((product) => (
                   <div
                     key={product.id}
-                    className="flex items-center gap-3 lg:gap-4 p-3 lg:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    className="flex items-center gap-2 sm:gap-3 lg:gap-4 p-2 sm:p-3 lg:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                   >
                     {/* Product Image */}
-                    <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
                       {product.image_url ? (
                         <img
                           src={product.image_url}
@@ -701,45 +705,45 @@ export default function AdminProducts() {
                           }}
                         />
                       ) : (
-                        <ImageIcon className="w-5 h-5 lg:w-6 lg:h-6 text-muted-foreground" />
+                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-muted-foreground" />
                       )}
                     </div>
 
                     {/* Product Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-sm lg:text-base truncate">{product.name}</h3>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <h3 className="font-medium text-xs sm:text-sm lg:text-base truncate">{product.name}</h3>
                         {!product.is_active && (
-                          <Badge variant="secondary" className="text-xs">ปิด</Badge>
+                          <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 sm:px-2">ปิด</Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap">
                         {product.promotion_price ? (
                           <>
-                            <span className="text-xs lg:text-sm line-through text-muted-foreground">
+                            <span className="text-[10px] sm:text-xs lg:text-sm line-through text-muted-foreground">
                               ฿{product.price.toLocaleString()}
                             </span>
-                            <span className="font-semibold text-sm lg:text-base text-green-600">
+                            <span className="font-semibold text-xs sm:text-sm lg:text-base text-green-600">
                               ฿{product.promotion_price.toLocaleString()}
                             </span>
                           </>
                         ) : (
-                          <span className="font-semibold text-sm lg:text-base">
+                          <span className="font-semibold text-xs sm:text-sm lg:text-base">
                             ฿{product.price.toLocaleString()}
                           </span>
                         )}
-                        <span className="text-xs lg:text-sm text-muted-foreground">
+                        <span className="text-[10px] sm:text-xs lg:text-sm text-muted-foreground">
                           สต็อก: {product.stock}
                         </span>
                       </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-1 lg:gap-2 flex-shrink-0">
+                    <div className="flex gap-1 flex-shrink-0">
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 lg:h-10 lg:w-10"
+                        className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10"
                         onClick={() => openEditDialog(product)}
                       >
                         <Pencil className="w-3 h-3 lg:w-4 lg:h-4" />
@@ -747,7 +751,7 @@ export default function AdminProducts() {
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 lg:h-10 lg:w-10 text-destructive hover:text-destructive"
+                        className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-destructive hover:text-destructive"
                         onClick={() => openDeleteDialog(product)}
                       >
                         <Trash2 className="w-3 h-3 lg:w-4 lg:h-4" />
@@ -763,16 +767,16 @@ export default function AdminProducts() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[90vw] max-w-md p-4 sm:p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบสินค้า</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณต้องการลบ "{selectedProduct?.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
+            <AlertDialogTitle className="text-base sm:text-lg">ยืนยันการลบสินค้า</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              คุณต้องการลบ "{selectedProduct?.name}" หรือไม่?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="h-9 sm:h-10">ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="h-9 sm:h-10 bg-destructive text-destructive-foreground hover:bg-destructive/90">
               ลบสินค้า
             </AlertDialogAction>
           </AlertDialogFooter>
