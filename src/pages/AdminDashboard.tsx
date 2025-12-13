@@ -343,47 +343,49 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Order Status Cards */}
-      <div className="grid grid-cols-5 gap-2 lg:gap-4 mb-6">
-        <Card className="p-3 lg:p-4 text-center">
-          <Clock className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-yellow-500 mb-1" />
-          <p className="text-lg lg:text-xl font-bold">{stats.pendingOrders}</p>
-          <p className="text-[10px] lg:text-xs text-muted-foreground">รอดำเนินการ</p>
-        </Card>
-        <Card className="p-3 lg:p-4 text-center">
-          <CheckCircle2 className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-blue-500 mb-1" />
-          <p className="text-lg lg:text-xl font-bold">{stats.confirmedOrders}</p>
-          <p className="text-[10px] lg:text-xs text-muted-foreground">ยืนยันแล้ว</p>
-        </Card>
-        <Card className="p-3 lg:p-4 text-center">
-          <Truck className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-purple-500 mb-1" />
-          <p className="text-lg lg:text-xl font-bold">{stats.shippedOrders}</p>
-          <p className="text-[10px] lg:text-xs text-muted-foreground">จัดส่งแล้ว</p>
-        </Card>
-        <Card className="p-3 lg:p-4 text-center">
-          <Package className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-green-500 mb-1" />
-          <p className="text-lg lg:text-xl font-bold">{stats.deliveredOrders}</p>
-          <p className="text-[10px] lg:text-xs text-muted-foreground">สำเร็จ</p>
-        </Card>
-        <Card className="p-3 lg:p-4 text-center">
-          <XCircle className="w-5 h-5 lg:w-6 lg:h-6 mx-auto text-red-500 mb-1" />
-          <p className="text-lg lg:text-xl font-bold">{stats.cancelledOrders}</p>
-          <p className="text-[10px] lg:text-xs text-muted-foreground">ยกเลิก</p>
-        </Card>
+      {/* Order Status Cards - Horizontal scroll on mobile */}
+      <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
+        <div className="flex lg:grid lg:grid-cols-5 gap-2 lg:gap-4 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+          <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
+            <Clock className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-yellow-500 mb-0.5 lg:mb-1" />
+            <p className="text-base lg:text-xl font-bold">{stats.pendingOrders}</p>
+            <p className="text-[9px] lg:text-xs text-muted-foreground leading-tight">รอดำเนินการ</p>
+          </Card>
+          <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
+            <CheckCircle2 className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-blue-500 mb-0.5 lg:mb-1" />
+            <p className="text-base lg:text-xl font-bold">{stats.confirmedOrders}</p>
+            <p className="text-[9px] lg:text-xs text-muted-foreground leading-tight">ยืนยันแล้ว</p>
+          </Card>
+          <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
+            <Truck className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-purple-500 mb-0.5 lg:mb-1" />
+            <p className="text-base lg:text-xl font-bold">{stats.shippedOrders}</p>
+            <p className="text-[9px] lg:text-xs text-muted-foreground leading-tight">จัดส่งแล้ว</p>
+          </Card>
+          <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
+            <Package className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-green-500 mb-0.5 lg:mb-1" />
+            <p className="text-base lg:text-xl font-bold">{stats.deliveredOrders}</p>
+            <p className="text-[9px] lg:text-xs text-muted-foreground leading-tight">สำเร็จ</p>
+          </Card>
+          <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
+            <XCircle className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-red-500 mb-0.5 lg:mb-1" />
+            <p className="text-base lg:text-xl font-bold">{stats.cancelledOrders}</p>
+            <p className="text-[9px] lg:text-xs text-muted-foreground leading-tight">ยกเลิก</p>
+          </Card>
+        </div>
       </div>
 
       {/* Charts Row */}
-      <div className="grid lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid lg:grid-cols-3 gap-3 lg:gap-4 mb-6">
         {/* Revenue Chart */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base lg:text-lg">รายได้ 7 วันล่าสุด</CardTitle>
-            <CardDescription>ยอดขายรวม ฿{stats.thisWeekRevenue.toLocaleString()}</CardDescription>
+          <CardHeader className="p-3 lg:p-6 pb-2">
+            <CardTitle className="text-sm lg:text-lg">รายได้ 7 วันล่าสุด</CardTitle>
+            <CardDescription className="text-xs lg:text-sm">ยอดขายรวม ฿{stats.thisWeekRevenue.toLocaleString()}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[200px] lg:h-[250px]">
+          <CardContent className="p-3 lg:p-6 pt-0">
+            <div className="h-[180px] lg:h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyRevenue}>
+                <AreaChart data={dailyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -391,11 +393,11 @@ export default function AdminDashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 10 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 10 }} tickFormatter={(v) => `฿${v.toLocaleString()}`} />
+                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 9 }} />
+                  <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
                   <Tooltip 
                     formatter={(value: number) => [`฿${value.toLocaleString()}`, 'รายได้']}
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
                   />
                   <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={2} />
                 </AreaChart>
@@ -406,26 +408,26 @@ export default function AdminDashboard() {
 
         {/* Platform Distribution */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base lg:text-lg">ออเดอร์ตามช่องทาง</CardTitle>
-            <CardDescription>รวม {stats.totalOrders} ออเดอร์</CardDescription>
+          <CardHeader className="p-3 lg:p-6 pb-2">
+            <CardTitle className="text-sm lg:text-lg">ออเดอร์ตามช่องทาง</CardTitle>
+            <CardDescription className="text-xs lg:text-sm">รวม {stats.totalOrders} ออเดอร์</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-3 lg:p-6 pt-0">
+            <div className="space-y-3 lg:space-y-4">
               {ordersByPlatform.map((item, index) => (
-                <div key={item.platform} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <span>{index === 0 ? '🌐' : index === 1 ? '🟢' : '🔵'}</span>
+                <div key={item.platform} className="space-y-1.5 lg:space-y-2">
+                  <div className="flex items-center justify-between text-xs lg:text-sm">
+                    <span className="flex items-center gap-1.5 lg:gap-2">
+                      <span className="text-sm lg:text-base">{index === 0 ? '🌐' : index === 1 ? '🟢' : '🔵'}</span>
                       {item.platform}
                     </span>
-                    <span className="font-medium">{item.count} ออเดอร์</span>
+                    <span className="font-medium">{item.count}</span>
                   </div>
                   <Progress 
                     value={stats.totalOrders > 0 ? (item.count / stats.totalOrders) * 100 : 0} 
-                    className="h-2"
+                    className="h-1.5 lg:h-2"
                   />
-                  <p className="text-xs text-muted-foreground text-right">
+                  <p className="text-[10px] lg:text-xs text-muted-foreground text-right">
                     ฿{item.revenue.toLocaleString()}
                   </p>
                 </div>
@@ -436,46 +438,46 @@ export default function AdminDashboard() {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid lg:grid-cols-2 gap-3 lg:gap-4">
         {/* Recent Orders */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between py-4">
+          <CardHeader className="flex flex-row items-center justify-between p-3 lg:p-6 py-3 lg:py-4">
             <div>
-              <CardTitle className="text-base lg:text-lg">ออเดอร์ล่าสุด</CardTitle>
-              <CardDescription>5 รายการล่าสุด</CardDescription>
+              <CardTitle className="text-sm lg:text-lg">ออเดอร์ล่าสุด</CardTitle>
+              <CardDescription className="text-xs lg:text-sm">5 รายการล่าสุด</CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={fetchData} disabled={isLoadingData}>
+            <div className="flex gap-1 lg:gap-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchData} disabled={isLoadingData}>
                 <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
               </Button>
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs lg:text-sm px-2 lg:px-3" asChild>
                 <Link to="/admin/orders">ดูทั้งหมด</Link>
               </Button>
             </div>
           </CardHeader>
           <CardContent className="p-0 lg:p-6 lg:pt-0">
             {orders.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>ยังไม่มีออเดอร์</p>
+              <div className="text-center py-6 lg:py-8 text-muted-foreground">
+                <Package className="w-10 h-10 lg:w-12 lg:h-12 mx-auto mb-3 lg:mb-4 opacity-50" />
+                <p className="text-sm lg:text-base">ยังไม่มีออเดอร์</p>
               </div>
             ) : (
-              <div className="space-y-2 px-4 lg:px-0 pb-4">
+              <div className="space-y-1.5 lg:space-y-2 px-3 lg:px-0 pb-3 lg:pb-4">
                 {orders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between p-2 lg:p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xl flex-shrink-0">{getPlatformIcon(order.platform)}</span>
+                    <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+                      <span className="text-base lg:text-xl flex-shrink-0">{getPlatformIcon(order.platform)}</span>
                       <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{order.order_number}</p>
-                        <p className="text-xs text-muted-foreground truncate">{order.customer_name}</p>
+                        <p className="font-medium text-xs lg:text-sm truncate">{order.order_number}</p>
+                        <p className="text-[10px] lg:text-xs text-muted-foreground truncate">{order.customer_name}</p>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0 ml-2">
-                      {getStatusBadge(order.status)}
-                      <p className="text-sm font-semibold mt-1">฿{Number(order.total_amount).toLocaleString()}</p>
+                      <div className="scale-90 lg:scale-100 origin-right">{getStatusBadge(order.status)}</div>
+                      <p className="text-xs lg:text-sm font-semibold mt-0.5 lg:mt-1">฿{Number(order.total_amount).toLocaleString()}</p>
                     </div>
                   </div>
                 ))}
@@ -486,53 +488,53 @@ export default function AdminDashboard() {
 
         {/* Quick Stats */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base lg:text-lg">สรุปข้อมูลสำคัญ</CardTitle>
-            <CardDescription>ภาพรวมระบบ</CardDescription>
+          <CardHeader className="p-3 lg:p-6 pb-2">
+            <CardTitle className="text-sm lg:text-lg">สรุปข้อมูลสำคัญ</CardTitle>
+            <CardDescription className="text-xs lg:text-sm">ภาพรวมระบบ</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <BoxIcon className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">สินค้า</span>
+          <CardContent className="p-3 lg:p-6 pt-0 space-y-3 lg:space-y-4">
+            <div className="grid grid-cols-2 gap-2 lg:gap-4">
+              <div className="p-2.5 lg:p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-1.5 lg:gap-2 mb-1 lg:mb-2">
+                  <BoxIcon className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-primary" />
+                  <span className="text-xs lg:text-sm font-medium">สินค้า</span>
                 </div>
-                <p className="text-2xl font-bold">{stats.activeProducts}</p>
-                <p className="text-xs text-muted-foreground">สินค้าที่ใช้งาน</p>
+                <p className="text-xl lg:text-2xl font-bold">{stats.activeProducts}</p>
+                <p className="text-[10px] lg:text-xs text-muted-foreground">สินค้าที่ใช้งาน</p>
               </div>
-              <div className="p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <Package className="w-4 h-4 text-orange-500" />
-                  <span className="text-sm font-medium">สต็อกต่ำ</span>
+              <div className="p-2.5 lg:p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-1.5 lg:gap-2 mb-1 lg:mb-2">
+                  <Package className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-orange-500" />
+                  <span className="text-xs lg:text-sm font-medium">สต็อกต่ำ</span>
                 </div>
-                <p className="text-2xl font-bold text-orange-500">{stats.lowStockProducts}</p>
-                <p className="text-xs text-muted-foreground">เหลือ ≤5 ชิ้น</p>
+                <p className="text-xl lg:text-2xl font-bold text-orange-500">{stats.lowStockProducts}</p>
+                <p className="text-[10px] lg:text-xs text-muted-foreground">เหลือ ≤5 ชิ้น</p>
               </div>
-              <div className="p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <ShoppingCart className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium">ออเดอร์ทั้งหมด</span>
+              <div className="p-2.5 lg:p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-1.5 lg:gap-2 mb-1 lg:mb-2">
+                  <ShoppingCart className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-green-500" />
+                  <span className="text-xs lg:text-sm font-medium">ออเดอร์ทั้งหมด</span>
                 </div>
-                <p className="text-2xl font-bold">{stats.totalOrders}</p>
-                <p className="text-xs text-muted-foreground">ตั้งแต่เริ่มต้น</p>
+                <p className="text-xl lg:text-2xl font-bold">{stats.totalOrders}</p>
+                <p className="text-[10px] lg:text-xs text-muted-foreground">ตั้งแต่เริ่มต้น</p>
               </div>
-              <div className="p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-medium">รายได้รวม</span>
+              <div className="p-2.5 lg:p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-1.5 lg:gap-2 mb-1 lg:mb-2">
+                  <TrendingUp className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-blue-500" />
+                  <span className="text-xs lg:text-sm font-medium">รายได้รวม</span>
                 </div>
-                <p className="text-xl font-bold">฿{(stats.totalRevenue / 1000).toFixed(1)}K</p>
-                <p className="text-xs text-muted-foreground">ยอดขายทั้งหมด</p>
+                <p className="text-lg lg:text-xl font-bold">฿{(stats.totalRevenue / 1000).toFixed(1)}K</p>
+                <p className="text-[10px] lg:text-xs text-muted-foreground">ยอดขายทั้งหมด</p>
               </div>
             </div>
 
             {stats.lowStockProducts > 0 && (
-              <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                <div className="flex items-center gap-2 text-orange-600">
-                  <Package className="w-4 h-4" />
-                  <span className="text-sm font-medium">แจ้งเตือน: มีสินค้า {stats.lowStockProducts} รายการที่สต็อกใกล้หมด</span>
+              <div className="p-2.5 lg:p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <div className="flex items-center gap-1.5 lg:gap-2 text-orange-600">
+                  <Package className="w-3.5 h-3.5 lg:w-4 lg:h-4 flex-shrink-0" />
+                  <span className="text-xs lg:text-sm font-medium">แจ้งเตือน: สินค้า {stats.lowStockProducts} รายการสต็อกใกล้หมด</span>
                 </div>
-                <Button variant="link" className="p-0 h-auto text-orange-600 text-xs" asChild>
+                <Button variant="link" className="p-0 h-auto text-orange-600 text-[10px] lg:text-xs" asChild>
                   <Link to="/admin/products">ดูรายละเอียด →</Link>
                 </Button>
               </div>
