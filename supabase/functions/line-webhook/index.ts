@@ -1794,7 +1794,7 @@ serve(async (req) => {
       
       console.log(`Sending ${aiMessages.length} messages to AI (including current)`);
 
-      // Send typing indicator to LINE
+      // Send typing indicator to LINE (shows loading animation while AI processes)
       try {
         await fetch("https://api.line.me/v2/bot/chat/loading/start", {
           method: "POST",
@@ -1804,7 +1804,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             chatId: userId,
-            loadingSeconds: 10
+            loadingSeconds: 20 // Increased to 20 seconds for longer AI responses
           }),
         });
         console.log("LINE typing indicator sent");
@@ -1812,8 +1812,8 @@ serve(async (req) => {
         console.log("Typing indicator error (non-critical):", typingError);
       }
 
-      // Call AI
-      console.log("Calling Lovable AI...");
+      // Call AI - using gemini-2.5-flash-lite for fastest response
+      console.log("Calling Lovable AI (gemini-2.5-flash-lite)...");
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -1821,7 +1821,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "openai/gpt-5-mini",
+          model: "google/gemini-2.5-flash-lite",
           messages: [
             { role: "system", content: systemPrompt },
             ...aiMessages,
