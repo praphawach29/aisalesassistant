@@ -45,11 +45,11 @@ export function AITemplateCard({ template, isSelected, onSelect, onDelete }: AIT
       )}
       onClick={onSelect}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-2.5 sm:p-4">
         {/* Selected indicator */}
         {isSelected && (
-          <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
-            <Check className="w-3 h-3" />
+          <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 bg-primary text-primary-foreground rounded-full p-0.5 sm:p-1">
+            <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
           </div>
         )}
 
@@ -58,53 +58,54 @@ export function AITemplateCard({ template, isSelected, onSelect, onDelete }: AIT
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-5 w-5 sm:h-6 sm:w-6 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
             }}
           >
-            <Trash2 className="w-3 h-3 text-destructive" />
+            <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-destructive" />
           </Button>
         )}
 
         {/* Template name with emoji */}
-        <h3 className="font-semibold text-sm mb-1 pr-6 line-clamp-1">{template.name}</h3>
+        <h3 className="font-semibold text-xs sm:text-sm mb-1 pr-5 sm:pr-6 line-clamp-1">{template.name}</h3>
         
         {/* Description */}
         {template.description && (
-          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+          <p className="text-[10px] sm:text-xs text-muted-foreground mb-2 sm:mb-3 line-clamp-2">
             {template.description}
           </p>
         )}
 
         {/* Quick info badges */}
-        <div className="flex flex-wrap gap-1">
-          <Badge variant="secondary" className="text-xs">
+        <div className="flex flex-wrap gap-0.5 sm:gap-1">
+          <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0">
             {template.ai_name}
           </Badge>
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 py-0 hidden sm:inline-flex">
             {genderLabels[template.gender] || template.gender}
           </Badge>
           {template.use_emoji && (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-[10px] sm:text-xs px-1 py-0">
               😊
             </Badge>
           )}
         </div>
 
         {/* Formality level indicator */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-            <span>ความเป็นทางการ</span>
+        <div className="mt-2 sm:mt-3">
+          <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
+            <span className="hidden sm:inline">ความเป็นทางการ</span>
+            <span className="sm:hidden">ทางการ</span>
             <span>{formalityLabels[template.formality_level]}</span>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-0.5 sm:gap-1">
             {[1, 2, 3, 4, 5].map((level) => (
               <div
                 key={level}
                 className={cn(
-                  'h-1.5 flex-1 rounded-full',
+                  'h-1 sm:h-1.5 flex-1 rounded-full',
                   level <= template.formality_level
                     ? 'bg-primary'
                     : 'bg-muted'
@@ -116,8 +117,8 @@ export function AITemplateCard({ template, isSelected, onSelect, onDelete }: AIT
 
         {/* System badge */}
         {template.is_system && (
-          <div className="mt-2">
-            <Badge variant="secondary" className="text-xs">
+          <div className="mt-1.5 sm:mt-2">
+            <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0">
               ระบบ
             </Badge>
           </div>
