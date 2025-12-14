@@ -686,75 +686,103 @@ export default function AdminProducts() {
             </div>
           ) : (
             <ScrollArea className="h-[calc(100vh-320px)] sm:h-[calc(100vh-340px)] lg:h-[calc(100vh-360px)]">
-              <div className="space-y-1.5 sm:space-y-2 lg:space-y-3 px-3 sm:px-4 lg:px-0 pb-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 px-3 sm:px-4 lg:px-0 pb-4">
                 {filteredProducts.map((product) => (
                   <div
                     key={product.id}
-                    className="flex items-center gap-2 sm:gap-3 lg:gap-4 p-2 sm:p-3 lg:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    className="flex flex-col rounded-xl border bg-card overflow-hidden hover:shadow-lg transition-all duration-200 group"
                   >
                     {/* Product Image */}
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="relative aspect-square bg-muted overflow-hidden">
                       {product.image_url ? (
                         <img
                           src={product.image_url}
                           alt={product.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = '';
                             (e.target as HTMLImageElement).style.display = 'none';
                           }}
                         />
                       ) : (
-                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-muted-foreground" />
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      
+                      {/* Status Badge */}
+                      {!product.is_active && (
+                        <Badge variant="secondary" className="absolute top-2 left-2 text-[10px] sm:text-xs">
+                          ปิดใช้งาน
+                        </Badge>
+                      )}
+                      
+                      {/* Promotion Badge */}
+                      {product.promotion_price && (
+                        <Badge className="absolute top-2 right-2 bg-destructive text-destructive-foreground text-[10px] sm:text-xs">
+                          ลด {Math.round(((product.price - product.promotion_price) / product.price) * 100)}%
+                        </Badge>
+                      )}
+                      
+                      {/* Stock Warning */}
+                      {product.stock === 0 && (
+                        <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                          <Badge variant="destructive" className="text-xs sm:text-sm">หมดสต็อก</Badge>
+                        </div>
                       )}
                     </div>
-
+                    
                     {/* Product Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <h3 className="font-medium text-xs sm:text-sm lg:text-base truncate">{product.name}</h3>
-                        {!product.is_active && (
-                          <Badge variant="secondary" className="text-[10px] sm:text-xs px-1 sm:px-2">ปิด</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap">
+                    <div className="flex-1 p-2.5 sm:p-3 space-y-1.5">
+                      <h3 className="font-medium text-xs sm:text-sm line-clamp-2 leading-tight">{product.name}</h3>
+                      
+                      {/* Price */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         {product.promotion_price ? (
                           <>
-                            <span className="text-[10px] sm:text-xs lg:text-sm line-through text-muted-foreground">
-                              ฿{product.price.toLocaleString()}
-                            </span>
-                            <span className="font-semibold text-xs sm:text-sm lg:text-base text-green-600">
+                            <span className="font-bold text-sm sm:text-base text-primary">
                               ฿{product.promotion_price.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] sm:text-xs line-through text-muted-foreground">
+                              ฿{product.price.toLocaleString()}
                             </span>
                           </>
                         ) : (
-                          <span className="font-semibold text-xs sm:text-sm lg:text-base">
+                          <span className="font-bold text-sm sm:text-base">
                             ฿{product.price.toLocaleString()}
                           </span>
                         )}
-                        <span className="text-[10px] sm:text-xs lg:text-sm text-muted-foreground">
+                      </div>
+                      
+                      {/* Stock & Category */}
+                      <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
+                        <span className={product.stock <= 5 ? (product.stock === 0 ? 'text-destructive' : 'text-orange-500') : ''}>
                           สต็อก: {product.stock}
                         </span>
+                        {product.category && (
+                          <span className="truncate max-w-[60%]">{product.category}</span>
+                        )}
                       </div>
                     </div>
-
+                    
                     {/* Actions */}
-                    <div className="flex gap-1 flex-shrink-0">
+                    <div className="flex border-t">
                       <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10"
+                        variant="ghost"
+                        className="flex-1 h-9 sm:h-10 rounded-none text-xs sm:text-sm gap-1.5 hover:bg-muted"
                         onClick={() => openEditDialog(product)}
                       >
-                        <Pencil className="w-3 h-3 lg:w-4 lg:h-4" />
+                        <Pencil className="w-3.5 h-3.5" />
+                        แก้ไข
                       </Button>
+                      <div className="w-px bg-border" />
                       <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-destructive hover:text-destructive"
+                        variant="ghost"
+                        className="flex-1 h-9 sm:h-10 rounded-none text-xs sm:text-sm gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => openDeleteDialog(product)}
                       >
-                        <Trash2 className="w-3 h-3 lg:w-4 lg:h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
+                        ลบ
                       </Button>
                     </div>
                   </div>
