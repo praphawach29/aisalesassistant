@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, Check, Code, ExternalLink, MessageCircle, Monitor, Smartphone } from 'lucide-react';
+import { Copy, Check, Code, ExternalLink, MessageCircle, Monitor, Smartphone, Plus, X, Image } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminEmbedCode() {
@@ -23,12 +23,37 @@ export default function AdminEmbedCode() {
   const [autoOpen, setAutoOpen] = useState(false);
   const [botName, setBotName] = useState('AI Sales Assistant');
   const [welcomeMessage, setWelcomeMessage] = useState('สวัสดีครับ! ผมพร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณครับ');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [quickActions, setQuickActions] = useState([
+    { label: 'ดูสินค้า', message: 'อยากดูสินค้าที่มีขายหน่อยครับ' },
+    { label: 'สั่งซื้อ', message: 'ต้องการสั่งซื้อสินค้า' },
+    { label: 'สอบถามราคา', message: 'อยากสอบถามราคาสินค้า' },
+  ]);
 
   const baseUrl = window.location.origin;
 
+  // Encode quick actions for URL
+  const quickActionsParam = encodeURIComponent(JSON.stringify(quickActions));
+
   // Generate embed URLs
-  const widgetUrl = `${baseUrl}/embed-widget?color=${encodeURIComponent(primaryColor)}&position=${position}&buttonSize=${buttonSize}&width=${windowWidth}&height=${windowHeight}&autoOpen=${autoOpen}&botName=${encodeURIComponent(botName)}&welcomeMessage=${encodeURIComponent(welcomeMessage)}`;
+  const widgetUrl = `${baseUrl}/embed-widget?color=${encodeURIComponent(primaryColor)}&position=${position}&buttonSize=${buttonSize}&width=${windowWidth}&height=${windowHeight}&autoOpen=${autoOpen}&botName=${encodeURIComponent(botName)}&welcomeMessage=${encodeURIComponent(welcomeMessage)}&logoUrl=${encodeURIComponent(logoUrl)}&quickActions=${quickActionsParam}`;
   const fullPageUrl = `${baseUrl}/embed`;
+
+  const updateQuickAction = (index: number, field: 'label' | 'message', value: string) => {
+    const updated = [...quickActions];
+    updated[index][field] = value;
+    setQuickActions(updated);
+  };
+
+  const addQuickAction = () => {
+    if (quickActions.length < 5) {
+      setQuickActions([...quickActions, { label: '', message: '' }]);
+    }
+  };
+
+  const removeQuickAction = (index: number) => {
+    setQuickActions(quickActions.filter((_, i) => i !== index));
+  };
 
   // Generate embed codes
   const widgetIframeCode = `<iframe 
@@ -111,6 +136,7 @@ export default function AdminEmbedCode() {
                       onClick={() => setPrimaryColor(color)}
                     />
                   ))}
+                </div>
               </div>
 
               {/* Bot Name */}
@@ -123,9 +149,34 @@ export default function AdminEmbedCode() {
                   placeholder="AI Sales Assistant"
                   maxLength={50}
                 />
+              </div>
+
+              {/* Logo URL */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Image className="w-4 h-4" />
+                  โลโก้/รูป Avatar
+                </Label>
+                <Input
+                  type="url"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                />
                 <p className="text-xs text-muted-foreground">
-                  ชื่อที่แสดงบนหัว Widget
+                  URL รูปภาพโลโก้ (แนะนำขนาด 40x40 px)
                 </p>
+                {logoUrl && (
+                  <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                    <img 
+                      src={logoUrl} 
+                      alt="Preview" 
+                      className="w-10 h-10 rounded-full object-cover border"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                    <span className="text-xs text-muted-foreground">ตัวอย่างโลโก้</span>
+                  </div>
+                )}
               </div>
 
               {/* Welcome Message */}
@@ -139,9 +190,8 @@ export default function AdminEmbedCode() {
                   maxLength={200}
                 />
                 <p className="text-xs text-muted-foreground">
-                  ข้อความที่แสดงเมื่อเปิด Widget ครั้งแรก ({welcomeMessage.length}/200)
+                  ({welcomeMessage.length}/200)
                 </p>
-              </div>
               </div>
 
               {/* Position */}
@@ -206,6 +256,52 @@ export default function AdminEmbedCode() {
                   </p>
                 </div>
                 <Switch checked={autoOpen} onCheckedChange={setAutoOpen} />
+              </div>
+
+              {/* Quick Actions */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>ปุ่มลัด Quick Actions</Label>
+                  {quickActions.length < 5 && (
+                    <Button variant="ghost" size="sm" onClick={addQuickAction}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      เพิ่ม
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {quickActions.map((action, index) => (
+                    <div key={index} className="flex gap-2 items-start p-2 bg-muted/50 rounded-lg">
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          placeholder="ชื่อปุ่ม"
+                          value={action.label}
+                          onChange={(e) => updateQuickAction(index, 'label', e.target.value)}
+                          className="h-8 text-sm"
+                          maxLength={20}
+                        />
+                        <Input
+                          placeholder="ข้อความที่ส่ง"
+                          value={action.message}
+                          onChange={(e) => updateQuickAction(index, 'message', e.target.value)}
+                          className="h-8 text-sm"
+                          maxLength={100}
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => removeQuickAction(index)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ปุ่มลัดสำหรับลูกค้าเมื่อเปิด Widget (สูงสุด 5 ปุ่ม)
+                </p>
               </div>
             </CardContent>
           </Card>
