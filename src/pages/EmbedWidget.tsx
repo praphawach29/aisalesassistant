@@ -17,6 +17,18 @@ export default function EmbedWidget() {
   const autoOpen = searchParams.get('autoOpen') === 'true';
   const botName = searchParams.get('botName') || 'AI Sales Assistant';
   const welcomeMessage = searchParams.get('welcomeMessage') || '';
+  const logoUrl = searchParams.get('logoUrl') || '';
+  
+  // Parse quick actions from URL
+  let quickActions: Array<{ label: string; message: string }> = [];
+  try {
+    const quickActionsParam = searchParams.get('quickActions');
+    if (quickActionsParam) {
+      quickActions = JSON.parse(decodeURIComponent(quickActionsParam));
+    }
+  } catch {
+    quickActions = [];
+  }
 
   useEffect(() => {
     if (autoOpen) {
@@ -46,7 +58,11 @@ export default function EmbedWidget() {
             style={{ backgroundColor: primaryColor }}
           >
             <div className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5" />
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+              ) : (
+                <MessageCircle className="w-5 h-5" />
+              )}
               <span className="font-semibold">{botName}</span>
             </div>
             <button 
@@ -59,7 +75,11 @@ export default function EmbedWidget() {
 
           {/* Chat Content */}
           <div className="h-[calc(100%-56px)]">
-            <ChatWindow welcomeMessage={welcomeMessage} />
+            <ChatWindow 
+              welcomeMessage={welcomeMessage} 
+              logoUrl={logoUrl}
+              quickActions={quickActions.length > 0 ? quickActions : undefined}
+            />
           </div>
         </div>
       )}
@@ -79,6 +99,8 @@ export default function EmbedWidget() {
       >
         {isOpen ? (
           <X className="w-6 h-6" />
+        ) : logoUrl ? (
+          <img src={logoUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
         ) : (
           <MessageCircle className="w-6 h-6" />
         )}

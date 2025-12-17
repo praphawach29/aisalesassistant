@@ -12,9 +12,11 @@ import { VariantSelectDialog } from './VariantSelectDialog';
 
 interface ChatWindowProps {
   welcomeMessage?: string;
+  logoUrl?: string;
+  quickActions?: Array<{ label: string; message: string }>;
 }
 
-export function ChatWindow({ welcomeMessage }: ChatWindowProps = {}) {
+export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindowProps) {
   const { messages, isLoading, isLoadingHistory, sendMessage, clearChat } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -81,11 +83,19 @@ export function ChatWindow({ welcomeMessage }: ChatWindowProps = {}) {
     sendMessage(message);
   };
 
-  const quickActions = [
+  const defaultQuickActions = [
     { label: 'ดูสินค้า', icon: ShoppingBag, message: 'อยากดูสินค้าที่มีขายหน่อยครับ' },
     { label: 'สั่งซื้อสินค้า', icon: Package, message: 'ต้องการสั่งซื้อสินค้า' },
     { label: 'สอบถามราคา', icon: MessageCircle, message: 'อยากสอบถามราคาสินค้า' },
   ];
+
+  // Use custom quick actions if provided, otherwise use defaults
+  const displayQuickActions = quickActions 
+    ? quickActions.map((action, i) => ({ 
+        ...action, 
+        icon: [ShoppingBag, Package, MessageCircle, RefreshCw, MessageCircle][i] || MessageCircle 
+      }))
+    : defaultQuickActions;
 
   if (isLoadingHistory) {
     return (
@@ -101,9 +111,13 @@ export function ChatWindow({ welcomeMessage }: ChatWindowProps = {}) {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-            <ShoppingBag className="w-5 h-5 text-primary-foreground" />
-          </div>
+          {logoUrl ? (
+            <img src={logoUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+              <ShoppingBag className="w-5 h-5 text-primary-foreground" />
+            </div>
+          )}
           <div>
             <h2 className="font-semibold text-foreground">Sales Assistant</h2>
             <p className="text-xs text-muted-foreground">
@@ -137,7 +151,7 @@ export function ChatWindow({ welcomeMessage }: ChatWindowProps = {}) {
               </p>
               
               <div className="flex flex-wrap gap-2 justify-center">
-                {quickActions.map((action) => (
+                {displayQuickActions.map((action) => (
                   <Button
                     key={action.label}
                     variant="outline"
@@ -145,7 +159,7 @@ export function ChatWindow({ welcomeMessage }: ChatWindowProps = {}) {
                     onClick={() => sendMessage(action.message)}
                     className="gap-2"
                   >
-                    <action.icon className="w-4 h-4" />
+                    {'icon' in action && action.icon && <action.icon className="w-4 h-4" />}
                     {action.label}
                   </Button>
                 ))}
