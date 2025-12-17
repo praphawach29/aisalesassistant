@@ -50,7 +50,7 @@ const Index = () => {
     {
       step: 1,
       title: 'เชื่อมต่อแพลตฟอร์ม',
-      description: 'เชื่อมต่อ LINE หรือ Facebook ของร้านคุณเข้ากับระบบ'
+      description: 'เชื่อมต่อ LINE, Facebook หรือเว็บไซต์ของร้านคุณเข้ากับระบบ'
     },
     {
       step: 2,
