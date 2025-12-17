@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { Globe, Plus, Trash2, RefreshCw, Loader2, ExternalLink, FileText, Clock, CalendarClock } from "lucide-react";
+import { Globe, Plus, Trash2, RefreshCw, Loader2, ExternalLink, FileText, Clock, CalendarClock, Layers, CheckCircle2, XCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -57,12 +58,20 @@ export default function AdminWebScraping() {
   const [isLoading, setIsLoading] = useState(true);
   const [isScraping, setIsScraping] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedContent, setSelectedContent] = useState<ScrapedContent | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [newUrl, setNewUrl] = useState("");
   const [newSourceName, setNewSourceName] = useState("");
   const [newInterval, setNewInterval] = useState("manual");
+  
+  // Batch scraping state
+  const [batchUrls, setBatchUrls] = useState("");
+  const [batchInterval, setBatchInterval] = useState("manual");
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentUrl: "", results: [] as { url: string; success: boolean; error?: string }[] });
+  const [isBatchScraping, setIsBatchScraping] = useState(false);
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -130,6 +139,62 @@ export default function AdminWebScraping() {
     } finally {
       setIsScraping(false);
     }
+  };
+
+  const handleBatchScrape = async () => {
+    const urls = batchUrls
+      .split("\n")
+      .map(url => url.trim())
+      .filter(url => url.length > 0 && (url.startsWith("http://") || url.startsWith("https://") || !url.includes(" ")));
+    
+    if (urls.length === 0) {
+      toast({
+        title: "กรุณากรอก URL",
+        description: "ใส่ URL อย่างน้อย 1 รายการ (บรรทัดละ 1 URL)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBatchScraping(true);
+    setBatchProgress({ current: 0, total: urls.length, currentUrl: "", results: [] });
+
+    const results: { url: string; success: boolean; error?: string }[] = [];
+
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      setBatchProgress(prev => ({ ...prev, current: i + 1, currentUrl: url }));
+
+      try {
+        const { data, error } = await supabase.functions.invoke("scrape-website", {
+          body: { url, interval: batchInterval },
+        });
+
+        if (error) throw error;
+
+        if (data.success) {
+          results.push({ url, success: true });
+        } else {
+          results.push({ url, success: false, error: data.error || "Unknown error" });
+        }
+      } catch (error) {
+        results.push({ url, success: false, error: error instanceof Error ? error.message : "Unknown error" });
+      }
+
+      setBatchProgress(prev => ({ ...prev, results: [...results] }));
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+
+    toast({
+      title: "Batch Scraping เสร็จสิ้น",
+      description: `สำเร็จ ${successCount} รายการ, ล้มเหลว ${failCount} รายการ`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+
+    setIsBatchScraping(false);
+    fetchScrapedContent();
   };
 
   const handleRefresh = async (item: ScrapedContent) => {
@@ -227,10 +292,16 @@ export default function AdminWebScraping() {
               ดึงข้อมูลจากเว็บไซต์ภายนอกเพื่อให้บอทตอบได้
             </p>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            เพิ่มเว็บไซต์
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
+              <Layers className="w-4 h-4 mr-2" />
+              Batch Scraping
+            </Button>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              เพิ่มเว็บไซต์
+            </Button>
+          </div>
         </div>
 
         {/* Info Card */}
@@ -418,6 +489,138 @@ export default function AdminWebScraping() {
                 </>
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Scraping Dialog */}
+      <Dialog open={isBatchDialogOpen} onOpenChange={(open) => {
+        if (!isBatchScraping) {
+          setIsBatchDialogOpen(open);
+          if (!open) {
+            setBatchUrls("");
+            setBatchInterval("manual");
+            setBatchProgress({ current: 0, total: 0, currentUrl: "", results: [] });
+          }
+        }
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Batch Scraping</DialogTitle>
+            <DialogDescription>
+              ดึงข้อมูลจากหลาย URL พร้อมกัน (บรรทัดละ 1 URL)
+            </DialogDescription>
+          </DialogHeader>
+          
+          {!isBatchScraping && batchProgress.results.length === 0 ? (
+            <div className="space-y-4">
+              <div>
+                <Label>รายการ URL (บรรทัดละ 1 URL)</Label>
+                <Textarea
+                  placeholder={"https://example.com\nhttps://example.org\nhttps://example.net"}
+                  value={batchUrls}
+                  onChange={(e) => setBatchUrls(e.target.value)}
+                  className="h-40 font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  จำนวน URL: {batchUrls.split("\n").filter(url => url.trim().length > 0).length} รายการ
+                </p>
+              </div>
+              <div>
+                <Label>ตั้งเวลาดึงข้อมูลอัตโนมัติ (ทุก URL)</Label>
+                <Select value={batchInterval} onValueChange={setBatchInterval}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกรอบการดึงข้อมูล" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INTERVAL_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Progress Section */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>กำลังดำเนินการ</span>
+                  <span>{batchProgress.current} / {batchProgress.total}</span>
+                </div>
+                <Progress value={(batchProgress.current / batchProgress.total) * 100} />
+                {batchProgress.currentUrl && isBatchScraping && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {batchProgress.currentUrl}
+                  </p>
+                )}
+              </div>
+
+              {/* Results List */}
+              {batchProgress.results.length > 0 && (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  <Label>ผลลัพธ์</Label>
+                  {batchProgress.results.map((result, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-2 p-2 rounded text-sm ${
+                        result.success 
+                          ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300" 
+                          : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300"
+                      }`}
+                    >
+                      {result.success ? (
+                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="w-4 h-4 flex-shrink-0" />
+                      )}
+                      <span className="truncate flex-1">{result.url}</span>
+                      {!result.success && result.error && (
+                        <span className="text-xs opacity-70 truncate max-w-32">{result.error}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            {!isBatchScraping && batchProgress.results.length > 0 ? (
+              <Button onClick={() => {
+                setIsBatchDialogOpen(false);
+                setBatchUrls("");
+                setBatchProgress({ current: 0, total: 0, currentUrl: "", results: [] });
+              }}>
+                ปิด
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsBatchDialogOpen(false)}
+                  disabled={isBatchScraping}
+                >
+                  ยกเลิก
+                </Button>
+                <Button onClick={handleBatchScrape} disabled={isBatchScraping}>
+                  {isBatchScraping ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      กำลังดึงข้อมูล...
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="w-4 h-4 mr-2" />
+                      เริ่มดึงข้อมูล
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
