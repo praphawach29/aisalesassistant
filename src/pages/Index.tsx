@@ -1,4 +1,5 @@
 import { MessageCircle, Zap, Clock, TrendingUp, Users, ShoppingCart, Bot, Phone, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChatWidget } from '@/components/chat/ChatWidget';
@@ -104,11 +105,18 @@ const Index = () => {
             </p>
             
             <div className={`flex flex-col sm:flex-row gap-4 justify-center ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
-              <Button size="lg" className="text-lg px-8 gap-2">
-                เริ่มต้นใช้งานฟรี
-                <ArrowRight className="w-5 h-5" />
+              <Button size="lg" className="text-lg px-8 gap-2" asChild>
+                <Link to="/admin">
+                  เริ่มต้นใช้งานฟรี
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="text-lg px-8"
+                onClick={() => document.getElementById('demo-section')?.scrollIntoView({ behavior: 'smooth' })}
+              >
                 ดูการทำงาน
               </Button>
             </div>
@@ -117,7 +125,7 @@ const Index = () => {
       </section>
 
       {/* Demo Section */}
-      <section className="py-16 bg-muted/30">
+      <section id="demo-section" className="py-16 bg-muted/30">
         <div ref={demoRef.ref} className="container mx-auto px-4">
           <div className={`text-center mb-12 ${demoRef.isInView ? 'animate-fade-up' : 'opacity-0'}`}>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
