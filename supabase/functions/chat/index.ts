@@ -327,12 +327,32 @@ serve(async (req) => {
 
     console.log("Scraped content loaded:", scrapedData?.length || 0, "items");
 
+    // Fetch knowledge base documents for additional context
+    const { data: knowledgeData } = await supabase
+      .from("knowledge_base")
+      .select("title, summary, original_content, category")
+      .eq("is_active", true);
+
+    // Build knowledge base content string
+    const knowledgeBaseList = knowledgeData?.map(k => {
+      const text = k.summary || (k.original_content ? k.original_content.substring(0, 2000) : '');
+      return `### ${k.title}${k.category ? ` (${k.category})` : ''}:\n${text}`;
+    }).join('\n\n') || '';
+
+    console.log("Knowledge base loaded:", knowledgeData?.length || 0, "items");
+
+    // Combine scraped content and knowledge base
+    let combinedExternalContent = scrapedContentList;
+    if (knowledgeBaseList) {
+      combinedExternalContent += (combinedExternalContent ? '\n\n' : '') + `## 📚 ฐานความรู้ (Knowledge Base):\n${knowledgeBaseList}`;
+    }
+
     // Determine if this is the first message in the conversation
     const userMessages = messages.filter((m: { role: string }) => m.role === 'user');
     const isFirstMessage = userMessages.length <= 1;
 
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, scrapedContentList);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent);
     
     console.log("Is first message:", isFirstMessage);
 

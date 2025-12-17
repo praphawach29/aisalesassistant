@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.process-scheduled-scrapes]
 verify_jwt = false
+
+[functions.process-knowledge-file]
+verify_jwt = true
