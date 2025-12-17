@@ -20,8 +20,10 @@ import AdminAISettings from "./pages/AdminAISettings";
 import AdminCoupons from "./pages/AdminCoupons";
 import AdminAddresses from "./pages/AdminAddresses";
 import AdminBroadcast from "./pages/AdminBroadcast";
+import AdminEmbedCode from "./pages/AdminEmbedCode";
 import WidgetDemo from "./pages/WidgetDemo";
 import Embed from "./pages/Embed";
+import EmbedWidget from "./pages/EmbedWidget";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,8 +52,10 @@ const App = () => (
             <Route path="/admin/coupons" element={<AdminCoupons />} />
             <Route path="/admin/addresses" element={<AdminAddresses />} />
             <Route path="/admin/broadcast" element={<AdminBroadcast />} />
+            <Route path="/admin/embed-code" element={<AdminEmbedCode />} />
             <Route path="/widget-demo" element={<WidgetDemo />} />
             <Route path="/embed" element={<Embed />} />
+            <Route path="/embed-widget" element={<EmbedWidget />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
