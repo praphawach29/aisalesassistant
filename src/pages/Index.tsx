@@ -104,22 +104,6 @@ const Index = () => {
               รองรับทั้ง LINE, Facebook และเว็บไซต์
             </p>
             
-            <div className={`flex flex-col sm:flex-row gap-4 justify-center ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
-              <Button size="lg" className="text-lg px-8 gap-2" asChild>
-                <Link to="/admin">
-                  เริ่มต้นใช้งานฟรี
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="text-lg px-8"
-                onClick={() => document.getElementById('demo-section')?.scrollIntoView({ behavior: 'smooth' })}
-              >
-                ดูการทำงาน
-              </Button>
-            </div>
           </div>
         </div>
       </section>
