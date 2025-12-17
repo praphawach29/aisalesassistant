@@ -7,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { Globe, Plus, Trash2, RefreshCw, Loader2, ExternalLink, FileText, Clock } from "lucide-react";
+import { Globe, Plus, Trash2, RefreshCw, Loader2, ExternalLink, FileText, Clock, CalendarClock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,17 @@ interface ScrapedContent {
   is_active: boolean;
   last_scraped_at: string | null;
   created_at: string;
+  scrape_interval: string;
+  next_scrape_at: string | null;
 }
+
+const INTERVAL_OPTIONS = [
+  { value: "manual", label: "ดึงเอง (Manual)" },
+  { value: "hourly", label: "ทุกชั่วโมง" },
+  { value: "daily", label: "ทุกวัน" },
+  { value: "weekly", label: "ทุกสัปดาห์" },
+  { value: "monthly", label: "ทุกเดือน" },
+];
 
 export default function AdminWebScraping() {
   const [scrapedContent, setScrapedContent] = useState<ScrapedContent[]>([]);
@@ -51,6 +62,7 @@ export default function AdminWebScraping() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [newUrl, setNewUrl] = useState("");
   const [newSourceName, setNewSourceName] = useState("");
+  const [newInterval, setNewInterval] = useState("manual");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -90,7 +102,7 @@ export default function AdminWebScraping() {
     setIsScraping(true);
     try {
       const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: newUrl, sourceName: newSourceName || undefined },
+        body: { url: newUrl, sourceName: newSourceName || undefined, interval: newInterval },
       });
 
       if (error) throw error;
@@ -103,6 +115,7 @@ export default function AdminWebScraping() {
         setIsAddDialogOpen(false);
         setNewUrl("");
         setNewSourceName("");
+        setNewInterval("manual");
         fetchScrapedContent();
       } else {
         throw new Error(data.error || "Failed to scrape");
@@ -287,7 +300,7 @@ export default function AdminWebScraping() {
                         {item.summary}
                       </p>
                     )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         อัพเดท: {formatDate(item.last_scraped_at)}
@@ -295,6 +308,15 @@ export default function AdminWebScraping() {
                       <span className="flex items-center gap-1">
                         <FileText className="w-3 h-3" />
                         {item.content?.length || 0} ตัวอักษร
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <CalendarClock className="w-3 h-3" />
+                        {INTERVAL_OPTIONS.find(o => o.value === item.scrape_interval)?.label || "ดึงเอง"}
+                        {item.scrape_interval !== "manual" && item.next_scrape_at && (
+                          <span className="text-muted-foreground/70">
+                            (ครั้งถัดไป: {formatDate(item.next_scrape_at)})
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex gap-2">
@@ -362,6 +384,21 @@ export default function AdminWebScraping() {
                 value={newSourceName}
                 onChange={(e) => setNewSourceName(e.target.value)}
               />
+            </div>
+            <div>
+              <Label>ตั้งเวลาดึงข้อมูลอัตโนมัติ</Label>
+              <Select value={newInterval} onValueChange={setNewInterval}>
+                <SelectTrigger>
+                  <SelectValue placeholder="เลือกรอบการดึงข้อมูล" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INTERVAL_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

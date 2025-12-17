@@ -723,6 +723,8 @@ export type Database = {
           id: string
           is_active: boolean
           last_scraped_at: string | null
+          next_scrape_at: string | null
+          scrape_interval: string | null
           source_name: string | null
           summary: string | null
           title: string | null
@@ -735,6 +737,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_scraped_at?: string | null
+          next_scrape_at?: string | null
+          scrape_interval?: string | null
           source_name?: string | null
           summary?: string | null
           title?: string | null
@@ -747,6 +751,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_scraped_at?: string | null
+          next_scrape_at?: string | null
+          scrape_interval?: string | null
           source_name?: string | null
           summary?: string | null
           title?: string | null
