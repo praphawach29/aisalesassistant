@@ -716,6 +716,45 @@ export type Database = {
         }
         Relationships: []
       }
+      scraped_content: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          last_scraped_at: string | null
+          source_name: string | null
+          summary: string | null
+          title: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_scraped_at?: string | null
+          source_name?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_scraped_at?: string | null
+          source_name?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           created_at: string
