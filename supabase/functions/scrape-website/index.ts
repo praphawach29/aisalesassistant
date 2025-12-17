@@ -99,7 +99,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url, sourceName } = await req.json();
+    const { url, sourceName, interval = "manual" } = await req.json();
 
     if (!url) {
       return new Response(
@@ -108,13 +108,16 @@ serve(async (req) => {
       );
     }
 
-    console.log("Scraping URL:", url);
+    console.log("Scraping URL:", url, "Interval:", interval);
 
     // Format URL
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
     }
+
+    // Calculate next scrape time
+    const nextScrapeAt = calculateNextScrapeTime(interval);
 
     // Fetch the webpage
     const response = await fetch(formattedUrl, {
@@ -162,6 +165,8 @@ serve(async (req) => {
           summary,
           source_name: sourceName || title || formattedUrl,
           last_scraped_at: new Date().toISOString(),
+          scrape_interval: interval,
+          next_scrape_at: nextScrapeAt,
         })
         .eq("id", existing.id)
         .select()
@@ -179,6 +184,8 @@ serve(async (req) => {
           content,
           summary,
           source_name: sourceName || title || formattedUrl,
+          scrape_interval: interval,
+          next_scrape_at: nextScrapeAt,
         })
         .select()
         .single();
@@ -205,3 +212,25 @@ serve(async (req) => {
     );
   }
 });
+
+function calculateNextScrapeTime(interval: string): string | null {
+  if (interval === "manual") return null;
+  const now = new Date();
+  switch (interval) {
+    case "hourly":
+      now.setHours(now.getHours() + 1);
+      break;
+    case "daily":
+      now.setDate(now.getDate() + 1);
+      break;
+    case "weekly":
+      now.setDate(now.getDate() + 7);
+      break;
+    case "monthly":
+      now.setMonth(now.getMonth() + 1);
+      break;
+    default:
+      return null;
+  }
+  return now.toISOString();
+}
