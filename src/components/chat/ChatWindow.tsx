@@ -10,6 +10,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { Product } from './ProductCarousel';
 import { VariantSelectDialog } from './VariantSelectDialog';
 
+interface AISettings {
+  ai_name: string;
+  gender: string;
+  greeting_message: string | null;
+}
+
+// Helper function to get default greeting based on gender
+function getDefaultGreeting(gender?: string): string {
+  if (gender === 'female') {
+    return 'สวัสดีค่ะ! ดิฉันเป็นผู้ช่วยขายอัตโนมัติ พร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณค่ะ';
+  } else if (gender === 'male') {
+    return 'สวัสดีครับ! ผมเป็นผู้ช่วยขายอัตโนมัติ พร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณครับ';
+  }
+  return 'สวัสดีครับ/ค่ะ! เป็นผู้ช่วยขายอัตโนมัติ พร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณ';
+}
+
 interface ChatWindowProps {
   welcomeMessage?: string;
   logoUrl?: string;
@@ -22,6 +38,23 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false);
+  const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
+
+  // Fetch AI settings
+  useEffect(() => {
+    const fetchAISettings = async () => {
+      const { data } = await supabase
+        .from('ai_settings')
+        .select('ai_name, gender, greeting_message')
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (data) {
+        setAiSettings(data);
+      }
+    };
+    fetchAISettings();
+  }, []);
 
   // Fetch products for carousel display
   useEffect(() => {
@@ -119,7 +152,7 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
             </div>
           )}
           <div>
-            <h2 className="font-semibold text-foreground">Sales Assistant</h2>
+            <h2 className="font-semibold text-foreground">{aiSettings?.ai_name || 'Sales Assistant'}</h2>
             <p className="text-xs text-muted-foreground">
               {messages.length > 0 ? `${messages.length} ข้อความ` : 'พร้อมให้บริการ 24 ชม.'}
             </p>
@@ -141,13 +174,13 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
         <div className="space-y-4">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+          <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-4">
                 <MessageCircle className="w-8 h-8 text-primary" />
               </div>
               <h3 className="font-medium text-foreground mb-2">ยินดีต้อนรับ!</h3>
               <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-                {welcomeMessage || 'สวัสดีครับ! ผมเป็นผู้ช่วยขายอัตโนมัติ พร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณครับ'}
+                {welcomeMessage || aiSettings?.greeting_message || getDefaultGreeting(aiSettings?.gender)}
               </p>
               
               <div className="flex flex-wrap gap-2 justify-center">
