@@ -2,8 +2,16 @@ import { MessageCircle, Zap, Clock, TrendingUp, Users, ShoppingCart, Bot, Phone,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChatWidget } from '@/components/chat/ChatWidget';
+import { useInView } from '@/hooks/useInView';
 
 const Index = () => {
+  const heroRef = useInView();
+  const demoRef = useInView();
+  const featuresRef = useInView();
+  const howItWorksRef = useInView();
+  const benefitsRef = useInView();
+  const contactRef = useInView();
+
   const features = [
     {
       icon: Bot,
@@ -77,25 +85,25 @@ const Index = () => {
         <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
         
-        <div className="container mx-auto px-4 py-20 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+        <div ref={heroRef.ref} className="container mx-auto px-4 py-20 relative z-10">
+          <div className={`max-w-4xl mx-auto text-center ${heroRef.isInView ? '' : 'opacity-0'}`}>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 ${heroRef.isInView ? 'animate-fade-down' : ''}`}>
               <Sparkles className="w-4 h-4" />
               AI Sales Assistant
             </div>
             
-            <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
+            <h1 className={`text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
               เปลี่ยนแชทบอทธรรมดา
               <br />
               <span className="text-primary">ให้เป็นพนักงานขายมืออาชีพ</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            <p className={`text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
               ระบบ AI Chatbot อัจฉริยะที่ช่วยตอบคำถาม แนะนำสินค้า และรับออเดอร์ให้คุณอัตโนมัติ 
               รองรับทั้ง LINE, Facebook และเว็บไซต์
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className={`flex flex-col sm:flex-row gap-4 justify-center ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
               <Button size="lg" className="text-lg px-8 gap-2">
                 เริ่มต้นใช้งานฟรี
                 <ArrowRight className="w-5 h-5" />
@@ -110,8 +118,8 @@ const Index = () => {
 
       {/* Demo Section */}
       <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
+        <div ref={demoRef.ref} className="container mx-auto px-4">
+          <div className={`text-center mb-12 ${demoRef.isInView ? 'animate-fade-up' : 'opacity-0'}`}>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               ลองใช้งานจริง
             </h2>
@@ -121,55 +129,36 @@ const Index = () => {
           </div>
           
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <Card className="bg-card border-border/50 hover:border-primary/50 transition-colors">
-              <CardContent className="p-6 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <img 
-                    src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop" 
-                    alt="สินค้าตัวอย่าง 1"
-                    className="w-12 h-12 rounded-xl object-cover"
-                  />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">สินค้าแฟชั่น</h3>
-                <p className="text-sm text-muted-foreground">ถามเกี่ยวกับเสื้อผ้า รองเท้า กระเป๋า</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-card border-border/50 hover:border-primary/50 transition-colors">
-              <CardContent className="p-6 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <img 
-                    src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop" 
-                    alt="สินค้าตัวอย่าง 2"
-                    className="w-12 h-12 rounded-xl object-cover"
-                  />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">อิเล็กทรอนิกส์</h3>
-                <p className="text-sm text-muted-foreground">สอบถามราคา สเปค การรับประกัน</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-card border-border/50 hover:border-primary/50 transition-colors">
-              <CardContent className="p-6 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <img 
-                    src="https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=100&h=100&fit=crop" 
-                    alt="สินค้าตัวอย่าง 3"
-                    className="w-12 h-12 rounded-xl object-cover"
-                  />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">สินค้าทั่วไป</h3>
-                <p className="text-sm text-muted-foreground">สั่งซื้อ เช็คสต็อก ติดตามออเดอร์</p>
-              </CardContent>
-            </Card>
+            {[
+              { img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop", title: "สินค้าแฟชั่น", desc: "ถามเกี่ยวกับเสื้อผ้า รองเท้า กระเป๋า" },
+              { img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop", title: "อิเล็กทรอนิกส์", desc: "สอบถามราคา สเปค การรับประกัน" },
+              { img: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=100&h=100&fit=crop", title: "สินค้าทั่วไป", desc: "สั่งซื้อ เช็คสต็อก ติดตามออเดอร์" }
+            ].map((item, index) => (
+              <Card 
+                key={index} 
+                className={`bg-card border-border/50 hover:border-primary/50 transition-all duration-300 ${demoRef.isInView ? `animate-scale-up animate-stagger-${index + 1}` : 'opacity-0'}`}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <img 
+                      src={item.img}
+                      alt={item.title}
+                      className="w-12 h-12 rounded-xl object-cover"
+                    />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-2">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground">{item.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Features Section */}
       <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
+        <div ref={featuresRef.ref} className="container mx-auto px-4">
+          <div className={`text-center mb-16 ${featuresRef.isInView ? 'animate-fade-up' : 'opacity-0'}`}>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               ฟีเจอร์ที่ช่วยให้ร้านคุณเติบโต
             </h2>
@@ -180,7 +169,10 @@ const Index = () => {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {features.map((feature, index) => (
-              <Card key={index} className="bg-card border-border/50 hover:shadow-lg hover:border-primary/30 transition-all duration-300">
+              <Card 
+                key={index} 
+                className={`bg-card border-border/50 hover:shadow-lg hover:border-primary/30 transition-all duration-300 ${featuresRef.isInView ? `animate-fade-up animate-stagger-${index + 1}` : 'opacity-0'}`}
+              >
                 <CardContent className="p-6">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
                     <feature.icon className="w-6 h-6 text-primary" />
@@ -196,8 +188,8 @@ const Index = () => {
 
       {/* How It Works Section */}
       <section className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
+        <div ref={howItWorksRef.ref} className="container mx-auto px-4">
+          <div className={`text-center mb-16 ${howItWorksRef.isInView ? 'animate-fade-up' : 'opacity-0'}`}>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               เริ่มต้นง่ายใน 4 ขั้นตอน
             </h2>
@@ -208,7 +200,10 @@ const Index = () => {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
             {howItWorks.map((item, index) => (
-              <div key={index} className="text-center relative">
+              <div 
+                key={index} 
+                className={`text-center relative ${howItWorksRef.isInView ? `animate-fade-up animate-stagger-${index + 1}` : 'opacity-0'}`}
+              >
                 <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                   {item.step}
                 </div>
@@ -226,10 +221,10 @@ const Index = () => {
 
       {/* Benefits Section */}
       <section className="py-20">
-        <div className="container mx-auto px-4">
+        <div ref={benefitsRef.ref} className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
+              <div className={benefitsRef.isInView ? 'animate-fade-right' : 'opacity-0'}>
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
                   ทำไมร้านค้าต้องใช้ AI Sales Assistant?
                 </h2>
@@ -239,7 +234,10 @@ const Index = () => {
                 
                 <div className="space-y-4">
                   {benefits.map((benefit, index) => (
-                    <div key={index} className="flex items-start gap-3">
+                    <div 
+                      key={index} 
+                      className={`flex items-start gap-3 ${benefitsRef.isInView ? `animate-fade-left animate-stagger-${index + 1}` : 'opacity-0'}`}
+                    >
                       <CheckCircle2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                       <span className="text-foreground">{benefit}</span>
                     </div>
@@ -247,7 +245,7 @@ const Index = () => {
                 </div>
               </div>
               
-              <div className="relative">
+              <div className={`relative ${benefitsRef.isInView ? 'animate-fade-left' : 'opacity-0'}`}>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-3xl blur-2xl" />
                 <Card className="relative bg-card border-border/50">
                   <CardContent className="p-8">
@@ -269,16 +267,16 @@ const Index = () => {
 
       {/* Contact Section */}
       <section className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+        <div ref={contactRef.ref} className="container mx-auto px-4">
+          <div className={`max-w-3xl mx-auto text-center ${contactRef.isInView ? '' : 'opacity-0'}`}>
+            <h2 className={`text-3xl md:text-4xl font-bold text-foreground mb-4 ${contactRef.isInView ? 'animate-fade-up' : ''}`}>
               ติดต่อเรา
             </h2>
-            <p className="text-muted-foreground text-lg mb-10">
+            <p className={`text-muted-foreground text-lg mb-10 ${contactRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
               สนใจใช้งานหรือมีคำถาม? ติดต่อทีมงานของเราได้เลย
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <div className={`flex flex-col sm:flex-row gap-6 justify-center ${contactRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
               <a 
                 href="tel:0955851136"
                 className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors"
