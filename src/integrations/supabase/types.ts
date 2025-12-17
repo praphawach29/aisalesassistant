@@ -360,6 +360,60 @@ export type Database = {
         }
         Relationships: []
       }
+      embed_settings: {
+        Row: {
+          auto_open: boolean
+          bot_name: string
+          button_size: string
+          created_at: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          position: string
+          primary_color: string
+          quick_actions: Json
+          updated_at: string
+          welcome_message: string | null
+          window_height: string
+          window_width: string
+        }
+        Insert: {
+          auto_open?: boolean
+          bot_name?: string
+          button_size?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          position?: string
+          primary_color?: string
+          quick_actions?: Json
+          updated_at?: string
+          welcome_message?: string | null
+          window_height?: string
+          window_width?: string
+        }
+        Update: {
+          auto_open?: boolean
+          bot_name?: string
+          button_size?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          position?: string
+          primary_color?: string
+          quick_actions?: Json
+          updated_at?: string
+          welcome_message?: string | null
+          window_height?: string
+          window_width?: string
+        }
+        Relationships: []
+      }
       faqs: {
         Row: {
           answer: string
