@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.analyze-payment-slip]
 verify_jwt = true
+
+[functions.scrape-website]
+verify_jwt = true

@@ -40,7 +40,7 @@ interface StoreSettings {
   termsConditions: string;
 }
 
-function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean): string {
+function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean, scrapedContent: string): string {
   const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
 
   // Gender-specific particles
@@ -120,6 +120,8 @@ ${storeSettings.warrantyInfo ? `## 🛡️ การรับประกัน 
 ${storeSettings.privacyPolicy ? `## 🔒 นโยบายความเป็นส่วนตัว:\n${storeSettings.privacyPolicy}` : ''}
 
 ${storeSettings.termsConditions ? `## 📜 ข้อกำหนดและเงื่อนไข:\n${storeSettings.termsConditions}` : ''}
+
+${scrapedContent ? `## 🌐 ข้อมูลจากเว็บไซต์ภายนอก (ใช้อ้างอิงเพิ่มเติม):\n${scrapedContent}` : ''}
 
 ${faqList ? `## ❓ คำถามที่พบบ่อย (ใช้เป็นข้อมูลเสริมเท่านั้น - ถ้าข้อมูลขัดแย้งกับข้อมูลร้านค้าด้านบน ให้ใช้ข้อมูลร้านค้าเป็นหลัก):\n${faqList}` : ''}
 
@@ -311,12 +313,26 @@ serve(async (req) => {
       `Q: ${f.question}\nA: ${f.answer}`
     ).join('\n\n') || '';
 
+    // Fetch scraped content for additional context
+    const { data: scrapedData } = await supabase
+      .from("scraped_content")
+      .select("source_name, summary, content")
+      .eq("is_active", true);
+
+    // Build scraped content string (use summary if available, otherwise truncated content)
+    const scrapedContentList = scrapedData?.map(s => {
+      const text = s.summary || (s.content ? s.content.substring(0, 1000) + '...' : '');
+      return `### ${s.source_name || 'แหล่งข้อมูล'}:\n${text}`;
+    }).join('\n\n') || '';
+
+    console.log("Scraped content loaded:", scrapedData?.length || 0, "items");
+
     // Determine if this is the first message in the conversation
     const userMessages = messages.filter((m: { role: string }) => m.role === 'user');
     const isFirstMessage = userMessages.length <= 1;
 
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, scrapedContentList);
     
     console.log("Is first message:", isFirstMessage);
 

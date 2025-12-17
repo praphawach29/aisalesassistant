@@ -24,7 +24,8 @@ import {
   Ticket,
   MapPin,
   Radio,
-  Code
+  Code,
+  Globe
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -45,6 +46,7 @@ const menuItems = [
   { path: '/admin/addresses', label: 'ที่อยู่ลูกค้า', icon: MapPin },
   { path: '/admin/broadcast', label: 'Broadcast', icon: Radio },
   { path: '/admin/embed-code', label: 'Embed Code', icon: Code },
+  { path: '/admin/web-scraping', label: 'Web Scraping', icon: Globe },
   { path: '/admin/integrations', label: 'Integration', icon: Plug },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];

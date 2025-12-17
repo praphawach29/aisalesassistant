@@ -21,6 +21,7 @@ import AdminCoupons from "./pages/AdminCoupons";
 import AdminAddresses from "./pages/AdminAddresses";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminEmbedCode from "./pages/AdminEmbedCode";
+import AdminWebScraping from "./pages/AdminWebScraping";
 import WidgetDemo from "./pages/WidgetDemo";
 import Embed from "./pages/Embed";
 import EmbedWidget from "./pages/EmbedWidget";
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/admin/addresses" element={<AdminAddresses />} />
             <Route path="/admin/broadcast" element={<AdminBroadcast />} />
             <Route path="/admin/embed-code" element={<AdminEmbedCode />} />
+            <Route path="/admin/web-scraping" element={<AdminWebScraping />} />
             <Route path="/widget-demo" element={<WidgetDemo />} />
             <Route path="/embed" element={<Embed />} />
             <Route path="/embed-widget" element={<EmbedWidget />} />
