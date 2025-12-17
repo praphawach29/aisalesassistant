@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -8,11 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, Check, Code, ExternalLink, MessageCircle, Monitor, Smartphone, Plus, X, Image } from 'lucide-react';
+import { Copy, Check, Code, ExternalLink, MessageCircle, Monitor, Smartphone, Plus, X, Image, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
+
+interface QuickAction {
+  label: string;
+  message: string;
+}
 
 export default function AdminEmbedCode() {
   const [copied, setCopied] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [settingsId, setSettingsId] = useState<string | null>(null);
   
   // Widget customization state
   const [primaryColor, setPrimaryColor] = useState('#6366f1');
@@ -24,11 +34,96 @@ export default function AdminEmbedCode() {
   const [botName, setBotName] = useState('AI Sales Assistant');
   const [welcomeMessage, setWelcomeMessage] = useState('สวัสดีครับ! ผมพร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณครับ');
   const [logoUrl, setLogoUrl] = useState('');
-  const [quickActions, setQuickActions] = useState([
+  const [quickActions, setQuickActions] = useState<QuickAction[]>([
     { label: 'ดูสินค้า', message: 'อยากดูสินค้าที่มีขายหน่อยครับ' },
     { label: 'สั่งซื้อ', message: 'ต้องการสั่งซื้อสินค้า' },
     { label: 'สอบถามราคา', message: 'อยากสอบถามราคาสินค้า' },
   ]);
+
+  // Load settings from database
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('embed_settings')
+          .select('*')
+          .eq('is_active', true)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error loading embed settings:', error);
+          return;
+        }
+
+        if (data) {
+          setSettingsId(data.id);
+          setPrimaryColor(data.primary_color);
+          setPosition(data.position);
+          setButtonSize(data.button_size);
+          setWindowWidth(data.window_width);
+          setWindowHeight(data.window_height);
+          setAutoOpen(data.auto_open);
+          setBotName(data.bot_name);
+          setWelcomeMessage(data.welcome_message || '');
+          setLogoUrl(data.logo_url || '');
+          setQuickActions((data.quick_actions as unknown as QuickAction[]) || []);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Save settings to database
+  const saveSettings = async () => {
+    setIsSaving(true);
+    try {
+      const settingsData = {
+        primary_color: primaryColor,
+        position,
+        button_size: buttonSize,
+        window_width: windowWidth,
+        window_height: windowHeight,
+        auto_open: autoOpen,
+        bot_name: botName,
+        welcome_message: welcomeMessage,
+        logo_url: logoUrl,
+        quick_actions: JSON.parse(JSON.stringify(quickActions)) as Json,
+        is_active: true,
+      };
+
+      if (settingsId) {
+        // Update existing
+        const { error } = await supabase
+          .from('embed_settings')
+          .update(settingsData)
+          .eq('id', settingsId);
+
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { data, error } = await supabase
+          .from('embed_settings')
+          .insert([{ ...settingsData, name: 'default' }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) setSettingsId(data.id);
+      }
+
+      toast.success('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      toast.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const baseUrl = window.location.origin;
 
@@ -85,15 +180,35 @@ export default function AdminEmbedCode() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  if (isLoading) {
+    return (
+      <AdminLayout title="Embed Code Generator">
+        <div className="flex items-center justify-center h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout title="Embed Code Generator">
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Embed Code Generator</h1>
-          <p className="text-muted-foreground mt-1">
-            สร้างโค้ดสำหรับฝัง Chatbot ในเว็บไซต์ของคุณ
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Embed Code Generator</h1>
+            <p className="text-muted-foreground mt-1">
+              สร้างโค้ดสำหรับฝัง Chatbot ในเว็บไซต์ของคุณ
+            </p>
+          </div>
+          <Button onClick={saveSettings} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            บันทึกการตั้งค่า
+          </Button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
