@@ -10,7 +10,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Product } from './ProductCarousel';
 import { VariantSelectDialog } from './VariantSelectDialog';
 
-export function ChatWindow() {
+interface ChatWindowProps {
+  welcomeMessage?: string;
+}
+
+export function ChatWindow({ welcomeMessage }: ChatWindowProps = {}) {
   const { messages, isLoading, isLoadingHistory, sendMessage, clearChat } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -129,7 +133,7 @@ export function ChatWindow() {
               </div>
               <h3 className="font-medium text-foreground mb-2">ยินดีต้อนรับ!</h3>
               <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-                สวัสดีครับ! ผมเป็นผู้ช่วยขายอัตโนมัติ พร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณครับ
+                {welcomeMessage || 'สวัสดีครับ! ผมเป็นผู้ช่วยขายอัตโนมัติ พร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณครับ'}
               </p>
               
               <div className="flex flex-wrap gap-2 justify-center">

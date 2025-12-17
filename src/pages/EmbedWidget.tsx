@@ -15,6 +15,8 @@ export default function EmbedWidget() {
   const windowWidth = parseInt(searchParams.get('width') || '380');
   const windowHeight = parseInt(searchParams.get('height') || '500');
   const autoOpen = searchParams.get('autoOpen') === 'true';
+  const botName = searchParams.get('botName') || 'AI Sales Assistant';
+  const welcomeMessage = searchParams.get('welcomeMessage') || '';
 
   useEffect(() => {
     if (autoOpen) {
@@ -45,7 +47,7 @@ export default function EmbedWidget() {
           >
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
-              <span className="font-semibold">AI Sales Assistant</span>
+              <span className="font-semibold">{botName}</span>
             </div>
             <button 
               className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
@@ -57,7 +59,7 @@ export default function EmbedWidget() {
 
           {/* Chat Content */}
           <div className="h-[calc(100%-56px)]">
-            <ChatWindow />
+            <ChatWindow welcomeMessage={welcomeMessage} />
           </div>
         </div>
       )}

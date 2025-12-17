@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { Copy, Check, Code, ExternalLink, MessageCircle, Monitor, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,11 +21,13 @@ export default function AdminEmbedCode() {
   const [windowWidth, setWindowWidth] = useState('380');
   const [windowHeight, setWindowHeight] = useState('500');
   const [autoOpen, setAutoOpen] = useState(false);
+  const [botName, setBotName] = useState('AI Sales Assistant');
+  const [welcomeMessage, setWelcomeMessage] = useState('สวัสดีครับ! ผมพร้อมช่วยแนะนำสินค้า รับออเดอร์ และตอบคำถามของคุณครับ');
 
   const baseUrl = window.location.origin;
 
   // Generate embed URLs
-  const widgetUrl = `${baseUrl}/embed-widget?color=${encodeURIComponent(primaryColor)}&position=${position}&buttonSize=${buttonSize}&width=${windowWidth}&height=${windowHeight}&autoOpen=${autoOpen}`;
+  const widgetUrl = `${baseUrl}/embed-widget?color=${encodeURIComponent(primaryColor)}&position=${position}&buttonSize=${buttonSize}&width=${windowWidth}&height=${windowHeight}&autoOpen=${autoOpen}&botName=${encodeURIComponent(botName)}&welcomeMessage=${encodeURIComponent(welcomeMessage)}`;
   const fullPageUrl = `${baseUrl}/embed`;
 
   // Generate embed codes
@@ -108,7 +111,37 @@ export default function AdminEmbedCode() {
                       onClick={() => setPrimaryColor(color)}
                     />
                   ))}
-                </div>
+              </div>
+
+              {/* Bot Name */}
+              <div className="space-y-2">
+                <Label>ชื่อ Chatbot</Label>
+                <Input
+                  type="text"
+                  value={botName}
+                  onChange={(e) => setBotName(e.target.value)}
+                  placeholder="AI Sales Assistant"
+                  maxLength={50}
+                />
+                <p className="text-xs text-muted-foreground">
+                  ชื่อที่แสดงบนหัว Widget
+                </p>
+              </div>
+
+              {/* Welcome Message */}
+              <div className="space-y-2">
+                <Label>ข้อความต้อนรับ</Label>
+                <Textarea
+                  value={welcomeMessage}
+                  onChange={(e) => setWelcomeMessage(e.target.value)}
+                  placeholder="สวัสดีครับ! ผมพร้อมช่วยแนะนำสินค้า..."
+                  rows={3}
+                  maxLength={200}
+                />
+                <p className="text-xs text-muted-foreground">
+                  ข้อความที่แสดงเมื่อเปิด Widget ครั้งแรก ({welcomeMessage.length}/200)
+                </p>
+              </div>
               </div>
 
               {/* Position */}
