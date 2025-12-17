@@ -441,6 +441,45 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_base: {
+        Row: {
+          category: string | null
+          created_at: string
+          file_type: string
+          file_url: string
+          id: string
+          is_active: boolean
+          original_content: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          file_type?: string
+          file_url: string
+          id?: string
+          is_active?: boolean
+          original_content?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          file_type?: string
+          file_url?: string
+          id?: string
+          is_active?: boolean
+          original_content?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       message_templates: {
         Row: {
           category: string | null

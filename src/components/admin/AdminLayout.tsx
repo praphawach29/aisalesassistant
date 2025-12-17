@@ -25,7 +25,8 @@ import {
   MapPin,
   Radio,
   Code,
-  Globe
+  Globe,
+  BookOpen
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -47,6 +48,7 @@ const menuItems = [
   { path: '/admin/broadcast', label: 'Broadcast', icon: Radio },
   { path: '/admin/embed-code', label: 'Embed Code', icon: Code },
   { path: '/admin/web-scraping', label: 'Web Scraping', icon: Globe },
+  { path: '/admin/knowledge-base', label: 'ฐานความรู้', icon: BookOpen },
   { path: '/admin/integrations', label: 'Integration', icon: Plug },
   { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
 ];
