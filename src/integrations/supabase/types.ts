@@ -47,6 +47,7 @@ export type Database = {
       ai_personality_templates: {
         Row: {
           ai_name: string
+          avatar_url: string | null
           closing_message: string | null
           created_at: string
           custom_rules: string | null
@@ -64,6 +65,7 @@ export type Database = {
         }
         Insert: {
           ai_name: string
+          avatar_url?: string | null
           closing_message?: string | null
           created_at?: string
           custom_rules?: string | null
@@ -81,6 +83,7 @@ export type Database = {
         }
         Update: {
           ai_name?: string
+          avatar_url?: string | null
           closing_message?: string | null
           created_at?: string
           custom_rules?: string | null
@@ -101,6 +104,7 @@ export type Database = {
       ai_settings: {
         Row: {
           ai_name: string
+          avatar_url: string | null
           closing_message: string | null
           created_at: string
           custom_rules: string | null
@@ -117,6 +121,7 @@ export type Database = {
         }
         Insert: {
           ai_name?: string
+          avatar_url?: string | null
           closing_message?: string | null
           created_at?: string
           custom_rules?: string | null
@@ -133,6 +138,7 @@ export type Database = {
         }
         Update: {
           ai_name?: string
+          avatar_url?: string | null
           closing_message?: string | null
           created_at?: string
           custom_rules?: string | null

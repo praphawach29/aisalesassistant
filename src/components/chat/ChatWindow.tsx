@@ -14,6 +14,7 @@ interface AISettings {
   ai_name: string;
   gender: string;
   greeting_message: string | null;
+  avatar_url: string | null;
 }
 
 // Helper function to get default greeting based on gender
@@ -45,7 +46,7 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
     const fetchAISettings = async () => {
       const { data } = await supabase
         .from('ai_settings')
-        .select('ai_name, gender, greeting_message')
+        .select('ai_name, gender, greeting_message, avatar_url')
         .eq('is_active', true)
         .maybeSingle();
       
@@ -212,6 +213,7 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
                   message={message}
                   products={products}
                   onSelectProduct={handleSelectProduct}
+                  botAvatarUrl={aiSettings?.avatar_url}
                 />
               ))}
               {isLoading && <ThinkingIndicator />}
