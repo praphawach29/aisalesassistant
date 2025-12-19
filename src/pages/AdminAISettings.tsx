@@ -41,6 +41,7 @@ interface AISettings {
   greeting_message: string;
   closing_message: string;
   custom_rules: string;
+  avatar_url: string | null;
 }
 
 const defaultSettings: AISettings = {
@@ -53,6 +54,7 @@ const defaultSettings: AISettings = {
   greeting_message: 'สวัสดีค่ะ! 😊 ยินดีให้บริการค่ะ',
   closing_message: 'ขอบคุณมากค่ะ! 🙏',
   custom_rules: '',
+  avatar_url: null,
 };
 
 export default function AdminAISettings() {
@@ -105,6 +107,7 @@ export default function AdminAISettings() {
           greeting_message: settingsData.greeting_message || '',
           closing_message: settingsData.closing_message || '',
           custom_rules: settingsData.custom_rules || '',
+          avatar_url: settingsData.avatar_url || null,
         });
         setSelectedTemplateId(settingsData.template_id);
       }
@@ -161,6 +164,7 @@ export default function AdminAISettings() {
             greeting_message: settings.greeting_message,
             closing_message: settings.closing_message,
             custom_rules: settings.custom_rules,
+            avatar_url: settings.avatar_url,
             is_active: true,
           })
           .eq('id', settings.id);
@@ -180,6 +184,7 @@ export default function AdminAISettings() {
             greeting_message: settings.greeting_message,
             closing_message: settings.closing_message,
             custom_rules: settings.custom_rules,
+            avatar_url: settings.avatar_url,
             is_active: true,
           });
 
