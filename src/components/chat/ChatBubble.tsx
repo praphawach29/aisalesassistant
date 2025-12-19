@@ -1,13 +1,16 @@
 import { cn } from '@/lib/utils';
 import { ChatMessage } from '@/types';
-import { Bot, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { ProductCarousel, Product } from './ProductCarousel';
 import { SingleProductCard } from './SingleProductCard';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
 
 interface ChatBubbleProps {
   message: ChatMessage;
   products?: Product[];
   onSelectProduct?: (product: Product) => void;
+  botAvatarUrl?: string | null;
 }
 
 // Helper function to detect if message contains product list marker
@@ -39,24 +42,31 @@ const cleanContent = (content: string): string => {
     .trim();
 };
 
-export function ChatBubble({ message, products, onSelectProduct }: ChatBubbleProps) {
+export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }: ChatBubbleProps) {
   const isUser = message.role === 'user';
   const showCarousel = !isUser && products && products.length > 0 && hasProductMarker(message.content);
   const singleProduct = !isUser && products ? extractProductReference(message.content, products) : null;
   
   const displayContent = cleanContent(message.content);
 
+  // Use provided avatar URL or fallback to default female avatar
+  const botAvatar = botAvatarUrl || avatarWoman1;
+
   return (
     <div className={cn(
       'flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300',
       isUser ? 'flex-row-reverse' : 'flex-row'
     )}>
-      <div className={cn(
-        'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-        isUser ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
-      )}>
-        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-      </div>
+      {isUser ? (
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+          <User className="w-4 h-4" />
+        </div>
+      ) : (
+        <Avatar className="flex-shrink-0 w-8 h-8">
+          <AvatarImage src={botAvatar} alt="Bot Avatar" />
+          <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">AI</AvatarFallback>
+        </Avatar>
+      )}
       
       <div className="flex flex-col gap-2 max-w-[80%]">
         <div className={cn(
