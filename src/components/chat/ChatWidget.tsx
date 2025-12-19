@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageCircle, X, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ChatWindow } from './ChatWindow';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { supabase } from '@/integrations/supabase/client';
+import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
 
 interface ChatWidgetProps {
   position?: 'bottom-right' | 'bottom-left';
@@ -15,6 +18,24 @@ export function ChatWidget({
 }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAvatarUrl = async () => {
+      const { data } = await supabase
+        .from('ai_settings')
+        .select('avatar_url')
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (data?.avatar_url) {
+        setBotAvatarUrl(data.avatar_url);
+      }
+    };
+    fetchAvatarUrl();
+  }, []);
+
+  const botAvatar = botAvatarUrl || avatarWoman1;
 
   const positionClasses = {
     'bottom-right': 'right-4 bottom-4',
@@ -68,23 +89,33 @@ export function ChatWidget({
       )}
 
       {/* Toggle Button */}
-      <Button
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setIsMinimized(false);
-        }}
-        className={cn(
-          'h-14 w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110',
-          isOpen && 'rotate-90'
-        )}
-        style={primaryColor ? { backgroundColor: primaryColor } as React.CSSProperties : undefined}
-      >
-        {isOpen ? (
+      {isOpen ? (
+        <Button
+          onClick={() => {
+            setIsOpen(false);
+            setIsMinimized(false);
+          }}
+          className="h-14 w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
+          style={primaryColor ? { backgroundColor: primaryColor } as React.CSSProperties : undefined}
+        >
           <X className="w-6 h-6" />
-        ) : (
-          <MessageCircle className="w-6 h-6" />
-        )}
-      </Button>
+        </Button>
+      ) : (
+        <button
+          onClick={() => {
+            setIsOpen(true);
+            setIsMinimized(false);
+          }}
+          className="h-14 w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 overflow-hidden border-2 border-primary"
+        >
+          <Avatar className="h-full w-full">
+            <AvatarImage src={botAvatar} alt="Chat Assistant" className="object-cover" />
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              <MessageCircle className="w-6 h-6" />
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      )}
     </div>
   );
 }
