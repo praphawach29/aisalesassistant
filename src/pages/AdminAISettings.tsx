@@ -3,15 +3,17 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { AITemplateCard } from '@/components/admin/AITemplateCard';
 import { AISettingsForm } from '@/components/admin/AISettingsForm';
 import { AITestChat } from '@/components/admin/AITestChat';
+import { AIProviderSelector } from '@/components/admin/AIProviderSelector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Bot, Save, FlaskConical, Plus } from 'lucide-react';
+import { Bot, Save, FlaskConical, Plus, Settings2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface AITemplate {
   id: string;
@@ -42,6 +44,7 @@ interface AISettings {
   closing_message: string;
   custom_rules: string;
   avatar_url: string | null;
+  ai_provider: string;
 }
 
 const defaultSettings: AISettings = {
@@ -55,6 +58,7 @@ const defaultSettings: AISettings = {
   closing_message: 'ขอบคุณมากค่ะ! 🙏',
   custom_rules: '',
   avatar_url: null,
+  ai_provider: 'lovable',
 };
 
 export default function AdminAISettings() {
@@ -108,6 +112,7 @@ export default function AdminAISettings() {
           closing_message: settingsData.closing_message || '',
           custom_rules: settingsData.custom_rules || '',
           avatar_url: settingsData.avatar_url || null,
+          ai_provider: (settingsData as any).ai_provider || 'lovable',
         });
         setSelectedTemplateId(settingsData.template_id);
       }
@@ -165,8 +170,9 @@ export default function AdminAISettings() {
             closing_message: settings.closing_message,
             custom_rules: settings.custom_rules,
             avatar_url: settings.avatar_url,
+            ai_provider: settings.ai_provider,
             is_active: true,
-          })
+          } as any)
           .eq('id', settings.id);
 
         if (error) throw error;
@@ -185,8 +191,9 @@ export default function AdminAISettings() {
             closing_message: settings.closing_message,
             custom_rules: settings.custom_rules,
             avatar_url: settings.avatar_url,
+            ai_provider: settings.ai_provider,
             is_active: true,
-          });
+          } as any);
 
         if (error) throw error;
       }
@@ -356,40 +363,84 @@ export default function AdminAISettings() {
           </div>
         </div>
 
-        {/* Templates Section */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">เลือก Template สำเร็จรูป</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">เลือก Template ที่ต้องการแล้วปรับแต่งเพิ่มเติมได้</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
-              {templates.map((template) => (
-                <AITemplateCard
-                  key={template.id}
-                  template={template}
-                  isSelected={selectedTemplateId === template.id}
-                  onSelect={() => handleSelectTemplate(template)}
-                  onDelete={!template.is_system ? () => handleDeleteTemplate(template.id) : undefined}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Tabs for different settings */}
+        <Tabs defaultValue="personality" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="personality" className="text-xs sm:text-sm">
+              <Bot className="w-4 h-4 mr-2" />
+              บุคลิก AI
+            </TabsTrigger>
+            <TabsTrigger value="provider" className="text-xs sm:text-sm">
+              <Settings2 className="w-4 h-4 mr-2" />
+              AI Provider
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Settings Form */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">ปรับแต่งเพิ่มเติม</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">ปรับค่าต่างๆ ให้ตรงกับความต้องการของคุณ</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6">
-            <AISettingsForm
-              settings={settings}
-              onChange={setSettings}
-            />
-          </CardContent>
-        </Card>
+          <TabsContent value="personality" className="space-y-6">
+            {/* Templates Section */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg">เลือก Template สำเร็จรูป</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">เลือก Template ที่ต้องการแล้วปรับแต่งเพิ่มเติมได้</CardDescription>
+              </CardHeader>
+              <CardContent className="px-3 sm:px-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+                  {templates.map((template) => (
+                    <AITemplateCard
+                      key={template.id}
+                      template={template}
+                      isSelected={selectedTemplateId === template.id}
+                      onSelect={() => handleSelectTemplate(template)}
+                      onDelete={!template.is_system ? () => handleDeleteTemplate(template.id) : undefined}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Settings Form */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg">ปรับแต่งเพิ่มเติม</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">ปรับค่าต่างๆ ให้ตรงกับความต้องการของคุณ</CardDescription>
+              </CardHeader>
+              <CardContent className="px-3 sm:px-6">
+                <AISettingsForm
+                  settings={{
+                    ai_name: settings.ai_name,
+                    gender: settings.gender,
+                    personality: settings.personality,
+                    formality_level: settings.formality_level,
+                    use_emoji: settings.use_emoji,
+                    response_length: settings.response_length,
+                    greeting_message: settings.greeting_message,
+                    closing_message: settings.closing_message,
+                    custom_rules: settings.custom_rules,
+                    avatar_url: settings.avatar_url,
+                  }}
+                  onChange={(newSettings) => setSettings({ ...settings, ...newSettings })}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="provider" className="space-y-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg">เลือก AI Provider</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  เลือก AI ที่ต้องการใช้งาน แต่ละตัวมีจุดเด่นแตกต่างกัน
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-3 sm:px-6">
+                <AIProviderSelector
+                  selectedProvider={settings.ai_provider}
+                  onProviderChange={(provider) => setSettings({ ...settings, ai_provider: provider })}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Test Chat Dialog */}
         <AITestChat
