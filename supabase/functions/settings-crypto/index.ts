@@ -115,7 +115,7 @@ serve(async (req) => {
       );
     }
 
-    const { action, settings } = await req.json();
+    const { action, settings, provider, value } = await req.json();
 
     if (action === 'encrypt_and_save') {
       // Encrypt each setting value and save to database
@@ -177,6 +177,78 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ success: true, settings: decryptedSettings }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle AI provider API key encryption and storage
+    if (action === 'encrypt_provider_key') {
+      if (!provider || !value) {
+        return new Response(
+          JSON.stringify({ error: 'Provider and value are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const validProviders = ['openai', 'gemini', 'deepseek', 'claude'];
+      if (!validProviders.includes(provider)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid provider' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const encryptedKey = await encrypt(value);
+
+      // Upsert the provider key
+      const { error } = await supabase
+        .from('ai_provider_keys')
+        .upsert({
+          provider,
+          encrypted_api_key: encryptedKey,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'provider',
+        });
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle decryption of provider key for use in chat
+    if (action === 'get_provider_key') {
+      if (!provider) {
+        return new Response(
+          JSON.stringify({ error: 'Provider is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: keyData, error } = await supabase
+        .from('ai_provider_keys')
+        .select('encrypted_api_key')
+        .eq('provider', provider)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!keyData?.encrypted_api_key) {
+        return new Response(
+          JSON.stringify({ error: 'API key not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const decryptedKey = await decrypt(keyData.encrypted_api_key);
+
+      return new Response(
+        JSON.stringify({ success: true, apiKey: decryptedKey }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

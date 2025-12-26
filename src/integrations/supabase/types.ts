@@ -101,9 +101,37 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_provider_keys: {
+        Row: {
+          created_at: string
+          encrypted_api_key: string | null
+          id: string
+          is_active: boolean | null
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_api_key?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_api_key?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_settings: {
         Row: {
           ai_name: string
+          ai_provider: string | null
           avatar_url: string | null
           closing_message: string | null
           created_at: string
@@ -121,6 +149,7 @@ export type Database = {
         }
         Insert: {
           ai_name?: string
+          ai_provider?: string | null
           avatar_url?: string | null
           closing_message?: string | null
           created_at?: string
@@ -138,6 +167,7 @@ export type Database = {
         }
         Update: {
           ai_name?: string
+          ai_provider?: string | null
           avatar_url?: string | null
           closing_message?: string | null
           created_at?: string

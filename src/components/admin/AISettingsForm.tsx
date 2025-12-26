@@ -17,6 +17,7 @@ interface AISettings {
   closing_message: string;
   custom_rules: string;
   avatar_url: string | null;
+  ai_provider?: string;
 }
 
 interface AISettingsFormProps {

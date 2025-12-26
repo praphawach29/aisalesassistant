@@ -9,6 +9,80 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY") || "";
+
+// Decryption utilities
+async function getKey(): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32));
+  return await crypto.subtle.importKey("raw", keyData, { name: "AES-GCM" }, false, ["decrypt"]);
+}
+
+async function decrypt(encryptedText: string): Promise<string> {
+  if (!encryptedText) return "";
+  try {
+    const key = await getKey();
+    const combined = Uint8Array.from(atob(encryptedText), (c) => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error("Decryption failed:", error);
+    return encryptedText;
+  }
+}
+
+// AI Provider configuration
+interface ProviderConfig {
+  url: string;
+  model: string;
+  getHeaders: (apiKey: string) => Record<string, string>;
+}
+
+const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
+  lovable: {
+    url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    model: "google/gemini-2.5-flash",
+    getHeaders: (apiKey) => ({
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    }),
+  },
+  openai: {
+    url: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-4o",
+    getHeaders: (apiKey) => ({
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    }),
+  },
+  gemini: {
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: "gemini-2.0-flash",
+    getHeaders: (apiKey) => ({
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    }),
+  },
+  deepseek: {
+    url: "https://api.deepseek.com/chat/completions",
+    model: "deepseek-chat",
+    getHeaders: (apiKey) => ({
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    }),
+  },
+  claude: {
+    url: "https://api.anthropic.com/v1/messages",
+    model: "claude-sonnet-4-20250514",
+    getHeaders: (apiKey) => ({
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    }),
+  },
+};
 
 interface AISettings {
   ai_name: string;
@@ -20,6 +94,7 @@ interface AISettings {
   greeting_message: string | null;
   closing_message: string | null;
   custom_rules: string | null;
+  ai_provider?: string;
 }
 
 interface StoreSettings {
@@ -356,27 +431,65 @@ serve(async (req) => {
     
     console.log("Is first message:", isFirstMessage);
 
-    console.log("Calling Lovable AI Gateway...");
+    // Determine which provider to use
+    const provider = aiSettings.ai_provider || 'lovable';
+    const providerConfig = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.lovable;
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+    let apiKey = LOVABLE_API_KEY;
+    
+    // If using external provider, fetch the API key
+    if (provider !== 'lovable') {
+      const { data: keyData } = await supabase
+        .from('ai_provider_keys')
+        .select('encrypted_api_key')
+        .eq('provider', provider)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (keyData?.encrypted_api_key) {
+        apiKey = await decrypt(keyData.encrypted_api_key);
+      } else {
+        // Fallback to lovable if no key found
+        console.log(`No API key found for ${provider}, falling back to Lovable AI`);
+      }
+    }
+
+    console.log(`Calling ${provider} AI...`);
+    
+    // Build request based on provider
+    let requestBody: any;
+    if (provider === 'claude') {
+      // Claude uses different format
+      requestBody = {
+        model: providerConfig.model,
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: messages.map((m: any) => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content,
+        })),
+        stream: true,
+      };
+    } else {
+      requestBody = {
+        model: providerConfig.model,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
         ],
         stream: true,
-      }),
+      };
+    }
+    
+    const response = await fetch(providerConfig.url, {
+      method: "POST",
+      headers: providerConfig.getHeaders(apiKey!),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error(`${provider} API error:`, response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
@@ -391,7 +504,7 @@ serve(async (req) => {
         });
       }
       
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
+      return new Response(JSON.stringify({ error: `${provider} API error` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
