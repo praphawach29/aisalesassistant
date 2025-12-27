@@ -27,6 +27,7 @@ import AdminKnowledgeBase from "./pages/AdminKnowledgeBase";
 import WidgetDemo from "./pages/WidgetDemo";
 import Embed from "./pages/Embed";
 import EmbedWidget from "./pages/EmbedWidget";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/widget-demo" element={<WidgetDemo />} />
             <Route path="/embed" element={<Embed />} />
             <Route path="/embed-widget" element={<EmbedWidget />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
