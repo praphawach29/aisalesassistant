@@ -1018,14 +1018,9 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     
-    // Get verify token from settings
-    const { data: settings } = await supabase
-      .from("settings")
-      .select("key, value")
-      .eq("key", "FACEBOOK_VERIFY_TOKEN")
-      .maybeSingle();
-
-    const FB_VERIFY_TOKEN = settings?.value;
+    // Get and decrypt verify token from settings
+    const FB_VERIFY_TOKEN = await getDecryptedSetting(supabase, "FACEBOOK_VERIFY_TOKEN");
+    console.log("Decrypted verify token:", FB_VERIFY_TOKEN ? "***configured***" : "not set");
 
     if (mode === "subscribe" && token === FB_VERIFY_TOKEN) {
       console.log("Facebook webhook verified");
