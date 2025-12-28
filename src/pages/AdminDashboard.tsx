@@ -72,7 +72,21 @@ interface MonthlyRevenue {
   orders: number;
 }
 
+interface TopProduct {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+interface PlatformCompare {
+  name: string;
+  web: number;
+  line: number;
+  facebook: number;
+}
+
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+const PLATFORM_COLORS = { web: '#6366f1', line: '#22c55e', facebook: '#3b82f6' };
 
 export default function AdminDashboard() {
   const { user, isAdmin, isLoading } = useAuth();
@@ -102,6 +116,8 @@ export default function AdminDashboard() {
   const [dailyRevenue, setDailyRevenue] = useState<DailyRevenue[]>([]);
   const [weeklyRevenue, setWeeklyRevenue] = useState<WeeklyRevenue[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [platformCompare, setPlatformCompare] = useState<PlatformCompare[]>([]);
   const [reportView, setReportView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isLoadingData, setIsLoadingData] = useState(true);
 
@@ -156,6 +172,9 @@ export default function AdminDashboard() {
 
     // Fetch products
     const { data: products } = await supabase.from('products').select('*');
+    
+    // Fetch order items for top products
+    const { data: orderItemsData } = await supabase.from('order_items').select('*');
     
     // Fetch conversations
     const { data: conversations } = await supabase.from('chat_conversations').select('*');
@@ -263,6 +282,46 @@ export default function AdminDashboard() {
       });
     }
     setMonthlyRevenue(last12Months);
+
+    // Calculate Top 5 Products
+    const productSales: Record<string, { quantity: number; revenue: number }> = {};
+    (orderItemsData || []).forEach(item => {
+      const key = item.product_name;
+      if (!productSales[key]) {
+        productSales[key] = { quantity: 0, revenue: 0 };
+      }
+      productSales[key].quantity += item.quantity;
+      productSales[key].revenue += Number(item.price) * item.quantity;
+    });
+    
+    const topProductsList = Object.entries(productSales)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+    setTopProducts(topProductsList);
+
+    // Platform comparison by month (last 6 months)
+    const platformCompareData: PlatformCompare[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      
+      const monthOrders = typedOrders.filter(o => {
+        const orderDate = new Date(o.created_at);
+        return orderDate.getFullYear() === year && 
+               orderDate.getMonth() === month && 
+               o.status !== 'cancelled';
+      });
+      
+      platformCompareData.push({
+        name: date.toLocaleDateString('th-TH', { month: 'short' }),
+        web: monthOrders.filter(o => o.platform === 'web').reduce((sum, o) => sum + Number(o.total_amount), 0),
+        line: monthOrders.filter(o => o.platform === 'line').reduce((sum, o) => sum + Number(o.total_amount), 0),
+        facebook: monthOrders.filter(o => o.platform === 'facebook').reduce((sum, o) => sum + Number(o.total_amount), 0),
+      });
+    }
+    setPlatformCompare(platformCompareData);
 
     setOrders(typedOrders.slice(0, 5));
     setIsLoadingData(false);
@@ -583,6 +642,116 @@ export default function AdminDashboard() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Platform Comparison & Top Products Row */}
+      <div className="grid lg:grid-cols-2 gap-3 lg:gap-4 mb-6">
+        {/* Platform Revenue Comparison */}
+        <Card>
+          <CardHeader className="p-3 lg:p-6 pb-2">
+            <CardTitle className="text-sm lg:text-lg">เปรียบเทียบยอดขายตามช่องทาง</CardTitle>
+            <CardDescription className="text-xs lg:text-sm">6 เดือนล่าสุด</CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 lg:p-6 pt-0">
+            <div className="h-[200px] lg:h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={platformCompare} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="name" className="text-xs" tick={{ fontSize: 10 }} />
+                  <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [
+                      `฿${value.toLocaleString()}`,
+                      name === 'web' ? '🌐 Web' : name === 'line' ? '🟢 LINE' : '🔵 Facebook'
+                    ]}
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
+                  />
+                  <Bar dataKey="web" name="web" fill={PLATFORM_COLORS.web} radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="line" name="line" fill={PLATFORM_COLORS.line} radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="facebook" name="facebook" fill={PLATFORM_COLORS.facebook} radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend */}
+            <div className="flex justify-center gap-4 mt-3 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded" style={{ backgroundColor: PLATFORM_COLORS.web }}></span>
+                🌐 Web
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded" style={{ backgroundColor: PLATFORM_COLORS.line }}></span>
+                🟢 LINE
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded" style={{ backgroundColor: PLATFORM_COLORS.facebook }}></span>
+                🔵 Facebook
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top 5 Products */}
+        <Card>
+          <CardHeader className="p-3 lg:p-6 pb-2">
+            <CardTitle className="text-sm lg:text-lg">🏆 สินค้าขายดี Top 5</CardTitle>
+            <CardDescription className="text-xs lg:text-sm">จัดอันดับตามยอดขาย</CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 lg:p-6 pt-0">
+            {topProducts.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">ยังไม่มีข้อมูลการขาย</p>
+              </div>
+            ) : (
+              <>
+                <div className="h-[160px] lg:h-[200px] mb-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topProducts} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        tick={{ fontSize: 9 }} 
+                        width={80} 
+                        tickFormatter={(value) => value.length > 10 ? value.substring(0, 10) + '...' : value}
+                      />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [
+                          name === 'revenue' ? `฿${value.toLocaleString()}` : `${value} ชิ้น`,
+                          name === 'revenue' ? 'ยอดขาย' : 'จำนวน'
+                        ]}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
+                      />
+                      <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-1.5">
+                  {topProducts.map((product, index) => (
+                    <div key={product.name} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/30">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${
+                          index === 0 ? 'bg-yellow-500 text-white' : 
+                          index === 1 ? 'bg-gray-400 text-white' : 
+                          index === 2 ? 'bg-orange-600 text-white' : 
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {index + 1}
+                        </span>
+                        <span className="truncate">{product.name}</span>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <p className="font-semibold">฿{product.revenue.toLocaleString()}</p>
+                        <p className="text-[10px] text-muted-foreground">{product.quantity} ชิ้น</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
