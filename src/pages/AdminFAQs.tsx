@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCacheInvalidation } from '@/hooks/useCacheInvalidation';
 import { supabase } from '@/integrations/supabase/client';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +57,7 @@ const initialFormData: FAQFormData = {
 
 export default function AdminFAQs() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
+  const { invalidateCache } = useCacheInvalidation();
   const navigate = useNavigate();
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -165,6 +167,9 @@ export default function AdminFAQs() {
         toast.success('เพิ่ม FAQ สำเร็จ');
       }
 
+      // Invalidate edge function cache
+      await invalidateCache(['faqs']);
+      
       setIsDialogOpen(false);
       fetchFaqs();
     } catch (error) {
@@ -185,6 +190,9 @@ export default function AdminFAQs() {
         .eq('id', selectedFaq.id);
 
       if (error) throw error;
+      
+      // Invalidate edge function cache
+      await invalidateCache(['faqs']);
       
       toast.success('ลบ FAQ สำเร็จ');
       setIsDeleteDialogOpen(false);

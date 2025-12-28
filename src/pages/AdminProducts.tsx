@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCacheInvalidation } from '@/hooks/useCacheInvalidation';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,6 +88,7 @@ const initialFormData: ProductFormData = {
 
 export default function AdminProducts() {
   const { user, isAdmin, isLoading } = useAuth();
+  const { invalidateCache } = useCacheInvalidation();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -258,6 +260,9 @@ export default function AdminProducts() {
         toast.success('เพิ่มสินค้าสำเร็จ');
       }
 
+      // Invalidate edge function cache
+      await invalidateCache(['products']);
+      
       setIsDialogOpen(false);
       fetchProducts();
     } catch (error) {
@@ -278,6 +283,9 @@ export default function AdminProducts() {
         .eq('id', selectedProduct.id);
 
       if (error) throw error;
+      
+      // Invalidate edge function cache
+      await invalidateCache(['products']);
       
       toast.success('ลบสินค้าสำเร็จ');
       setIsDeleteDialogOpen(false);
