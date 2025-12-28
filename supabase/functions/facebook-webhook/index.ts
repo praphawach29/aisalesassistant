@@ -2419,6 +2419,118 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
           }
         }
 
+        // Handle address actions
+        if (aiResult.addressAction) {
+          const addressAction = aiResult.addressAction;
+          console.log("[FB] Address action:", addressAction);
+          
+          if (addressAction.type === 'list') {
+            const { data: addresses } = await supabase
+              .from("customer_addresses")
+              .select("*")
+              .eq("platform_user_id", senderId)
+              .eq("platform", "facebook")
+              .order("is_default", { ascending: false });
+            
+            if (addresses && addresses.length > 0) {
+              const addressList = addresses.map((a: any, i: number) => 
+                `${i + 1}. ${a.label}: ${a.address}${a.is_default ? ' ⭐' : ''}`
+              ).join('\n');
+              responseMessage = `📍 ที่อยู่จัดส่งของคุณ:\n${addressList}\n\n💡 พิมพ์ "เพิ่มที่อยู่[ชื่อ]: [ที่อยู่]" เพื่อเพิ่มที่อยู่ใหม่ค่ะ`;
+            } else {
+              responseMessage = "📍 ยังไม่มีที่อยู่จัดส่งที่บันทึกไว้ค่ะ\n\nพิมพ์ \"เพิ่มที่อยู่บ้าน: 123 ถ.สุขุมวิท กทม 10110\" เพื่อเพิ่มที่อยู่ใหม่ได้เลยค่ะ 😊";
+            }
+          } else if (addressAction.type === 'add' && addressAction.label && addressAction.address) {
+            const { data: existing } = await supabase
+              .from("customer_addresses")
+              .select("id")
+              .eq("platform_user_id", senderId)
+              .eq("platform", "facebook")
+              .eq("label", addressAction.label)
+              .maybeSingle();
+            
+            if (existing) {
+              await supabase
+                .from("customer_addresses")
+                .update({ address: addressAction.address, updated_at: new Date().toISOString() })
+                .eq("id", existing.id);
+            } else {
+              const { count } = await supabase
+                .from("customer_addresses")
+                .select("*", { count: 'exact', head: true })
+                .eq("platform_user_id", senderId)
+                .eq("platform", "facebook");
+              
+              await supabase.from("customer_addresses").insert({
+                platform_user_id: senderId,
+                platform: "facebook",
+                label: addressAction.label,
+                address: addressAction.address,
+                is_default: count === 0
+              });
+            }
+            responseMessage = `✅ บันทึกที่อยู่ "${addressAction.label}" เรียบร้อยแล้วค่ะ`;
+          } else if (addressAction.type === 'edit' && addressAction.label && addressAction.address) {
+            const { data: existing } = await supabase
+              .from("customer_addresses")
+              .select("id")
+              .eq("platform_user_id", senderId)
+              .eq("platform", "facebook")
+              .eq("label", addressAction.label)
+              .maybeSingle();
+            
+            if (existing) {
+              await supabase
+                .from("customer_addresses")
+                .update({ address: addressAction.address, updated_at: new Date().toISOString() })
+                .eq("id", existing.id);
+              responseMessage = `✅ แก้ไขที่อยู่ "${addressAction.label}" เรียบร้อยแล้วค่ะ`;
+            } else {
+              responseMessage = `❌ ไม่พบที่อยู่ "${addressAction.label}" ค่ะ`;
+            }
+          } else if (addressAction.type === 'delete' && addressAction.label) {
+            const { data: existing } = await supabase
+              .from("customer_addresses")
+              .select("id")
+              .eq("platform_user_id", senderId)
+              .eq("platform", "facebook")
+              .eq("label", addressAction.label)
+              .maybeSingle();
+            
+            if (existing) {
+              await supabase.from("customer_addresses").delete().eq("id", existing.id);
+              responseMessage = `🗑️ ลบที่อยู่ "${addressAction.label}" เรียบร้อยแล้วค่ะ`;
+            } else {
+              responseMessage = `❌ ไม่พบที่อยู่ "${addressAction.label}" ค่ะ`;
+            }
+          } else if (addressAction.type === 'set_default' && addressAction.label) {
+            const { data: existing } = await supabase
+              .from("customer_addresses")
+              .select("id")
+              .eq("platform_user_id", senderId)
+              .eq("platform", "facebook")
+              .eq("label", addressAction.label)
+              .maybeSingle();
+            
+            if (existing) {
+              // Clear all defaults first
+              await supabase
+                .from("customer_addresses")
+                .update({ is_default: false })
+                .eq("platform_user_id", senderId)
+                .eq("platform", "facebook");
+              // Set new default
+              await supabase
+                .from("customer_addresses")
+                .update({ is_default: true })
+                .eq("id", existing.id);
+              responseMessage = `⭐ ตั้งที่อยู่ "${addressAction.label}" เป็นค่าเริ่มต้นแล้วค่ะ`;
+            } else {
+              responseMessage = `❌ ไม่พบที่อยู่ "${addressAction.label}" ค่ะ`;
+            }
+          }
+        }
+
         // Handle cart actions
         if (aiResult.cartAction) {
           const cartAction = aiResult.cartAction;
