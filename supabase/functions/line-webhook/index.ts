@@ -1972,11 +1972,19 @@ serve(async (req) => {
         }
       }
       
+      // Add critical quantity reminder BEFORE the AI processes the message
+      // This helps prevent the AI from doubling quantities
+      if (!isGreeting && !isNewSession) {
+        const quantityReminder = `[⚠️ คำสั่งบังคับ: อ่านข้อความล่าสุดของลูกค้าอย่างระมัดระวัง! ถ้าลูกค้าพิมพ์ "1 ตัว" = 1 ตัวเท่านั้น, "อย่างละ 1" = แต่ละรายการ 1 ตัว ห้ามคูณ 2 หรือบวกกับจำนวนก่อนหน้าเด็ดขาด! ข้อความล่าสุดของลูกค้าคือ: "${userMessage}" - นับจำนวนจากข้อความนี้เท่านั้น!]`;
+        aiMessages.push({ role: "system", content: quantityReminder });
+        console.log(`[LINE] Quantity reminder added. User message: "${userMessage}"`);
+      }
+      
       // Add context reminder about last discussed product ONLY if not greeting and not new session
       if (lastDiscussedProduct && !isGreeting && !isNewSession) {
         const contextReminder = `[CONTEXT: กำลังคุยเรื่องสินค้า "${lastDiscussedProduct.name}" - ถ้าลูกค้าบอกแค่สี/ไซส์/จำนวน ให้อ้างอิงถึงสินค้านี้เสมอ ห้ามเปลี่ยนเป็นสินค้าอื่น!]`;
         aiMessages.push({ role: "system", content: contextReminder });
-        console.log(`Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
+        console.log(`[LINE] Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
       }
       
       // For greetings, add instruction to respond naturally with just greeting
