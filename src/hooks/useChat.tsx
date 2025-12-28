@@ -207,8 +207,8 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
     setIsLoadingHistory(false);
   }, []);
 
-  // Upload payment slip
-  const uploadPaymentSlip = useCallback(async (file: File, orderId: string): Promise<string | null> => {
+  // Upload payment slip and analyze with AI
+  const uploadPaymentSlip = useCallback(async (file: File, orderId: string, expectedAmount?: number): Promise<{ slipUrl: string | null; analysisResult?: any }> => {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${orderId}_${Date.now()}.${fileExt}`;
@@ -220,7 +220,7 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
 
       if (uploadError) {
         console.error('Error uploading payment slip:', uploadError);
-        return null;
+        return { slipUrl: null };
       }
 
       const { data: { publicUrl } } = supabase.storage
@@ -228,25 +228,59 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
         .getPublicUrl(filePath);
 
       // Create payment slip record
-      const { error: insertError } = await supabase
+      const { data: slipRecord, error: insertError } = await supabase
         .from('payment_slips')
-        .insert({
+        .insert([{
           order_id: orderId,
           platform_user_id: webUserId,
           platform: 'web',
           image_url: publicUrl,
           status: 'pending'
-        });
+        }])
+        .select('id')
+        .single();
 
       if (insertError) {
         console.error('Error creating payment slip record:', insertError);
-        return null;
+        return { slipUrl: publicUrl };
       }
 
-      return publicUrl;
+      // Analyze the slip with AI
+      const analyzeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-payment-slip`;
+      
+      // Get order total for verification
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('total_amount')
+        .eq('id', orderId)
+        .single();
+
+      const response = await fetch(analyzeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+        },
+        body: JSON.stringify({
+          image_url: publicUrl,
+          expected_amount: expectedAmount || orderData?.total_amount,
+          payment_slip_id: slipRecord?.id,
+          order_id: orderId
+        })
+      });
+
+      let analysisResult = null;
+      if (response.ok) {
+        analysisResult = await response.json();
+        console.log('AI slip analysis result:', analysisResult);
+      } else {
+        console.error('Error analyzing slip:', await response.text());
+      }
+
+      return { slipUrl: publicUrl, analysisResult };
     } catch (error) {
       console.error('Error in uploadPaymentSlip:', error);
-      return null;
+      return { slipUrl: null };
     }
   }, [webUserId]);
 
@@ -314,7 +348,7 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
 
       // Handle payment slip upload
       if (imageFile && lastOrderId) {
-        const slipUrl = await uploadPaymentSlip(imageFile, lastOrderId);
+        const { slipUrl, analysisResult } = await uploadPaymentSlip(imageFile, lastOrderId);
         if (slipUrl) {
           // Add user message about slip
           const slipMessage = userMessage || `ส่งสลิปโอนเงินสำหรับออเดอร์ ${lastOrderNumber}`;
@@ -334,12 +368,36 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
             content: slipMessage
           });
 
-          // Add confirmation message
+          // Build confirmation message based on AI analysis
+          let confirmContent = `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${lastOrderNumber}\n\n`;
+          
+          if (analysisResult?.success) {
+            confirmContent += `🔍 **ผลการวิเคราะห์อัตโนมัติ:**\n`;
+            if (analysisResult.analyzed_amount) {
+              confirmContent += `💰 ยอดโอน: ฿${analysisResult.analyzed_amount.toLocaleString()}\n`;
+            }
+            if (analysisResult.analyzed_bank) {
+              confirmContent += `🏦 ธนาคาร: ${analysisResult.analyzed_bank}\n`;
+            }
+            if (analysisResult.analyzed_date) {
+              confirmContent += `📅 วันที่: ${analysisResult.analyzed_date}\n`;
+            }
+            confirmContent += `📊 ความมั่นใจ: ${analysisResult.confidence_score}%\n\n`;
+            
+            if (analysisResult.auto_verified) {
+              confirmContent += `✅ **ยืนยันการชำระเงินอัตโนมัติสำเร็จ!**\n\nออเดอร์ของคุณได้รับการยืนยันแล้วค่ะ ทางร้านจะจัดส่งสินค้าให้เร็วที่สุดนะคะ 🚚💕`;
+            } else {
+              confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
+            }
+          } else {
+            confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
+          }
+
           const confirmMsg: ChatMessage = {
             id: crypto.randomUUID(),
             conversation_id: currentConversationId,
             role: 'assistant',
-            content: `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${lastOrderNumber}\n\nทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`,
+            content: confirmContent,
             created_at: new Date().toISOString()
           };
           setMessages(prev => [...prev, confirmMsg]);
