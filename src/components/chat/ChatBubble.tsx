@@ -54,28 +54,32 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
 
   return (
     <div className={cn(
-      'flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300',
+      'flex gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full',
       isUser ? 'flex-row-reverse' : 'flex-row'
     )}>
       {isUser ? (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-          <User className="w-4 h-4" />
+        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+          <User className="w-3.5 h-3.5" />
         </div>
       ) : (
-        <Avatar className="flex-shrink-0 w-8 h-8">
+        <Avatar className="flex-shrink-0 w-7 h-7">
           <AvatarImage src={botAvatar} alt="Bot Avatar" />
           <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">AI</AvatarFallback>
         </Avatar>
       )}
       
-      <div className="flex flex-col gap-2 max-w-[75%] min-w-0 overflow-hidden">
+      <div className={cn(
+        'flex flex-col gap-2 min-w-0',
+        isUser ? 'items-end' : 'items-start',
+        'max-w-[calc(100%-3rem)]'
+      )}>
         <div className={cn(
-          'rounded-2xl px-3 py-2 overflow-hidden',
+          'rounded-2xl px-3 py-2 max-w-full',
           isUser
             ? 'bg-primary text-primary-foreground rounded-br-md'
             : 'bg-muted text-foreground rounded-bl-md'
         )}>
-          <p className="text-xs leading-relaxed break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+          <p className="text-xs leading-relaxed whitespace-pre-wrap break-all">
             {displayContent || (
               <span className="inline-flex gap-1">
                 <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
