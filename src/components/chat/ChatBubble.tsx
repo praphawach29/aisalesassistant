@@ -1,9 +1,12 @@
 import { cn } from '@/lib/utils';
 import { ChatMessage } from '@/types';
-import { User } from 'lucide-react';
+import { User, Copy, Check } from 'lucide-react';
 import { ProductCarousel, Product } from './ProductCarousel';
 import { SingleProductCard } from './SingleProductCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
 
 interface ChatBubbleProps {
@@ -34,13 +37,114 @@ const extractProductReference = (content: string, products: Product[]): Product 
   return null;
 };
 
-// Clean message content by removing product markers
+// Helper function to extract copyable values from [COPY:xxx] format
+const extractCopyableValues = (content: string): { text: string; value: string }[] => {
+  const matches = content.matchAll(/\[COPY:([^\]]+)\]/gi);
+  const results: { text: string; value: string }[] = [];
+  for (const match of matches) {
+    results.push({ text: match[0], value: match[1].trim() });
+  }
+  return results;
+};
+
+// Clean message content by removing markers
 const cleanContent = (content: string): string => {
   return content
     .replace(/\[SHOW_PRODUCTS?\]/gi, '')
     .replace(/\[(?:SHOW_)?PRODUCT:[^\]]+\]/gi, '')
     .trim();
 };
+
+// Component for copyable text
+function CopyableText({ value, children }: { value: string; children: React.ReactNode }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      toast.success('คัดลอกแล้ว');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = value;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        toast.success('คัดลอกแล้ว');
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        toast.error('ไม่สามารถคัดลอกได้');
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 h-auto px-2 py-1 text-sm font-medium bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors"
+    >
+      {children}
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-green-500" />
+      ) : (
+        <Copy className="w-3.5 h-3.5" />
+      )}
+    </Button>
+  );
+}
+
+// Render content with copyable elements
+function RenderContent({ content }: { content: string }) {
+  const copyableValues = extractCopyableValues(content);
+  
+  if (copyableValues.length === 0) {
+    return <>{content}</>;
+  }
+
+  // Split content and replace [COPY:xxx] with copyable buttons
+  let remainingContent = content;
+  const parts: React.ReactNode[] = [];
+  let keyIndex = 0;
+
+  for (const { text, value } of copyableValues) {
+    const index = remainingContent.indexOf(text);
+    if (index !== -1) {
+      // Add text before the copyable part
+      if (index > 0) {
+        parts.push(<span key={`text-${keyIndex}`}>{remainingContent.substring(0, index)}</span>);
+      }
+      // Add the copyable button
+      parts.push(
+        <CopyableText key={`copy-${keyIndex}`} value={value}>
+          {value}
+        </CopyableText>
+      );
+      remainingContent = remainingContent.substring(index + text.length);
+      keyIndex++;
+    }
+  }
+
+  // Add remaining text
+  if (remainingContent) {
+    parts.push(<span key={`text-final`}>{remainingContent}</span>);
+  }
+
+  return <>{parts}</>;
+}
 
 export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }: ChatBubbleProps) {
   const isUser = message.role === 'user';
@@ -75,15 +179,17 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
             ? 'bg-primary text-primary-foreground rounded-br-md'
             : 'bg-muted text-foreground rounded-bl-md'
         )}>
-          <p className="text-sm whitespace-pre-wrap leading-relaxed">
-            {displayContent || (
+          <div className="text-sm whitespace-pre-wrap leading-relaxed">
+            {displayContent ? (
+              <RenderContent content={displayContent} />
+            ) : (
               <span className="inline-flex gap-1">
                 <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                 <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </span>
             )}
-          </p>
+          </div>
         </div>
         
         {/* Single Product Card */}

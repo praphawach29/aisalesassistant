@@ -256,9 +256,16 @@ ${storeSettings.instagram ? `- Instagram: ${storeSettings.instagram}` : ''}` : '
 
 ${storeSettings.shippingInfo ? `## 🚚 ข้อมูลการจัดส่ง (สำคัญ - ใช้ข้อมูลนี้เท่านั้น ห้ามใช้ข้อมูลจาก FAQ):\n${storeSettings.shippingInfo}` : ''}
 
-${storeSettings.bankAccounts ? `## 🏦 บัญชีธนาคาร (สำคัญ - ใช้ข้อมูลนี้เท่านั้น ห้ามใช้ข้อมูลจาก FAQ):\n${storeSettings.bankAccounts}` : ''}
+${storeSettings.bankAccounts || storeSettings.paymentMethods ? `## 💰 ข้อมูลการชำระเงินของร้าน (สำคัญมาก - ใช้ข้อมูลนี้เท่านั้น!):
+${storeSettings.bankAccounts ? `บัญชีธนาคาร:\n${storeSettings.bankAccounts}` : ''}
+${storeSettings.paymentMethods ? `\nวิธีการชำระเงินที่รับ:\n${storeSettings.paymentMethods}` : ''}
 
-${storeSettings.paymentMethods ? `## 💳 วิธีการชำระเงิน (สำคัญ - ใช้ข้อมูลนี้เท่านั้น ห้ามใช้ข้อมูลจาก FAQ):\n${storeSettings.paymentMethods}` : ''}
+**กฎการแจ้งข้อมูลชำระเงิน (สำคัญมาก!):**
+- แจ้งเลขบัญชีหรือ PromptPay เพียงครั้งเดียวต่อการสนทนา ไม่แจ้งซ้ำ
+- ใช้ format นี้เท่านั้น: [COPY:เลขบัญชี] เช่น [COPY:1234567890] เพื่อให้ลูกค้าคัดลอกได้ง่าย
+- ถ้าลูกค้าส่งเลขมาแล้วตรงกับข้อมูลร้าน → ยืนยันว่าถูกต้อง
+- ถ้าลูกค้าส่งเลขมาแล้วไม่ตรงกับข้อมูลร้าน → แจ้งว่าไม่ใช่บัญชีของร้าน และแจ้งบัญชีที่ถูกต้องพร้อม format [COPY:xxx]
+- ห้ามแสดงหลายบัญชีพร้อมกันถ้าลูกค้าไม่ได้ถาม` : ''}
 
 ${storeSettings.returnPolicy ? `## 📋 นโยบายการคืนสินค้า (สำคัญ - ใช้ข้อมูลนี้เท่านั้น):\n${storeSettings.returnPolicy}` : ''}
 
