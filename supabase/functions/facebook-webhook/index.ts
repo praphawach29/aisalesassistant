@@ -757,14 +757,20 @@ async function getAIResponse(
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
 
-  // Fetch AI settings
-  const { data: aiSettingsData } = await supabase
-    .from("ai_settings")
-    .select("*")
-    .eq("is_active", true)
-    .maybeSingle();
+  // Fetch all required data in PARALLEL for speed optimization
+  const [
+    aiSettingsResult,
+    productsResult,
+    faqsResult,
+    settingsResult
+  ] = await Promise.all([
+    supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle(),
+    supabase.from("products").select("*").eq("is_active", true),
+    supabase.from("faqs").select("question, answer").eq("is_active", true),
+    supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"])
+  ]);
 
-  const aiSettings: AISettings = aiSettingsData || {
+  const aiSettings: AISettings = aiSettingsResult.data || {
     ai_name: "น้องช้อป",
     gender: "female",
     personality: "ร่าเริง เป็นกันเอง ชอบช่วยเหลือลูกค้า",
@@ -776,13 +782,9 @@ async function getAIResponse(
     custom_rules: null,
   };
 
-  // Fetch products for context
-  const { data: products } = await supabase
-    .from("products")
-    .select("*")
-    .eq("is_active", true);
-
-  const productList = products || [];
+  const productList = productsResult.data || [];
+  const faqs = faqsResult.data || [];
+  const faqList = faqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n');
 
   // Build product catalog with variants info for AI
   const productCatalog = productList.map((p: any) => {
@@ -803,17 +805,8 @@ async function getAIResponse(
     return info;
   }).join('\n') || 'ยังไม่มีสินค้า';
 
-  // Fetch FAQs
-  const { data: faqs } = await supabase.from("faqs").select("*").eq("is_active", true);
-  const faqList = faqs?.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') || '';
-
-  // Fetch store settings
-  const { data: settingsData } = await supabase
-    .from("settings")
-    .select("key, value")
-    .in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"]);
-
-  const settingsMap: Map<string, string> = new Map(settingsData?.map((s: any) => [s.key, s.value as string]) || []);
+  // Process store settings (already fetched in parallel above)
+  const settingsMap: Map<string, string> = new Map(settingsResult.data?.map((s: any) => [s.key, s.value as string]) || []);
   const storeSettings: StoreSettings = {
     storeName: settingsMap.get("STORE_NAME") || "",
     shippingInfo: settingsMap.get("SHIPPING_INFO") || "",
@@ -863,6 +856,7 @@ async function getAIResponse(
   }
 
   try {
+    // Use google/gemini-2.5-flash for faster response (typically 2-5 seconds vs 15-30 seconds)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -870,7 +864,7 @@ async function getAIResponse(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           ...aiMessages,
