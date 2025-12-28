@@ -1611,11 +1611,26 @@ serve(async (req) => {
                 .maybeSingle();
 
               if (!conversation) {
+                // Fetch user profile from Facebook Graph API
+                let customerName: string | null = null;
+                try {
+                  const profileResponse = await fetch(
+                    `https://graph.facebook.com/${senderId}?fields=first_name,last_name,name&access_token=${FB_PAGE_ACCESS_TOKEN}`
+                  );
+                  if (profileResponse.ok) {
+                    const profile = await profileResponse.json();
+                    customerName = profile.name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || null;
+                  }
+                } catch (profileError) {
+                  console.error('[FB] Error fetching user profile:', profileError);
+                }
+
                 const { data: newConv } = await supabase
                   .from("chat_conversations")
                   .insert({
                     platform: "facebook",
                     platform_user_id: senderId,
+                    customer_name: customerName,
                   })
                   .select()
                   .single();
@@ -1703,11 +1718,26 @@ serve(async (req) => {
                 .maybeSingle();
 
               if (!conversation) {
+                // Fetch user profile from Facebook Graph API
+                let customerName: string | null = null;
+                try {
+                  const profileResponse = await fetch(
+                    `https://graph.facebook.com/${senderId}?fields=first_name,last_name,name&access_token=${FB_PAGE_ACCESS_TOKEN}`
+                  );
+                  if (profileResponse.ok) {
+                    const profile = await profileResponse.json();
+                    customerName = profile.name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || null;
+                  }
+                } catch (profileError) {
+                  console.error('[FB] Error fetching user profile:', profileError);
+                }
+
                 const { data: newConv } = await supabase
                   .from("chat_conversations")
                   .insert({
                     platform: "facebook",
                     platform_user_id: senderId,
+                    customer_name: customerName,
                   })
                   .select()
                   .single();
@@ -1849,11 +1879,27 @@ serve(async (req) => {
               .maybeSingle();
 
             if (!conversation) {
+              // Fetch user profile from Facebook Graph API to get name
+              let customerName: string | null = null;
+              try {
+                const profileResponse = await fetch(
+                  `https://graph.facebook.com/${senderId}?fields=first_name,last_name,name&access_token=${FB_PAGE_ACCESS_TOKEN}`
+                );
+                if (profileResponse.ok) {
+                  const profile = await profileResponse.json();
+                  customerName = profile.name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || null;
+                  console.log(`[FB] Got user profile for image: ${customerName}`);
+                }
+              } catch (profileError) {
+                console.error('[FB] Error fetching user profile:', profileError);
+              }
+
               const { data: newConv } = await supabase
                 .from("chat_conversations")
                 .insert({
                   platform: "facebook",
                   platform_user_id: senderId,
+                  customer_name: customerName,
                 })
                 .select()
                 .single();
@@ -2007,11 +2053,27 @@ serve(async (req) => {
           .maybeSingle();
 
         if (!conversation) {
+          // Fetch user profile from Facebook Graph API to get name
+          let customerName: string | null = null;
+          try {
+            const profileResponse = await fetch(
+              `https://graph.facebook.com/${senderId}?fields=first_name,last_name,name&access_token=${FB_PAGE_ACCESS_TOKEN}`
+            );
+            if (profileResponse.ok) {
+              const profile = await profileResponse.json();
+              customerName = profile.name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || null;
+              console.log(`[FB] Got user profile: ${customerName}`);
+            }
+          } catch (profileError) {
+            console.error('[FB] Error fetching user profile:', profileError);
+          }
+
           const { data: newConv } = await supabase
             .from("chat_conversations")
             .insert({
               platform: "facebook",
               platform_user_id: senderId,
+              customer_name: customerName,
             })
             .select()
             .single();
