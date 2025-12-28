@@ -400,12 +400,12 @@ const AdminSettings = () => {
 
         {/* Payment Settings for Flex Message */}
         <Card className="border-green-500/30 bg-green-500/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-600">
-              <CreditCard className="h-5 w-5" />
-              ข้อมูลชำระเงินสำหรับ LINE Flex Message
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-green-600 text-base sm:text-lg">
+              <CreditCard className="h-5 w-5 flex-shrink-0" />
+              <span>ข้อมูลชำระเงินสำหรับ LINE Flex Message</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               ข้อมูลนี้จะแสดงใน Flex Message เมื่อลูกค้าสั่งซื้อสำเร็จผ่าน LINE
             </CardDescription>
           </CardHeader>
@@ -413,10 +413,10 @@ const AdminSettings = () => {
             {/* Bank Info */}
             <div>
               <Label className="text-base font-medium">ข้อมูลบัญชีธนาคาร</Label>
-              <p className="text-sm text-muted-foreground mb-3">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3">
                 แสดงในการ์ดยืนยันออเดอร์พร้อมปุ่มคัดลอกเลขบัญชี
               </p>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">ชื่อธนาคาร</Label>
                   <Input
@@ -437,7 +437,7 @@ const AdminSettings = () => {
                     <p className="text-xs text-destructive">{bankAccountError}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                   <Label className="text-sm text-muted-foreground">ชื่อบัญชี</Label>
                   <Input
                     value={bankAccountName}
@@ -451,16 +451,16 @@ const AdminSettings = () => {
             {/* PromptPay */}
             <div className="border-t pt-6">
               <Label className="text-base font-medium">พร้อมเพย์</Label>
-              <p className="text-sm text-muted-foreground mb-3">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3">
                 แสดง QR Code พร้อมเพย์พร้อมยอดเงินในการ์ดยืนยันออเดอร์
               </p>
-              <div className="max-w-sm space-y-2">
+              <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">เลขพร้อมเพย์</Label>
                 <Input
                   value={promptpayId}
                   onChange={(e) => handlePromptpayChange(e.target.value)}
                   placeholder="เบอร์โทรหรือเลขบัตรประชาชน เช่น: 0812345678"
-                  className={promptpayError ? "border-destructive" : ""}
+                  className={`max-w-full sm:max-w-sm ${promptpayError ? "border-destructive" : ""}`}
                 />
                 {promptpayError ? (
                   <p className="text-xs text-destructive">{promptpayError}</p>
@@ -472,36 +472,38 @@ const AdminSettings = () => {
               </div>
               
               {promptpayId && !promptpayError && (
-                <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium mb-2">ตัวอย่าง QR Code (ยอด 100 บาท)</p>
-                  <div className="relative">
-                    <img 
-                      src={`https://promptpay.io/${promptpayId.replace(/-/g, '')}/100.png`}
-                      alt="PromptPay QR Code"
-                      className="w-32 h-32 border rounded bg-white"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const errorDiv = target.nextElementSibling as HTMLElement;
-                        if (errorDiv) errorDiv.style.display = 'flex';
-                      }}
-                      onLoad={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'block';
-                        const errorDiv = target.nextElementSibling as HTMLElement;
-                        if (errorDiv) errorDiv.style.display = 'none';
-                      }}
-                    />
-                    <div 
-                      className="w-32 h-32 border rounded bg-muted items-center justify-center text-xs text-muted-foreground text-center p-2"
-                      style={{ display: 'none' }}
-                    >
-                      ไม่สามารถโหลด QR Code ได้ กรุณาตรวจสอบเลขพร้อมเพย์
+                <div className="mt-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium mb-3 text-center sm:text-left">ตัวอย่าง QR Code (ยอด 100 บาท)</p>
+                  <div className="flex flex-col items-center sm:items-start gap-2">
+                    <div className="relative">
+                      <img 
+                        src={`https://promptpay.io/${promptpayId.replace(/-/g, '')}/100.png`}
+                        alt="PromptPay QR Code"
+                        className="w-36 h-36 sm:w-32 sm:h-32 border rounded bg-white"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const errorDiv = target.nextElementSibling as HTMLElement;
+                          if (errorDiv) errorDiv.style.display = 'flex';
+                        }}
+                        onLoad={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'block';
+                          const errorDiv = target.nextElementSibling as HTMLElement;
+                          if (errorDiv) errorDiv.style.display = 'none';
+                        }}
+                      />
+                      <div 
+                        className="w-36 h-36 sm:w-32 sm:h-32 border rounded bg-muted items-center justify-center text-xs text-muted-foreground text-center p-2"
+                        style={{ display: 'none' }}
+                      >
+                        ไม่สามารถโหลด QR Code ได้ กรุณาตรวจสอบเลขพร้อมเพย์
+                      </div>
                     </div>
+                    <p className="text-xs text-muted-foreground text-center sm:text-left break-all">
+                      URL: promptpay.io/{promptpayId.replace(/-/g, '')}/100.png
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    URL: promptpay.io/{promptpayId.replace(/-/g, '')}/100.png
-                  </p>
                 </div>
               )}
             </div>
