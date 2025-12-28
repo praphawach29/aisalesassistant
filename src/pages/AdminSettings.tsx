@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useCacheInvalidation } from "@/hooks/useCacheInvalidation";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,25 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Save, Store, Bell, Shield, Loader2, CreditCard } from "lucide-react";
 import { AdminLayout } from '@/components/admin/AdminLayout';
+
+const THAI_BANKS = [
+  { value: "กสิกรไทย", label: "ธนาคารกสิกรไทย (KBANK)" },
+  { value: "กรุงเทพ", label: "ธนาคารกรุงเทพ (BBL)" },
+  { value: "กรุงไทย", label: "ธนาคารกรุงไทย (KTB)" },
+  { value: "ไทยพาณิชย์", label: "ธนาคารไทยพาณิชย์ (SCB)" },
+  { value: "กรุงศรี", label: "ธนาคารกรุงศรีอยุธยา (BAY)" },
+  { value: "ทหารไทยธนชาต", label: "ธนาคารทหารไทยธนชาต (TTB)" },
+  { value: "ออมสิน", label: "ธนาคารออมสิน (GSB)" },
+  { value: "ธ.ก.ส.", label: "ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (BAAC)" },
+  { value: "อาคารสงเคราะห์", label: "ธนาคารอาคารสงเคราะห์ (GHB)" },
+  { value: "ซีไอเอ็มบี", label: "ธนาคารซีไอเอ็มบี ไทย (CIMB)" },
+  { value: "ยูโอบี", label: "ธนาคารยูโอบี (UOB)" },
+  { value: "แลนด์แอนด์เฮ้าส์", label: "ธนาคารแลนด์ แอนด์ เฮ้าส์ (LH Bank)" },
+  { value: "เกียรตินาคินภัทร", label: "ธนาคารเกียรตินาคินภัทร (KKP)" },
+  { value: "ทิสโก้", label: "ธนาคารทิสโก้ (TISCO)" },
+  { value: "อิสลามแห่งประเทศไทย", label: "ธนาคารอิสลามแห่งประเทศไทย (ISBT)" },
+  { value: "other", label: "อื่นๆ (พิมพ์เอง)" },
+];
 
 interface StoreSetting {
   key: string;
@@ -54,6 +74,7 @@ const AdminSettings = () => {
   
   // Payment settings (for Flex Message)
   const [bankName, setBankName] = useState("");
+  const [customBankName, setCustomBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
   const [promptpayId, setPromptpayId] = useState("");
@@ -141,7 +162,18 @@ const AdminSettings = () => {
       const bankAccNameSetting = data?.find(s => s.key === 'bank_account_name');
       const promptpaySetting = data?.find(s => s.key === 'promptpay_id');
       
-      if (bankNameSetting) setBankName(bankNameSetting.value || '');
+      if (bankNameSetting) {
+        const savedBankName = bankNameSetting.value || '';
+        // Check if it's a predefined bank or custom
+        const isPredefinedBank = THAI_BANKS.some(b => b.value === savedBankName && b.value !== 'other');
+        if (isPredefinedBank) {
+          setBankName(savedBankName);
+          setCustomBankName('');
+        } else if (savedBankName) {
+          setBankName('other');
+          setCustomBankName(savedBankName);
+        }
+      }
       if (bankAccNumSetting) setBankAccountNumber(bankAccNumSetting.value || '');
       if (bankAccNameSetting) setBankAccountName(bankAccNameSetting.value || '');
       if (promptpaySetting) setPromptpayId(promptpaySetting.value || '');
@@ -217,7 +249,8 @@ const AdminSettings = () => {
       await saveSetting('AUTO_NOTIFY_CUSTOMERS', String(autoNotifyCustomers), 'แจ้งเตือนลูกค้าอัตโนมัติเมื่อสถานะออเดอร์เปลี่ยน');
 
       // Save payment settings for Flex Message
-      await saveSetting('bank_name', bankName, 'ชื่อธนาคารสำหรับ Flex Message');
+      const finalBankName = bankName === 'other' ? customBankName : bankName;
+      await saveSetting('bank_name', finalBankName, 'ชื่อธนาคารสำหรับ Flex Message');
       await saveSetting('bank_account_number', bankAccountNumber, 'เลขบัญชีธนาคารสำหรับ Flex Message');
       await saveSetting('bank_account_name', bankAccountName, 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
       await saveSetting('promptpay_id', promptpayId, 'เลขพร้อมเพย์สำหรับ Flex Message');
@@ -419,11 +452,26 @@ const AdminSettings = () => {
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">ชื่อธนาคาร</Label>
-                  <Input
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    placeholder="เช่น: ธนาคารกสิกรไทย"
-                  />
+                  <Select value={bankName} onValueChange={setBankName}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="เลือกธนาคาร" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {THAI_BANKS.map((bank) => (
+                        <SelectItem key={bank.value} value={bank.value}>
+                          {bank.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {bankName === 'other' && (
+                    <Input
+                      value={customBankName}
+                      onChange={(e) => setCustomBankName(e.target.value)}
+                      placeholder="พิมพ์ชื่อธนาคาร..."
+                      className="mt-2"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">เลขบัญชี</Label>
