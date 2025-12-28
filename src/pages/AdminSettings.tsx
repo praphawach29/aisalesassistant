@@ -471,17 +471,37 @@ const AdminSettings = () => {
                 )}
               </div>
               
-              {promptpayId && (
+              {promptpayId && !promptpayError && (
                 <div className="mt-4 p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm font-medium mb-2">ตัวอย่าง QR Code (ยอด 100 บาท)</p>
-                  <img 
-                    src={`https://promptpay.io/${promptpayId}/100.png`}
-                    alt="PromptPay QR Code"
-                    className="w-32 h-32 border rounded"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
+                  <div className="relative">
+                    <img 
+                      src={`https://promptpay.io/${promptpayId.replace(/-/g, '')}/100.png`}
+                      alt="PromptPay QR Code"
+                      className="w-32 h-32 border rounded bg-white"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const errorDiv = target.nextElementSibling as HTMLElement;
+                        if (errorDiv) errorDiv.style.display = 'flex';
+                      }}
+                      onLoad={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'block';
+                        const errorDiv = target.nextElementSibling as HTMLElement;
+                        if (errorDiv) errorDiv.style.display = 'none';
+                      }}
+                    />
+                    <div 
+                      className="w-32 h-32 border rounded bg-muted items-center justify-center text-xs text-muted-foreground text-center p-2"
+                      style={{ display: 'none' }}
+                    >
+                      ไม่สามารถโหลด QR Code ได้ กรุณาตรวจสอบเลขพร้อมเพย์
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    URL: promptpay.io/{promptpayId.replace(/-/g, '')}/100.png
+                  </p>
                 </div>
               )}
             </div>
