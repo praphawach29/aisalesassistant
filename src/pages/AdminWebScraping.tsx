@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useCacheInvalidation } from "@/hooks/useCacheInvalidation";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Globe, Plus, Trash2, RefreshCw, Loader2, ExternalLink, FileText, Clock, CalendarClock, Layers, CheckCircle2, XCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -73,6 +74,7 @@ export default function AdminWebScraping() {
   const [isBatchScraping, setIsBatchScraping] = useState(false);
   
   const { toast } = useToast();
+  const { invalidateCache } = useCacheInvalidation();
 
   useEffect(() => {
     fetchScrapedContent();
@@ -117,6 +119,7 @@ export default function AdminWebScraping() {
       if (error) throw error;
 
       if (data.success) {
+        await invalidateCache(['all']);
         toast({
           title: "ดึงข้อมูลสำเร็จ",
           description: `ดึงข้อมูลจาก ${newUrl} เรียบร้อยแล้ว`,
@@ -187,6 +190,7 @@ export default function AdminWebScraping() {
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
 
+    await invalidateCache(['all']);
     toast({
       title: "Batch Scraping เสร็จสิ้น",
       description: `สำเร็จ ${successCount} รายการ, ล้มเหลว ${failCount} รายการ`,
@@ -207,6 +211,7 @@ export default function AdminWebScraping() {
       if (error) throw error;
 
       if (data.success) {
+        await invalidateCache(['all']);
         toast({
           title: "อัพเดทข้อมูลสำเร็จ",
           description: `อัพเดทข้อมูลจาก ${item.source_name || item.url} เรียบร้อยแล้ว`,
@@ -240,6 +245,7 @@ export default function AdminWebScraping() {
         prev.map(item => item.id === id ? { ...item, is_active: isActive } : item)
       );
 
+      await invalidateCache(['all']);
       toast({
         title: isActive ? "เปิดใช้งานแล้ว" : "ปิดใช้งานแล้ว",
       });
@@ -263,6 +269,7 @@ export default function AdminWebScraping() {
 
       if (error) throw error;
 
+      await invalidateCache(['all']);
       setScrapedContent(prev => prev.filter(item => item.id !== deleteId));
       toast({ title: "ลบข้อมูลเรียบร้อยแล้ว" });
     } catch (error) {

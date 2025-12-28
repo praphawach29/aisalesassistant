@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useCacheInvalidation } from "@/hooks/useCacheInvalidation";
 import { Plus, Pencil, Trash2, Ticket, Percent, DollarSign, Copy } from "lucide-react";
 import { format } from "date-fns";
 
@@ -35,6 +36,7 @@ const AdminCoupons = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const { invalidateCache } = useCacheInvalidation();
   
   const [formData, setFormData] = useState({
     code: "",
@@ -142,6 +144,7 @@ const AdminCoupons = () => {
         toast.success("เพิ่มคูปองเรียบร้อยแล้ว");
       }
 
+      await invalidateCache(['all']);
       setIsDialogOpen(false);
       resetForm();
       fetchCoupons();
@@ -165,6 +168,7 @@ const AdminCoupons = () => {
         .eq("id", id);
 
       if (error) throw error;
+      await invalidateCache(['all']);
       toast.success("ลบคูปองเรียบร้อยแล้ว");
       fetchCoupons();
     } catch (error) {
