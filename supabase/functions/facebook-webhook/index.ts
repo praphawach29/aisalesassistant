@@ -1012,6 +1012,19 @@ async function getAIResponse(
   // Build AI messages with context reminder
   const aiMessages: Array<{ role: string; content: string }> = [...messages];
   
+  // Get the last user message for quantity parsing reminder
+  const lastUserMessage = messages.length > 0 ? messages[messages.length - 1]?.content : '';
+  
+  // Add critical quantity reminder BEFORE the AI processes the message
+  // This helps prevent the AI from doubling quantities
+  const quantityReminder = `[⚠️ คำสั่งบังคับ: อ่านข้อความล่าสุดของลูกค้าอย่างระมัดระวัง! ถ้าลูกค้าพิมพ์ "1 ตัว" = 1 ตัวเท่านั้น, "อย่างละ 1" = แต่ละรายการ 1 ตัว ห้ามคูณ 2 หรือบวกกับจำนวนก่อนหน้าเด็ดขาด! ข้อความล่าสุดของลูกค้าคือ: "${lastUserMessage}" - นับจำนวนจากข้อความนี้เท่านั้น!]`;
+  
+  // Insert quantity reminder before processing
+  if (aiMessages.length > 0) {
+    aiMessages.splice(aiMessages.length - 1, 0, { role: "system", content: quantityReminder });
+    console.log(`[FB] Quantity reminder added. Last message: "${lastUserMessage}"`);
+  }
+  
   // Add context reminder about last discussed product BEFORE user's new message
   // This explicitly tells AI what product context to use
   if (lastDiscussedProduct && aiMessages.length > 0) {
@@ -1019,7 +1032,7 @@ async function getAIResponse(
     // Insert context before the last user message
     const lastUserIndex = aiMessages.length - 1;
     aiMessages.splice(lastUserIndex, 0, { role: "system", content: contextReminder });
-    console.log(`Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
+    console.log(`[FB] Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
   }
 
   try {
