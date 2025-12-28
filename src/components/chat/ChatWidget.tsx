@@ -48,8 +48,8 @@ export function ChatWidget({
       {isOpen && (
         <div 
           className={cn(
-            'mb-4 bg-card rounded-2xl shadow-2xl border transition-all duration-300',
-            isMinimized ? 'h-14 w-[340px]' : 'h-[500px] w-[340px]'
+            'mb-4 bg-card rounded-2xl shadow-2xl border overflow-hidden transition-all duration-300',
+            isMinimized ? 'h-14' : 'h-[500px] w-[380px]'
           )}
           style={primaryColor ? { '--primary': primaryColor } as React.CSSProperties : undefined}
         >
@@ -57,7 +57,7 @@ export function ChatWidget({
           <div className="flex items-center justify-between p-3 bg-primary text-primary-foreground">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
-              <span className="font-semibold text-sm">AI Sales Assistant</span>
+              <span className="font-semibold">AI Sales Assistant</span>
             </div>
             <div className="flex items-center gap-1">
               <Button 
@@ -81,7 +81,7 @@ export function ChatWidget({
 
           {/* Chat Content */}
           {!isMinimized && (
-            <div className="h-[calc(100%-56px)] overflow-hidden">
+            <div className="h-[calc(100%-56px)]">
               <ChatWindow />
             </div>
           )}
