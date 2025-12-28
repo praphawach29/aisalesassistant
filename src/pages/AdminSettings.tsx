@@ -58,6 +58,24 @@ const AdminSettings = () => {
   const [bankAccountName, setBankAccountName] = useState("");
   const [promptpayId, setPromptpayId] = useState("");
   const [promptpayError, setPromptpayError] = useState("");
+  const [bankAccountError, setBankAccountError] = useState("");
+
+  // Validate bank account number (digits only, 10-15 digits typical for Thai banks)
+  const validateBankAccountNumber = (value: string): string => {
+    if (!value) return ""; // Empty is allowed
+    const digitsOnly = value.replace(/\D/g, '');
+    if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+      return "เลขบัญชีธนาคารควรมี 10-15 หลัก";
+    }
+    return "";
+  };
+
+  const handleBankAccountChange = (value: string) => {
+    // Only allow digits and dashes for formatting
+    const cleanValue = value.replace(/[^0-9-]/g, '');
+    setBankAccountNumber(cleanValue);
+    setBankAccountError(validateBankAccountNumber(cleanValue));
+  };
 
   // Validate PromptPay ID (10 digits for phone or 13 digits for national ID)
   const validatePromptpayId = (value: string): string => {
@@ -161,6 +179,18 @@ const AdminSettings = () => {
   };
 
   const handleSave = async () => {
+    // Validate bank account before saving
+    const bankError = validateBankAccountNumber(bankAccountNumber);
+    if (bankError) {
+      setBankAccountError(bankError);
+      toast({
+        title: "ข้อมูลไม่ถูกต้อง",
+        description: bankError,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Validate promptpay before saving
     const ppError = validatePromptpayId(promptpayId);
     if (ppError) {
@@ -399,9 +429,13 @@ const AdminSettings = () => {
                   <Label className="text-sm text-muted-foreground">เลขบัญชี</Label>
                   <Input
                     value={bankAccountNumber}
-                    onChange={(e) => setBankAccountNumber(e.target.value)}
+                    onChange={(e) => handleBankAccountChange(e.target.value)}
                     placeholder="เช่น: 123-4-56789-0"
+                    className={bankAccountError ? "border-destructive" : ""}
                   />
+                  {bankAccountError && (
+                    <p className="text-xs text-destructive">{bankAccountError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">ชื่อบัญชี</Label>
