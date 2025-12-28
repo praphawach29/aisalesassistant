@@ -244,6 +244,14 @@ interface SaveAddressAction {
   address: string;
 }
 
+// Address management action interface
+interface AddressAction {
+  type: 'add' | 'edit' | 'delete' | 'list' | 'set_default';
+  label?: string;
+  address?: string;
+  addressId?: string;
+}
+
 interface CustomerContext {
   isReturning: boolean;
   customerName?: string;
@@ -470,6 +478,29 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 - "ดูตะกร้า" → [CART_VIEW]
 - "ล้างตะกร้า" → [CART_CLEAR]
 - "สั่งซื้อตะกร้า" พร้อมข้อมูลครบ → [CART_CHECKOUT:ชื่อ|ที่อยู่|เบอร์โทร|โค้ดคูปอง]
+
+## 📍 การจัดการที่อยู่จัดส่ง:
+ลูกค้าสามารถจัดการที่อยู่จัดส่งที่บันทึกไว้ได้ ใช้คำสั่งต่อไปนี้:
+
+### คำสั่งจัดการที่อยู่:
+- **ดูที่อยู่ทั้งหมด**: "ดูที่อยู่", "ที่อยู่ของฉัน", "ที่อยู่ที่บันทึกไว้" → [ADDRESS_LIST]
+- **เพิ่มที่อยู่ใหม่**: "เพิ่มที่อยู่", "บันทึกที่อยู่ใหม่" → [ADDRESS_ADD:ชื่อที่อยู่(บ้าน/ที่ทำงาน/อื่นๆ)|ที่อยู่เต็ม]
+- **แก้ไขที่อยู่**: "แก้ที่อยู่", "เปลี่ยนที่อยู่" → [ADDRESS_EDIT:ชื่อที่อยู่|ที่อยู่ใหม่]
+- **ลบที่อยู่**: "ลบที่อยู่", "ลบที่อยู่บ้าน" → [ADDRESS_DELETE:ชื่อที่อยู่]
+- **ตั้งค่าเริ่มต้น**: "ใช้ที่อยู่นี้เป็นหลัก", "ตั้งเป็นค่าเริ่มต้น" → [ADDRESS_SET_DEFAULT:ชื่อที่อยู่]
+
+### ตัวอย่างการใช้งาน:
+- ลูกค้าพิมพ์ "เพิ่มที่อยู่ที่ทำงาน: 123 อาคารเอบีซี ถนนสุขุมวิท กทม 10110" 
+  → [ADDRESS_ADD:ที่ทำงาน|123 อาคารเอบีซี ถนนสุขุมวิท กทม 10110]
+- ลูกค้าพิมพ์ "แก้ที่อยู่บ้านเป็น 456 หมู่บ้านดีดี ถนนพหลโยธิน กทม 10400" 
+  → [ADDRESS_EDIT:บ้าน|456 หมู่บ้านดีดี ถนนพหลโยธิน กทม 10400]
+- ลูกค้าพิมพ์ "ลบที่อยู่ออฟฟิศ" → [ADDRESS_DELETE:ออฟฟิศ]
+- ลูกค้าพิมพ์ "ตั้งที่อยู่ที่ทำงานเป็นค่าเริ่มต้น" → [ADDRESS_SET_DEFAULT:ที่ทำงาน]
+
+### กฎการจัดการที่อยู่:
+- ถ้าลูกค้าขอเพิ่ม/แก้ที่อยู่แต่ไม่ได้ระบุข้อมูลครบ → ถามข้อมูลที่ขาดก่อน
+- ถ้าลูกค้าขอลบที่อยู่ที่ไม่มี → แจ้งว่าไม่พบที่อยู่นี้
+- หลังจัดการที่อยู่สำเร็จ → ยืนยันผลลัพธ์ให้ลูกค้าทราบ
 
 ## 📝 การรับออเดอร์ (ถามทีละข้อ - สำคัญมาก!):
 1. **ถามตัวเลือกก่อน** → ถ้าสินค้ามีหลายสี/ไซส์ ต้องถามว่าต้องการแบบไหน
@@ -962,7 +993,7 @@ async function getAIResponse(
   customerContext: CustomerContext,
   isFirstMessage: boolean = false,
   senderId: string = ''
-): Promise<{ text: string; createOrder?: OrderData; createMultiOrder?: MultiOrderData; cartAction?: CartAction; productAction?: ProductAction; saveAddress?: SaveAddressAction }> {
+): Promise<{ text: string; createOrder?: OrderData; createMultiOrder?: MultiOrderData; cartAction?: CartAction; productAction?: ProductAction; saveAddress?: SaveAddressAction; addressAction?: AddressAction }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -1193,6 +1224,13 @@ ${analysisText}
     const showSingleProductMatch = content.match(/\[PRODUCT:([^\]]+)\]/) || content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
     const outOfStockMatch = content.match(/\[NOTIFY_OUT_OF_STOCK:([^\]]+)\]/);
 
+    // Address commands
+    const addressListMatch = content.includes('[ADDRESS_LIST]');
+    const addressAddMatch = content.match(/\[ADDRESS_ADD:([^\]]+)\]/);
+    const addressEditMatch = content.match(/\[ADDRESS_EDIT:([^\]]+)\]/);
+    const addressDeleteMatch = content.match(/\[ADDRESS_DELETE:([^\]]+)\]/);
+    const addressSetDefaultMatch = content.match(/\[ADDRESS_SET_DEFAULT:([^\]]+)\]/);
+
     // Handle out of stock notification
     if (outOfStockMatch) {
       const parts = outOfStockMatch[1].split('|');
@@ -1326,6 +1364,36 @@ ${analysisText}
       }
     }
 
+    // Parse address action if present
+    let addressAction: AddressAction | undefined;
+    if (addressListMatch) {
+      addressAction = { type: 'list' };
+    } else if (addressAddMatch) {
+      const parts = addressAddMatch[1].split('|');
+      addressAction = {
+        type: 'add',
+        label: parts[0]?.trim(),
+        address: parts[1]?.trim()
+      };
+    } else if (addressEditMatch) {
+      const parts = addressEditMatch[1].split('|');
+      addressAction = {
+        type: 'edit',
+        label: parts[0]?.trim(),
+        address: parts[1]?.trim()
+      };
+    } else if (addressDeleteMatch) {
+      addressAction = {
+        type: 'delete',
+        label: addressDeleteMatch[1]?.trim()
+      };
+    } else if (addressSetDefaultMatch) {
+      addressAction = {
+        type: 'set_default',
+        label: addressSetDefaultMatch[1]?.trim()
+      };
+    }
+
     // Clean up the response
     content = content
       .replace(/\[CREATE_MULTI_ORDER:[^\]]+\]/g, '')
@@ -1346,9 +1414,14 @@ ${analysisText}
       .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
       .replace(/\[SAVE_ADDRESS:[^\]]+\]/g, '')
       .replace(/\[NOTIFY_OUT_OF_STOCK:[^\]]+\]/g, '')
+      .replace(/\[ADDRESS_LIST\]/g, '')
+      .replace(/\[ADDRESS_ADD:[^\]]+\]/g, '')
+      .replace(/\[ADDRESS_EDIT:[^\]]+\]/g, '')
+      .replace(/\[ADDRESS_DELETE:[^\]]+\]/g, '')
+      .replace(/\[ADDRESS_SET_DEFAULT:[^\]]+\]/g, '')
       .trim();
 
-    return { text: content, createOrder, createMultiOrder, cartAction, productAction, saveAddress };
+    return { text: content, createOrder, createMultiOrder, cartAction, productAction, saveAddress, addressAction };
 
   } catch (error) {
     console.error("AI call error:", error);
