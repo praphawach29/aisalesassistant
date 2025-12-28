@@ -791,6 +791,42 @@ export type Database = {
         }
         Relationships: []
       }
+      related_products: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          related_product_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          related_product_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          related_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "related_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "related_products_related_product_id_fkey"
+            columns: ["related_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scraped_content: {
         Row: {
           content: string | null
