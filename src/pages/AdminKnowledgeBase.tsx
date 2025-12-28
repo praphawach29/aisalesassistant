@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { useCacheInvalidation } from '@/hooks/useCacheInvalidation';
 import { 
   Upload, 
   FileText, 
@@ -53,6 +54,7 @@ interface KnowledgeItem {
 
 export default function AdminKnowledgeBase() {
   const queryClient = useQueryClient();
+  const { invalidateCache } = useCacheInvalidation();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [selectedItem, setSelectedItem] = useState<KnowledgeItem | null>(null);
@@ -84,7 +86,8 @@ export default function AdminKnowledgeBase() {
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await invalidateCache(['all']);
       queryClient.invalidateQueries({ queryKey: ['knowledge-base'] });
       toast.success('อัพเดทสถานะสำเร็จ');
     },
@@ -113,7 +116,8 @@ export default function AdminKnowledgeBase() {
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await invalidateCache(['all']);
       queryClient.invalidateQueries({ queryKey: ['knowledge-base'] });
       toast.success('ลบเอกสารสำเร็จ');
       setDeleteItemId(null);
@@ -179,6 +183,7 @@ export default function AdminKnowledgeBase() {
       if (functionError) throw functionError;
       if (!functionData.success) throw new Error(functionData.error);
 
+      await invalidateCache(['all']);
       queryClient.invalidateQueries({ queryKey: ['knowledge-base'] });
       toast.success('อัพโหลดและประมวลผลสำเร็จ');
 

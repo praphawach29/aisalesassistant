@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useCacheInvalidation } from '@/hooks/useCacheInvalidation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,7 @@ const categoryOptions = [
 export default function AdminTemplates() {
   const { user, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
+  const { invalidateCache } = useCacheInvalidation();
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -157,6 +159,7 @@ export default function AdminTemplates() {
         toast.success('สร้างเทมเพลตสำเร็จ');
       }
 
+      await invalidateCache(['all']);
       setIsDialogOpen(false);
       fetchTemplates();
     } catch (error) {
@@ -177,6 +180,7 @@ export default function AdminTemplates() {
         .eq('id', id);
 
       if (error) throw error;
+      await invalidateCache(['all']);
       toast.success('ลบเทมเพลตสำเร็จ');
       fetchTemplates();
     } catch (error) {
@@ -194,6 +198,7 @@ export default function AdminTemplates() {
 
       if (error) throw error;
       
+      await invalidateCache(['all']);
       setTemplates(prev => 
         prev.map(t => t.id === id ? { ...t, is_active: !currentState } : t)
       );

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCacheInvalidation } from '@/hooks/useCacheInvalidation';
 import { Bot, Save, FlaskConical, Plus, Settings2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -72,6 +73,7 @@ export default function AdminAISettings() {
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateDescription, setNewTemplateDescription] = useState('');
   const { toast } = useToast();
+  const { invalidateCache } = useCacheInvalidation();
 
   useEffect(() => {
     fetchData();
@@ -203,6 +205,7 @@ export default function AdminAISettings() {
         description: 'ค่า AI ถูกบันทึกและใช้งานเรียบร้อยแล้ว',
       });
       
+      await invalidateCache(['ai_settings']);
       fetchData();
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -250,6 +253,7 @@ export default function AdminAISettings() {
         description: `Template "${newTemplateName}" ถูกสร้างเรียบร้อยแล้ว`,
       });
       
+      await invalidateCache(['ai_settings']);
       setIsSaveTemplateOpen(false);
       setNewTemplateName('');
       setNewTemplateDescription('');
@@ -278,6 +282,7 @@ export default function AdminAISettings() {
         title: 'ลบ Template สำเร็จ',
       });
       
+      await invalidateCache(['ai_settings']);
       if (selectedTemplateId === templateId) {
         setSelectedTemplateId(null);
       }
