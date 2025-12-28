@@ -412,34 +412,55 @@ export default function AdminFAQs() {
                   {filteredFaqs.map((faq) => (
                     <div
                       key={faq.id}
-                      className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                      className="p-3 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-start gap-4">
-                        {/* Icon */}
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+                        {/* Icon - hidden on mobile */}
+                        <div className="hidden sm:flex w-10 h-10 rounded-full bg-primary/10 items-center justify-center flex-shrink-0">
                           <MessageSquare className="w-5 h-5 text-primary" />
                         </div>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="font-medium">{faq.question}</h3>
-                            {!faq.is_active && (
-                              <Badge variant="secondary">ปิดใช้งาน</Badge>
-                            )}
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2 flex-wrap flex-1">
+                              <h3 className="font-medium text-sm sm:text-base leading-snug">{faq.question}</h3>
+                              {!faq.is_active && (
+                                <Badge variant="secondary" className="text-[10px] sm:text-xs">ปิดใช้งาน</Badge>
+                              )}
+                            </div>
+                            {/* Actions - mobile: top right */}
+                            <div className="flex gap-1.5 sm:hidden flex-shrink-0">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => openEditDialog(faq)}
+                                className="h-8 w-8"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => openDeleteDialog(faq)}
+                                className="text-destructive hover:text-destructive h-8 w-8"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
                           </div>
                           {faq.category && (
-                            <Badge variant="outline" className="mb-2 text-xs">
+                            <Badge variant="outline" className="mb-2 text-[10px] sm:text-xs">
                               {faq.category}
                             </Badge>
                           )}
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                             {faq.answer}
                           </p>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex gap-2 flex-shrink-0">
+                        {/* Actions - desktop: right side */}
+                        <div className="hidden sm:flex gap-2 flex-shrink-0">
                           <Button
                             variant="outline"
                             size="icon"
