@@ -401,7 +401,7 @@ export default function AdminChats() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="h-7 w-7 sm:h-8 sm:w-8 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={(e) => confirmDeleteConversation(e, conversation)}
                       >
                         <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
