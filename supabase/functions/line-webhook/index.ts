@@ -1075,10 +1075,9 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
             {
               type: "text",
               text: data.orderNumber,
-              size: "sm",
-              color: "#FFFFFF",
-              margin: "xs",
-              wrap: true
+              size: "xs",
+              color: "#E8F5E9",
+              margin: "xs"
             }
           ],
           margin: "md"
