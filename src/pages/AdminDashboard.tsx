@@ -60,6 +60,12 @@ interface DailyRevenue {
   orders: number;
 }
 
+interface WeeklyRevenue {
+  week: string;
+  revenue: number;
+  orders: number;
+}
+
 interface MonthlyRevenue {
   month: string;
   revenue: number;
@@ -94,8 +100,9 @@ export default function AdminDashboard() {
   });
   const [ordersByPlatform, setOrdersByPlatform] = useState<OrdersByPlatform[]>([]);
   const [dailyRevenue, setDailyRevenue] = useState<DailyRevenue[]>([]);
+  const [weeklyRevenue, setWeeklyRevenue] = useState<WeeklyRevenue[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
-  const [reportView, setReportView] = useState<'daily' | 'monthly'>('daily');
+  const [reportView, setReportView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
@@ -206,23 +213,40 @@ export default function AdminDashboard() {
     });
     setOrdersByPlatform(platformStats);
 
-    // Daily revenue for last 7 days
-    const last7Days: DailyRevenue[] = [];
-    for (let i = 6; i >= 0; i--) {
+    // Daily revenue for last 14 days
+    const last14Days: DailyRevenue[] = [];
+    for (let i = 13; i >= 0; i--) {
       const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
       const dateStr = date.toISOString().split('T')[0];
       const dayOrders = typedOrders.filter(o => o.created_at.startsWith(dateStr) && o.status !== 'cancelled');
-      last7Days.push({
-        date: date.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric' }),
+      last14Days.push({
+        date: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
         revenue: dayOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
         orders: dayOrders.length
       });
     }
-    setDailyRevenue(last7Days);
+    setDailyRevenue(last14Days);
 
-    // Monthly revenue for last 6 months
-    const last6Months: MonthlyRevenue[] = [];
-    for (let i = 5; i >= 0; i--) {
+    // Weekly revenue for last 8 weeks
+    const last8Weeks: WeeklyRevenue[] = [];
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = new Date(today.getTime() - (i * 7 + today.getDay()) * 24 * 60 * 60 * 1000);
+      const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+      const weekOrders = typedOrders.filter(o => {
+        const orderDate = new Date(o.created_at);
+        return orderDate >= weekStart && orderDate <= weekEnd && o.status !== 'cancelled';
+      });
+      last8Weeks.push({
+        week: `${weekStart.getDate()}/${weekStart.getMonth() + 1}-${weekEnd.getDate()}/${weekEnd.getMonth() + 1}`,
+        revenue: weekOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
+        orders: weekOrders.length
+      });
+    }
+    setWeeklyRevenue(last8Weeks);
+
+    // Monthly revenue for last 12 months
+    const last12Months: MonthlyRevenue[] = [];
+    for (let i = 11; i >= 0; i--) {
       const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const year = date.getFullYear();
       const month = date.getMonth();
@@ -232,13 +256,13 @@ export default function AdminDashboard() {
                orderDate.getMonth() === month && 
                o.status !== 'cancelled';
       });
-      last6Months.push({
+      last12Months.push({
         month: date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }),
         revenue: monthOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
         orders: monthOrders.length
       });
     }
-    setMonthlyRevenue(last6Months);
+    setMonthlyRevenue(last12Months);
 
     setOrders(typedOrders.slice(0, 5));
     setIsLoadingData(false);
@@ -410,12 +434,14 @@ export default function AdminDashboard() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <CardTitle className="text-sm lg:text-lg">
-                  {reportView === 'daily' ? 'รายได้รายวัน' : 'รายได้รายเดือน'}
+                  {reportView === 'daily' ? 'รายได้รายวัน' : reportView === 'weekly' ? 'รายได้รายสัปดาห์' : 'รายได้รายเดือน'}
                 </CardTitle>
                 <CardDescription className="text-xs lg:text-sm">
                   {reportView === 'daily' 
-                    ? `7 วันล่าสุด • ฿${stats.thisWeekRevenue.toLocaleString()}`
-                    : `6 เดือนล่าสุด • ฿${stats.totalRevenue.toLocaleString()}`
+                    ? `14 วันล่าสุด • ฿${dailyRevenue.reduce((sum, d) => sum + d.revenue, 0).toLocaleString()}`
+                    : reportView === 'weekly'
+                    ? `8 สัปดาห์ล่าสุด • ฿${weeklyRevenue.reduce((sum, w) => sum + w.revenue, 0).toLocaleString()}`
+                    : `12 เดือนล่าสุด • ฿${monthlyRevenue.reduce((sum, m) => sum + m.revenue, 0).toLocaleString()}`
                   }
                 </CardDescription>
               </div>
@@ -423,15 +449,23 @@ export default function AdminDashboard() {
                 <Button 
                   variant={reportView === 'daily' ? 'default' : 'ghost'}
                   size="sm"
-                  className="h-7 text-xs px-3"
+                  className="h-7 text-xs px-2 sm:px-3"
                   onClick={() => setReportView('daily')}
                 >
                   รายวัน
                 </Button>
                 <Button 
+                  variant={reportView === 'weekly' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 text-xs px-2 sm:px-3"
+                  onClick={() => setReportView('weekly')}
+                >
+                  รายสัปดาห์
+                </Button>
+                <Button 
                   variant={reportView === 'monthly' ? 'default' : 'ghost'}
                   size="sm"
-                  className="h-7 text-xs px-3"
+                  className="h-7 text-xs px-2 sm:px-3"
                   onClick={() => setReportView('monthly')}
                 >
                   รายเดือน
@@ -440,7 +474,7 @@ export default function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent className="p-3 lg:p-6 pt-0">
-            <div className="h-[180px] lg:h-[250px]">
+            <div className="h-[200px] lg:h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 {reportView === 'daily' ? (
                   <AreaChart data={dailyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
@@ -451,7 +485,7 @@ export default function AdminDashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 9 }} />
+                    <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 8 }} interval={1} />
                     <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
                     <Tooltip 
                       formatter={(value: number, name: string) => [
@@ -461,11 +495,27 @@ export default function AdminDashboard() {
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
                     />
                     <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={2} />
+                    <Line type="monotone" dataKey="orders" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ fill: 'hsl(var(--chart-2))', r: 3 }} />
                   </AreaChart>
+                ) : reportView === 'weekly' ? (
+                  <BarChart data={weeklyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="week" className="text-xs" tick={{ fontSize: 8 }} />
+                    <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        name === 'orders' ? `${value} ออเดอร์` : `฿${value.toLocaleString()}`,
+                        name === 'orders' ? 'จำนวน' : 'รายได้'
+                      ]}
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
+                    />
+                    <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="orders" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 ) : (
                   <BarChart data={monthlyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 9 }} />
+                    <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 8 }} />
                     <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
                     <Tooltip 
                       formatter={(value: number, name: string) => [
