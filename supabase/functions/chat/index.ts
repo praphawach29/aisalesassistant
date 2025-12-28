@@ -151,6 +151,24 @@ interface AISettings {
   ai_provider?: string;
 }
 
+interface SavedAddress {
+  id: string;
+  label: string;
+  address: string;
+  isDefault: boolean;
+}
+
+interface CustomerContext {
+  isReturning: boolean;
+  savedAddresses?: SavedAddress[];
+}
+
+interface AddressAction {
+  type: 'list' | 'add' | 'edit' | 'delete' | 'set_default';
+  label?: string;
+  address?: string;
+}
+
 interface StoreSettings {
   storeName: string;
   storePhone: string;
@@ -169,7 +187,7 @@ interface StoreSettings {
   termsConditions: string;
 }
 
-function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean, scrapedContent: string): string {
+function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean, scrapedContent: string, customerContext?: CustomerContext): string {
   const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
 
   // Gender-specific particles
@@ -324,10 +342,31 @@ ${custom_rules ? `## ⚠️ กฎพิเศษที่ต้องปฏิ�
 ## 📝 การรับออเดอร์ (ถามทีละข้อ):
 1. ยืนยันรายการสินค้าและจำนวน
 2. ถามชื่อ-นามสกุล
-3. ถามที่อยู่จัดส่ง (พร้อมรหัสไปรษณีย์)
+3. ถามที่อยู่จัดส่ง (พร้อมรหัสไปรษณีย์)${customerContext?.savedAddresses && customerContext.savedAddresses.length > 0 ? ' - แนะนำที่อยู่ที่บันทึกไว้ให้ลูกค้า' : ''}
 4. ถามเบอร์โทรศัพท์
 5. สรุปออเดอร์และยอดรวม
 6. แจ้งว่า "ขอบคุณมาก${particleEnd}! ออเดอร์ของคุณได้รับการบันทึกเรียบร้อยแล้ว ทางร้านจะติดต่อกลับเพื่อยืนยันและแจ้งเลข Tracking ${particleEnd}"
+
+${customerContext?.savedAddresses && customerContext.savedAddresses.length > 0 ? `## 📍 ที่อยู่ที่บันทึกไว้ของลูกค้า:
+${customerContext.savedAddresses.map((a, i) => (i + 1) + '. ' + a.label + ': ' + a.address + (a.isDefault ? ' ⭐ (ค่าเริ่มต้น)' : '')).join('\n')}
+
+### กฎการใช้ที่อยู่:
+- เมื่อถามที่อยู่จัดส่ง ให้แนะนำที่อยู่ที่บันทึกไว้ เช่น "จะส่งไปที่อยู่เดิมไหม${particleQuestion}? มีที่อยู่บันทึกไว้: [รายการที่อยู่]"
+- ถ้าลูกค้าพิมพ์ "ที่เดิม", "เหมือนเดิม", "ที่อยู่เดิม" → ใช้ที่อยู่ค่าเริ่มต้น (⭐) หรือที่อยู่แรก
+- ถ้าลูกค้าระบุป้ายกำกับ เช่น "ส่งที่ทำงาน" → ใช้ที่อยู่ตามป้ายกำกับนั้น
+` : ''}
+
+## 📍 การจัดการที่อยู่จัดส่ง:
+เมื่อลูกค้าต้องการจัดการที่อยู่ ให้ใส่คำสั่งในรูปแบบนี้:
+- ดูที่อยู่ทั้งหมด: [ADDRESS_LIST]
+- เพิ่มที่อยู่ใหม่: [ADDRESS_ADD:ป้ายกำกับ|ที่อยู่เต็ม]
+- แก้ไขที่อยู่: [ADDRESS_EDIT:ป้ายกำกับ|ที่อยู่ใหม่]
+- ลบที่อยู่: [ADDRESS_DELETE:ป้ายกำกับ]
+- ตั้งค่าเริ่มต้น: [ADDRESS_DEFAULT:ป้ายกำกับ]
+
+ตัวอย่าง:
+- "เพิ่มที่อยู่บ้าน: 123 ถ.สุขุมวิท กทม" → ตอบ: "บันทึกที่อยู่เรียบร้อยแล้ว${particleEnd}" พร้อมใส่ [ADDRESS_ADD:บ้าน|123 ถ.สุขุมวิท กทม]
+- "ดูที่อยู่ของฉัน" → ใส่ [ADDRESS_LIST] แล้ว AI จะแสดงรายการ
 
 ## ❌ สิ่งที่ห้ามทำ:
 - ห้ามตอบคำถามที่ไม่เกี่ยวกับสินค้าหรือการซื้อขาย
@@ -342,7 +381,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationId } = await req.json();
+    const { messages, conversationId, webUserId } = await req.json();
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -527,8 +566,32 @@ serve(async (req) => {
     const userMessages = messages.filter((m: { role: string }) => m.role === 'user');
     const isFirstMessage = userMessages.length <= 1;
 
+    // Fetch saved addresses for web user if webUserId is provided
+    let customerContext: CustomerContext = { isReturning: false };
+    if (webUserId) {
+      const { data: addressesData } = await supabase
+        .from("customer_addresses")
+        .select("*")
+        .eq("platform_user_id", webUserId)
+        .eq("platform", "web")
+        .order("is_default", { ascending: false });
+
+      if (addressesData && addressesData.length > 0) {
+        customerContext = {
+          isReturning: true,
+          savedAddresses: addressesData.map((a: any) => ({
+            id: a.id,
+            label: a.label,
+            address: a.address,
+            isDefault: a.is_default
+          }))
+        };
+        console.log(`Found ${addressesData.length} saved addresses for web user ${webUserId}`);
+      }
+    }
+
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext);
     
     console.log("Is first message:", isFirstMessage);
 
