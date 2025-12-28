@@ -21,6 +21,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   MessageCircle, 
   RefreshCw,
@@ -28,8 +38,10 @@ import {
   User,
   Phone,
   Calendar,
-  Clock
+  Clock,
+  Trash2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { ChatConversation, ChatMessage } from '@/types';
 
 export default function AdminChats() {
@@ -43,6 +55,8 @@ export default function AdminChats() {
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<ChatConversation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -118,6 +132,56 @@ export default function AdminChats() {
     setSelectedConversation(conversation);
     setIsDetailOpen(true);
     await fetchMessages(conversation.id);
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!conversationToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete messages first (due to foreign key)
+      const { error: messagesError } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('conversation_id', conversationToDelete.id);
+      
+      if (messagesError) throw messagesError;
+      
+      // Delete shopping cart items related to this conversation
+      await supabase
+        .from('shopping_carts')
+        .delete()
+        .eq('conversation_id', conversationToDelete.id);
+      
+      // Delete the conversation
+      const { error: convError } = await supabase
+        .from('chat_conversations')
+        .delete()
+        .eq('id', conversationToDelete.id);
+      
+      if (convError) throw convError;
+      
+      toast.success('ลบการสนทนาเรียบร้อยแล้ว');
+      
+      // Close sheet if deleting currently viewed conversation
+      if (selectedConversation?.id === conversationToDelete.id) {
+        setIsDetailOpen(false);
+        setSelectedConversation(null);
+      }
+      
+      fetchConversations();
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast.error('เกิดข้อผิดพลาดในการลบการสนทนา');
+    } finally {
+      setIsDeleting(false);
+      setConversationToDelete(null);
+    }
+  };
+
+  const confirmDeleteConversation = (e: React.MouseEvent, conversation: ChatConversation) => {
+    e.stopPropagation();
+    setConversationToDelete(conversation);
   };
 
   const getPlatformIcon = (platform: ChatConversation['platform']) => {
@@ -294,7 +358,7 @@ export default function AdminChats() {
                   <div
                     key={conversation.id}
                     onClick={() => openConversationDetail(conversation)}
-                    className="flex items-start gap-2 sm:gap-4 p-2 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer overflow-hidden"
+                    className="flex items-start gap-2 sm:gap-4 p-2 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer overflow-hidden group"
                   >
                     {/* Platform Icon */}
                     <div className="text-base sm:text-2xl flex-shrink-0 pt-0.5">
@@ -327,11 +391,21 @@ export default function AdminChats() {
                       )}
                     </div>
 
-                    {/* Time - hidden on mobile, shown inline above */}
-                    <div className="text-right flex-shrink-0 hidden sm:block">
-                      <p className="text-xs text-muted-foreground whitespace-nowrap">
-                        {getTimeAgo(conversation.last_message_at)}
-                      </p>
+                    {/* Time & Delete */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">
+                          {getTimeAgo(conversation.last_message_at)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 sm:h-8 sm:w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => confirmDeleteConversation(e, conversation)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -418,10 +492,62 @@ export default function AdminChats() {
                   )}
                 </ScrollArea>
               </div>
+
+              {/* Delete Button in Sheet */}
+              <div className="pt-3 sm:pt-4 border-t mt-3 sm:mt-4">
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={(e) => {
+                    if (selectedConversation) {
+                      confirmDeleteConversation(e, selectedConversation);
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  ลบการสนทนานี้
+                </Button>
+              </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!conversationToDelete} onOpenChange={(open) => !open && setConversationToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบการสนทนา</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการลบการสนทนากับ "{conversationToDelete?.customer_name || 'ไม่ระบุชื่อ'}" ใช่หรือไม่? 
+              ข้อความทั้งหมดจะถูกลบถาวรและไม่สามารถกู้คืนได้ 
+              <span className="block mt-2 font-medium text-foreground">
+                ⚠️ บอทจะไม่จำบทสนทนาเก่าได้อีกต่อไป
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConversation}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  กำลังลบ...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  ลบการสนทนา
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
