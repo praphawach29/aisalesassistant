@@ -143,18 +143,18 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-card">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between p-3 sm:p-4 border-b bg-card">
+        <div className="flex items-center gap-2 sm:gap-3">
           {logoUrl ? (
-            <img src={logoUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+            <img src={logoUrl} alt="" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5 text-primary-foreground" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
           )}
           <div>
-            <h2 className="font-semibold text-foreground">{aiSettings?.ai_name || 'Sales Assistant'}</h2>
-            <p className="text-xs text-muted-foreground">
+            <h2 className="font-semibold text-foreground text-sm sm:text-base">{aiSettings?.ai_name || 'Sales Assistant'}</h2>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
               {messages.length > 0 ? `${messages.length} ข้อความ` : 'พร้อมให้บริการ 24 ชม.'}
             </p>
           </div>
@@ -164,36 +164,36 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
           size="sm"
           onClick={clearChat}
           title="เริ่มสนทนาใหม่"
-          className="gap-2 text-muted-foreground hover:text-foreground"
+          className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground h-8 sm:h-9 px-2 sm:px-3"
         >
-          <RotateCcw className="w-4 h-4" />
-          <span className="hidden sm:inline">เริ่มใหม่</span>
+          <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <span className="hidden sm:inline text-xs sm:text-sm">เริ่มใหม่</span>
         </Button>
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea ref={scrollRef} className="flex-1 p-3 sm:p-4">
+        <div className="space-y-3 sm:space-y-4">
           {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-4">
-                <MessageCircle className="w-8 h-8 text-primary" />
+          <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[300px] text-center px-2">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-3 sm:mb-4">
+                <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
               </div>
-              <h3 className="font-medium text-foreground mb-2">ยินดีต้อนรับ!</h3>
-              <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+              <h3 className="font-medium text-foreground mb-1.5 sm:mb-2 text-sm sm:text-base">ยินดีต้อนรับ!</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 max-w-sm">
                 {welcomeMessage || aiSettings?.greeting_message || getDefaultGreeting(aiSettings?.gender)}
               </p>
               
-              <div className="flex flex-wrap gap-2 justify-center">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
                 {displayQuickActions.map((action) => (
                   <Button
                     key={action.label}
                     variant="outline"
                     size="sm"
                     onClick={() => sendMessage(action.message)}
-                    className="gap-2"
+                    className="gap-1.5 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3"
                   >
-                    {'icon' in action && action.icon && <action.icon className="w-4 h-4" />}
+                    {'icon' in action && action.icon && <action.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                     {action.label}
                   </Button>
                 ))}
@@ -223,11 +223,11 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t bg-card">
+      <div className="p-3 sm:p-4 border-t bg-card">
         <ChatInput
           onSend={sendMessage}
           isLoading={isLoading}
-          placeholder="พิมพ์ข้อความ... (กด Enter เพื่อส่ง)"
+          placeholder="พิมพ์ข้อความ..."
         />
       </div>
 
