@@ -62,12 +62,76 @@ function parseAddressCommands(text: string): { cleanText: string; addressAction?
   return { cleanText: cleanText.trim(), addressAction };
 }
 
+// Parse order creation command from AI response
+interface OrderData {
+  items: { name: string; quantity: number; price: number }[];
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  totalAmount: number;
+}
+
+function parseOrderCommand(text: string): { cleanText: string; orderData?: OrderData } {
+  let cleanText = text;
+  let orderData: OrderData | undefined;
+
+  // Match CREATE_ORDER command
+  // Format: [CREATE_ORDER:item1|qty|price,item2|qty|price|name|phone|address|total]
+  const orderMatch = text.match(/\[CREATE_ORDER:([^\]]+)\]/);
+  if (orderMatch) {
+    try {
+      const parts = orderMatch[1].split('|');
+      
+      // Last 4 parts are: customerName, phone, address, total
+      const totalAmount = parseFloat(parts[parts.length - 1]) || 0;
+      const customerAddress = parts[parts.length - 2] || '';
+      const customerPhone = parts[parts.length - 3] || '';
+      const customerName = parts[parts.length - 4] || '';
+      
+      // Parse items from the beginning
+      const itemsString = parts.slice(0, parts.length - 4).join('|');
+      const items: { name: string; quantity: number; price: number }[] = [];
+      
+      // Split by comma for multiple items, then by | for item details
+      const itemParts = itemsString.split(',');
+      for (const itemPart of itemParts) {
+        const itemDetails = itemPart.split('|');
+        if (itemDetails.length >= 3) {
+          items.push({
+            name: itemDetails[0].trim(),
+            quantity: parseInt(itemDetails[1]) || 1,
+            price: parseFloat(itemDetails[2]) || 0
+          });
+        }
+      }
+
+      if (items.length > 0 && customerName && customerPhone && customerAddress) {
+        orderData = {
+          items,
+          customerName,
+          customerPhone,
+          customerAddress,
+          totalAmount
+        };
+      }
+    } catch (error) {
+      console.error('Error parsing order command:', error);
+    }
+    
+    cleanText = cleanText.replace(/\[CREATE_ORDER:[^\]]+\]/g, '');
+  }
+
+  return { cleanText: cleanText.trim(), orderData };
+}
+
 export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(options.conversationId || null);
   const [webUserId] = useState<string>(getOrCreateWebUserId);
+  const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null);
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -102,6 +166,7 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
     setConversationId(newId);
     return newId;
   };
+
   const loadMessages = useCallback(async (convId: string) => {
     setIsLoadingHistory(true);
     
@@ -142,7 +207,100 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
     setIsLoadingHistory(false);
   }, []);
 
-  const sendMessage = useCallback(async (userMessage: string) => {
+  // Upload payment slip
+  const uploadPaymentSlip = useCallback(async (file: File, orderId: string): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${orderId}_${Date.now()}.${fileExt}`;
+      const filePath = `${webUserId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('payment-slips')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Error uploading payment slip:', uploadError);
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('payment-slips')
+        .getPublicUrl(filePath);
+
+      // Create payment slip record
+      const { error: insertError } = await supabase
+        .from('payment_slips')
+        .insert({
+          order_id: orderId,
+          platform_user_id: webUserId,
+          platform: 'web',
+          image_url: publicUrl,
+          status: 'pending'
+        });
+
+      if (insertError) {
+        console.error('Error creating payment slip record:', insertError);
+        return null;
+      }
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error in uploadPaymentSlip:', error);
+      return null;
+    }
+  }, [webUserId]);
+
+  // Create order in database
+  const createOrder = useCallback(async (orderData: OrderData): Promise<{ orderNumber: string; orderId: string } | null> => {
+    try {
+      const { data: orderResult, error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          order_number: `ORD-${Date.now()}`,
+          customer_name: orderData.customerName,
+          customer_phone: orderData.customerPhone,
+          customer_address: orderData.customerAddress,
+          total_amount: orderData.totalAmount,
+          platform: 'web'
+        }])
+        .select('id, order_number')
+        .single();
+
+      if (orderError) {
+        console.error('Error creating order:', orderError);
+        return null;
+      }
+
+      const createdOrderId = orderResult?.id;
+      const orderNumber = orderResult?.order_number || `ORD-${Date.now()}`;
+
+      // Insert order items
+      const orderItems = orderData.items.map(item => ({
+        order_id: createdOrderId,
+        product_name: item.name,
+        quantity: item.quantity,
+        price: item.price
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('Error creating order items:', itemsError);
+      }
+
+      setLastOrderNumber(orderNumber);
+      setLastOrderId(createdOrderId);
+      
+      return { orderNumber, orderId: createdOrderId };
+    } catch (error) {
+      console.error('Error in createOrder:', error);
+      return null;
+    }
+  }, []);
+
+  const sendMessage = useCallback(async (userMessage: string, imageFile?: File) => {
     setIsLoading(true);
 
     try {
@@ -152,6 +310,71 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
         if (!currentConversationId) {
           throw new Error('Failed to create conversation');
         }
+      }
+
+      // Handle payment slip upload
+      if (imageFile && lastOrderId) {
+        const slipUrl = await uploadPaymentSlip(imageFile, lastOrderId);
+        if (slipUrl) {
+          // Add user message about slip
+          const slipMessage = userMessage || `ส่งสลิปโอนเงินสำหรับออเดอร์ ${lastOrderNumber}`;
+          const userMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            conversation_id: currentConversationId,
+            role: 'user',
+            content: slipMessage,
+            created_at: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, userMsg]);
+
+          // Save to database
+          await supabase.from('chat_messages').insert({
+            conversation_id: currentConversationId,
+            role: 'user',
+            content: slipMessage
+          });
+
+          // Add confirmation message
+          const confirmMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${lastOrderNumber}\n\nทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`,
+            created_at: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, confirmMsg]);
+
+          // Save confirmation to database
+          await supabase.from('chat_messages').insert({
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: confirmMsg.content
+          });
+
+          setIsLoading(false);
+          return;
+        }
+      } else if (imageFile && !lastOrderId) {
+        // No order yet, prompt to create one
+        const userMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          conversation_id: currentConversationId,
+          role: 'user',
+          content: userMessage || 'ส่งสลิปโอนเงิน',
+          created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, userMsg]);
+
+        const promptMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          conversation_id: currentConversationId,
+          role: 'assistant',
+          content: 'ขออภัยค่ะ ยังไม่มีออเดอร์ที่รอชำระเงินค่ะ 😅\n\nรบกวนสั่งซื้อสินค้าก่อนนะคะ แล้วค่อยส่งสลิปโอนเงินมาได้เลยค่ะ! มีสินค้าอะไรที่สนใจไหมคะ? ✨',
+          created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, promptMsg]);
+        setIsLoading(false);
+        return;
       }
 
       // Add user message to UI immediately
@@ -268,8 +491,29 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
         }
       }
 
+      // Parse order command from the response
+      const { cleanText: orderCleanText, orderData } = parseOrderCommand(assistantContent);
+      
+      // Handle order creation
+      if (orderData) {
+        console.log('[WebChat] Creating order:', orderData);
+        const orderResult = await createOrder(orderData);
+        
+        if (orderResult) {
+          // Append order number to the response
+          const orderConfirmation = `\n\n🎉 **สร้างออเดอร์สำเร็จ!**\n📋 เลขที่ออเดอร์: **${orderResult.orderNumber}**\n\n💳 กรุณาโอนเงินและกดปุ่ม 📎 เพื่อแนบสลิปโอนเงินค่ะ`;
+          assistantContent = orderCleanText + orderConfirmation;
+        } else {
+          assistantContent = orderCleanText + '\n\n❌ ขออภัยค่ะ เกิดข้อผิดพลาดในการสร้างออเดอร์ กรุณาลองใหม่อีกครั้งนะคะ';
+        }
+        
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, content: assistantContent } : m
+        ));
+      }
+
       // Parse address commands from the response
-      const { cleanText, addressAction } = parseAddressCommands(assistantContent);
+      const { cleanText, addressAction } = parseAddressCommands(orderData ? assistantContent : assistantContent);
       
       // Handle address actions
       if (addressAction) {
@@ -416,11 +660,13 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
     } finally {
       setIsLoading(false);
     }
-  }, [conversationId, webUserId]);
+  }, [conversationId, webUserId, lastOrderId, lastOrderNumber, createOrder, uploadPaymentSlip]);
 
   const clearChat = useCallback(() => {
     setMessages([]);
     setConversationId(null);
+    setLastOrderNumber(null);
+    setLastOrderId(null);
     localStorage.removeItem(CONVERSATION_STORAGE_KEY);
   }, []);
 
@@ -429,6 +675,7 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
     isLoading,
     isLoadingHistory,
     conversationId,
+    lastOrderNumber,
     sendMessage,
     loadMessages,
     clearChat
