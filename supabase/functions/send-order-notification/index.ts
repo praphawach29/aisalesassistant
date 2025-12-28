@@ -570,50 +570,42 @@ function createFacebookTrackingUpdateTemplate(order: any) {
   };
 }
 
-// Create Facebook Receipt Template for order summary
+// Create Facebook Generic Template for order receipt (using Generic instead of Receipt template for better compatibility)
 function createFacebookReceiptTemplate(order: any, orderItems: OrderItem[]) {
-  const elements = orderItems.map(item => ({
-    title: item.product_name,
-    subtitle: `จำนวน: ${item.quantity} ชิ้น`,
-    quantity: item.quantity,
-    price: item.price * item.quantity,
-    currency: "THB"
-  }));
+  // Build item list string
+  const itemsList = orderItems.map(item => 
+    `• ${item.product_name} x${item.quantity} = ฿${(item.price * item.quantity).toLocaleString()}`
+  ).join('\n');
 
   const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const discount = order.discount_amount || 0;
+  
+  let subtitle = `📋 ${order.order_number}\n👤 ${order.customer_name}\n📞 ${order.customer_phone}\n\n📦 รายการสินค้า:\n${itemsList}\n\n`;
+  
+  if (discount > 0) {
+    subtitle += `💵 รวม: ฿${subtotal.toLocaleString()}\n`;
+    subtitle += `🎁 ส่วนลด: -฿${discount.toLocaleString()}\n`;
+  }
+  subtitle += `💰 ยอดรวมสุทธิ: ฿${Number(order.total_amount).toLocaleString()}`;
 
   return {
     attachment: {
       type: "template",
       payload: {
-        template_type: "receipt",
-        recipient_name: order.customer_name,
-        order_number: order.order_number,
-        currency: "THB",
-        payment_method: "โอนเงิน",
-        order_url: "",
-        timestamp: Math.floor(new Date(order.created_at).getTime() / 1000).toString(),
-        address: {
-          street_1: order.customer_address,
-          city: "",
-          postal_code: "",
-          state: "",
-          country: "TH"
-        },
-        summary: {
-          subtotal: subtotal,
-          shipping_cost: 0,
-          total_tax: 0,
-          total_cost: order.total_amount
-        },
-        elements: elements,
-        adjustments: discount > 0 ? [
+        template_type: "generic",
+        elements: [
           {
-            name: order.coupon_code ? `ส่วนลด (${order.coupon_code})` : "ส่วนลด",
-            amount: -discount
+            title: "🧾 ใบเสร็จออเดอร์",
+            subtitle: subtitle.substring(0, 800), // Facebook has 800 char limit for subtitle
+            buttons: [
+              {
+                type: "postback",
+                title: "📜 ประวัติออเดอร์",
+                payload: "CHECK_ORDER_HISTORY"
+              }
+            ]
           }
-        ] : []
+        ]
       }
     }
   };
@@ -912,6 +904,8 @@ serve(async (req) => {
 
     // Send to Facebook with beautiful Templates
     if (order.platform === 'facebook' && order.customer_facebook_id) {
+      console.log(`Sending Facebook notification type: ${notification_type}`);
+      
       if (!facebookToken) {
         console.error('Facebook access token not configured');
         results.push({ platform: 'facebook', success: false, error: 'Token not configured' });
@@ -926,17 +920,26 @@ serve(async (req) => {
           fbMessage = createFacebookPaymentConfirmedTemplate(order);
         } else if (notification_type === 'payment_rejected') {
           fbMessage = createFacebookPaymentRejectedTemplate(order, custom_message);
-        } else if (notification_type === 'order_receipt' && orderItems.length > 0) {
-          fbMessage = createFacebookReceiptTemplate(order, orderItems);
+        } else if (notification_type === 'order_receipt') {
+          console.log(`Order items for receipt: ${orderItems.length} items`);
+          if (orderItems.length > 0) {
+            fbMessage = createFacebookReceiptTemplate(order, orderItems);
+            console.log('Created Facebook receipt template');
+          } else {
+            console.log('No order items found for receipt, skipping');
+          }
         } else if (notification_type === 'status_update') {
           const statusInfo = statusMessages[order.status] || statusMessages['pending'];
           fbMessage = createFacebookStatusUpdateTemplate(order, statusInfo);
         }
 
         if (fbMessage) {
+          console.log('Sending Facebook message:', JSON.stringify(fbMessage).substring(0, 200));
           const success = await sendToFacebook(facebookToken, order.customer_facebook_id, fbMessage);
           results.push({ platform: 'facebook', success });
           if (success) notificationSent = true;
+        } else {
+          console.log('No Facebook message to send');
         }
       }
     }
