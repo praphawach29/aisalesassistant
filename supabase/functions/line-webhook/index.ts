@@ -1987,9 +1987,43 @@ serve(async (req) => {
         console.log(`[LINE] Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
       }
       
-      // For greetings, add instruction to respond naturally with just greeting
+      // For greetings, add instruction to NOT repeat greetings
       if (isGreeting) {
-        aiMessages.push({ role: "system", content: "[INSTRUCTION: ลูกค้าทักทายเข้ามา - ตอบทักทายสั้นๆ เป็นธรรมชาติ ถามว่าสนใจสินค้าอะไรหรือช่วยอะไรได้บ้าง ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์]" });
+        aiMessages.push({ role: "system", content: `[INSTRUCTION: ลูกค้าทักทายเข้ามา
+⚠️ กฎสำคัญ - ห้ามทักทายซ้ำซ้อน!
+- ตอบทักทายแค่ครั้งเดียว สั้นๆ เช่น "สวัสดีค่ะ 😊 สนใจสินค้าอะไรเป็นพิเศษคะ?"
+- ห้ามพูดว่า "ยินดีต้อนรับ" หรือ "ขอต้อนรับ" ซ้ำ 2 ครั้งในข้อความเดียว
+- ห้ามแนะนำตัวซ้ำ 2 ครั้ง
+- ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์
+- ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
+      }
+      
+      // CRITICAL: When user specifies a new product list, add strong instruction to REPLACE not ADD
+      const productListPattern = /(\d+\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค))|((ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)\s*\d+)|(อย่างละ\s*\d+)|(\d+\s*(สี|ไซส์|size|s|m|l|xl))/i;
+      const isNewProductList = productListPattern.test(userMessage);
+      
+      if (isNewProductList && !isGreeting) {
+        console.log(`[LINE] New product list detected. Adding REPLACE instruction.`);
+        aiMessages.push({ 
+          role: "system", 
+          content: `[⚠️ คำสั่งบังคับ - กฎที่ต้องปฏิบัติตามเด็ดขาด!]
+
+ลูกค้ากำลังแจ้งรายการสินค้าใหม่ในข้อความนี้: "${userMessage}"
+
+📋 กฎสำคัญ:
+1. รายการสินค้าในข้อความนี้คือ **รายการใหม่ทั้งหมด** ที่ต้อง **แทนที่** รายการเก่าทั้งหมด
+2. **ห้ามบวกรวม** กับรายการที่เคยพูดถึงในบทสนทนาก่อนหน้า
+3. **ห้ามอ้างอิง** จำนวนหรือรายการจากข้อความก่อนหน้า
+4. **อ่านเฉพาะข้อความล่าสุดนี้เท่านั้น** แล้วยืนยันจำนวนตามที่เห็น
+
+🔢 วิธีนับ:
+- ดูจำนวนที่ลูกค้าพิมพ์ในข้อความนี้เท่านั้น
+- "1 ตัว" = 1 ตัว, "2 ตัว" = 2 ตัว (ตามที่พิมพ์)
+- ถ้ามีหลายรายการ ให้นับแยกแต่ละรายการ
+
+❌ ผิด: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 2 ตัว B 2 ตัว C 2 ตัว"
+✅ ถูก: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 1 ตัว B 1 ตัว C 1 ตัว รวม 3 ตัว"` 
+        });
       }
       
       // Add current user message

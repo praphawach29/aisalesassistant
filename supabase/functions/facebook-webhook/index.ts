@@ -612,11 +612,12 @@ interface OrderConfirmationData {
   customerPhone: string;
   customerAddress: string;
   couponCode?: string;
+  bankAccounts?: string;
 }
 
 // Format order confirmation message (enhanced to match LINE)
 function formatOrderConfirmationMessage(data: OrderConfirmationData): string {
-  const { orderNumber, items, totalAmount, discountAmount, customerName, customerPhone, customerAddress, couponCode } = data;
+  const { orderNumber, items, totalAmount, discountAmount, customerName, customerPhone, customerAddress, couponCode, bankAccounts } = data;
   
   let message = `✅ ยืนยันการสั่งซื้อสำเร็จ!\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -660,20 +661,45 @@ function formatOrderConfirmationMessage(data: OrderConfirmationData): string {
   message += `📞 เบอร์โทร: ${customerPhone}\n`;
   message += `📍 ที่อยู่: ${customerAddress}\n\n`;
   
-  // Footer
+  // Payment information
   message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `💳 กรุณาชำระเงินและแจ้งหลักฐาน\n`;
+  message += `💳 ช่องทางชำระเงิน:\n`;
+  message += `──────────────────\n`;
+  if (bankAccounts) {
+    // Parse and format bank accounts nicely
+    const lines = bankAccounts.split('\n');
+    for (const line of lines) {
+      if (line.trim()) {
+        message += `${line.trim()}\n`;
+      }
+    }
+  } else {
+    message += `กรุณาติดต่อร้านค้าเพื่อสอบถามช่องทางชำระเงิน\n`;
+  }
+  
+  message += `\n🔔 หลังโอนเงินแล้ว กรุณาส่งสลิปมาในแชทนี้ค่ะ\n`;
   message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
   message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
   
   return message;
 }
 
-// Send text message to Facebook
-async function sendToFacebook(recipientId: string, message: string, accessToken: string) {
+// Send text message to Facebook with optional quick replies
+async function sendToFacebook(recipientId: string, message: string, accessToken: string, quickReplies?: Array<{ title: string; payload: string }>) {
   if (!accessToken) {
     console.error("FB_PAGE_ACCESS_TOKEN not configured");
     return;
+  }
+
+  const messagePayload: any = { text: message };
+  
+  // Add quick replies if provided
+  if (quickReplies && quickReplies.length > 0) {
+    messagePayload.quick_replies = quickReplies.map(qr => ({
+      content_type: "text",
+      title: qr.title,
+      payload: qr.payload
+    }));
   }
 
   const response = await fetch(
@@ -683,7 +709,7 @@ async function sendToFacebook(recipientId: string, message: string, accessToken:
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         recipient: { id: recipientId },
-        message: { text: message },
+        message: messagePayload,
       }),
     }
   );
@@ -2055,9 +2081,15 @@ serve(async (req) => {
         const productListPattern = /(\d+\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค))|((ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)\s*\d+)|(อย่างละ\s*\d+)|(\d+\s*(สี|ไซส์|size|s|m|l|xl))/i;
         const isNewProductList = productListPattern.test(userMessage);
         
-        // For greetings, add instruction
+        // For greetings, add instruction to NOT repeat greetings
         if (isGreeting) {
-          messages.push({ role: "system", content: "[INSTRUCTION: ลูกค้าทักทายเข้ามา - ตอบทักทายสั้นๆ เป็นธรรมชาติ ถามว่าสนใจสินค้าอะไรหรือช่วยอะไรได้บ้าง ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์]" });
+          messages.push({ role: "system", content: `[INSTRUCTION: ลูกค้าทักทายเข้ามา
+⚠️ กฎสำคัญ - ห้ามทักทายซ้ำซ้อน!
+- ตอบทักทายแค่ครั้งเดียว สั้นๆ เช่น "สวัสดีค่ะ 😊 สนใจสินค้าอะไรเป็นพิเศษคะ?"
+- ห้ามพูดว่า "ยินดีต้อนรับ" หรือ "ขอต้อนรับ" ซ้ำ 2 ครั้งในข้อความเดียว
+- ห้ามแนะนำตัวซ้ำ 2 ครั้ง
+- ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์
+- ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
         }
         
         // CRITICAL: When user specifies a new product list, add strong instruction to REPLACE not ADD
@@ -2315,6 +2347,13 @@ serve(async (req) => {
 
                 console.log(`Facebook cart order created: ${order.order_number}`);
 
+                // Fetch bank accounts for payment info
+                const { data: bankSettingCart } = await supabase
+                  .from("settings")
+                  .select("value")
+                  .eq("key", "BANK_ACCOUNTS")
+                  .maybeSingle();
+
                 responseMessage = formatOrderConfirmationMessage({
                   orderNumber: order.order_number,
                   items: orderItems,
@@ -2323,7 +2362,8 @@ serve(async (req) => {
                   customerName: cartAction.customerName,
                   customerPhone: cartAction.customerPhone,
                   customerAddress: cartAction.customerAddress,
-                  couponCode: cartAction.couponCode
+                  couponCode: cartAction.couponCode,
+                  bankAccounts: bankSettingCart?.value || undefined
                 });
               } else {
                 console.error("Error creating order:", orderError);
@@ -2393,6 +2433,13 @@ serve(async (req) => {
 
               console.log(`Facebook direct order created: ${order.order_number}`);
 
+              // Fetch bank accounts for payment info
+              const { data: bankSetting } = await supabase
+                .from("settings")
+                .select("value")
+                .eq("key", "BANK_ACCOUNTS")
+                .maybeSingle();
+
               responseMessage = formatOrderConfirmationMessage({
                 orderNumber: order.order_number,
                 items: [{
@@ -2406,7 +2453,8 @@ serve(async (req) => {
                 customerName: orderData.customerName,
                 customerPhone: orderData.customerPhone,
                 customerAddress: orderData.customerAddress,
-                couponCode: orderData.couponCode
+                couponCode: orderData.couponCode,
+                bankAccounts: bankSetting?.value || undefined
               });
             }
           } else {
@@ -2505,6 +2553,13 @@ serve(async (req) => {
 
               console.log(`Facebook multi-product order created: ${order.order_number}`);
 
+              // Fetch bank accounts for payment info
+              const { data: bankSettingMulti } = await supabase
+                .from("settings")
+                .select("value")
+                .eq("key", "BANK_ACCOUNTS")
+                .maybeSingle();
+
               responseMessage = formatOrderConfirmationMessage({
                 orderNumber: order.order_number,
                 items: orderItemsToCreate.map(item => ({
@@ -2518,7 +2573,8 @@ serve(async (req) => {
                 customerName: multiOrderData.customerName,
                 customerPhone: multiOrderData.customerPhone,
                 customerAddress: multiOrderData.customerAddress,
-                couponCode: multiOrderData.couponCode
+                couponCode: multiOrderData.couponCode,
+                bankAccounts: bankSettingMulti?.value || undefined
               });
             } else {
               console.error("Error creating multi-order:", orderError);
