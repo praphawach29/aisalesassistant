@@ -181,6 +181,14 @@ interface SavedAddress {
   isDefault: boolean;
 }
 
+// Address management action interface
+interface AddressAction {
+  type: 'add' | 'edit' | 'delete' | 'list' | 'set_default';
+  label?: string;
+  address?: string;
+  addressId?: string;
+}
+
 // Customer context for personalized responses
 interface CustomerContext {
   isReturning: boolean;
@@ -392,6 +400,29 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 - "ดูตะกร้า" → [CART_VIEW]
 - "ล้างตะกร้า" → [CART_CLEAR]
 - "สั่งซื้อตะกร้า" พร้อมข้อมูลครบ → [CART_CHECKOUT:ชื่อ|ที่อยู่|เบอร์โทร|โค้ดคูปอง]
+
+## 📍 การจัดการที่อยู่จัดส่ง:
+ลูกค้าสามารถจัดการที่อยู่จัดส่งที่บันทึกไว้ได้ ใช้คำสั่งต่อไปนี้:
+
+### คำสั่งจัดการที่อยู่:
+- **ดูที่อยู่ทั้งหมด**: "ดูที่อยู่", "ที่อยู่ของฉัน", "ที่อยู่ที่บันทึกไว้" → [ADDRESS_LIST]
+- **เพิ่มที่อยู่ใหม่**: "เพิ่มที่อยู่", "บันทึกที่อยู่ใหม่" → [ADDRESS_ADD:ชื่อที่อยู่(บ้าน/ที่ทำงาน/อื่นๆ)|ที่อยู่เต็ม]
+- **แก้ไขที่อยู่**: "แก้ที่อยู่", "เปลี่ยนที่อยู่" → [ADDRESS_EDIT:ชื่อที่อยู่|ที่อยู่ใหม่]
+- **ลบที่อยู่**: "ลบที่อยู่", "ลบที่อยู่บ้าน" → [ADDRESS_DELETE:ชื่อที่อยู่]
+- **ตั้งค่าเริ่มต้น**: "ใช้ที่อยู่นี้เป็นหลัก", "ตั้งเป็นค่าเริ่มต้น" → [ADDRESS_SET_DEFAULT:ชื่อที่อยู่]
+
+### ตัวอย่างการใช้งาน:
+- ลูกค้าพิมพ์ "เพิ่มที่อยู่ที่ทำงาน: 123 อาคารเอบีซี ถนนสุขุมวิท กทม 10110" 
+  → [ADDRESS_ADD:ที่ทำงาน|123 อาคารเอบีซี ถนนสุขุมวิท กทม 10110]
+- ลูกค้าพิมพ์ "แก้ที่อยู่บ้านเป็น 456 หมู่บ้านดีดี ถนนพหลโยธิน กทม 10400" 
+  → [ADDRESS_EDIT:บ้าน|456 หมู่บ้านดีดี ถนนพหลโยธิน กทม 10400]
+- ลูกค้าพิมพ์ "ลบที่อยู่ออฟฟิศ" → [ADDRESS_DELETE:ออฟฟิศ]
+- ลูกค้าพิมพ์ "ตั้งที่อยู่ที่ทำงานเป็นค่าเริ่มต้น" → [ADDRESS_SET_DEFAULT:ที่ทำงาน]
+
+### กฎการจัดการที่อยู่:
+- ถ้าลูกค้าขอเพิ่ม/แก้ที่อยู่แต่ไม่ได้ระบุข้อมูลครบ → ถามข้อมูลที่ขาดก่อน
+- ถ้าลูกค้าขอลบที่อยู่ที่ไม่มี → แจ้งว่าไม่พบที่อยู่นี้
+- หลังจัดการที่อยู่สำเร็จ → ยืนยันผลลัพธ์ให้ลูกค้าทราบ
 
 ## 📝 การรับออเดอร์ (ถามทีละข้อ - สำคัญมาก!):
 1. **ถามตัวเลือกก่อน** → ถ้าสินค้ามีหลายสี/ไซส์ ต้องถามว่าต้องการแบบไหน
@@ -1282,6 +1313,13 @@ function parseAIResponse(content: string, products: Product[]) {
   const createOrderMatch = content.match(/\[CREATE_ORDER:([^\]]+)\]/);
   const createMultiOrderMatch = content.match(/\[CREATE_MULTI_ORDER:([^\]]+)\]/);
 
+  // Address commands
+  const addressListMatch = content.includes('[ADDRESS_LIST]');
+  const addressAddMatch = content.match(/\[ADDRESS_ADD:([^\]]+)\]/);
+  const addressEditMatch = content.match(/\[ADDRESS_EDIT:([^\]]+)\]/);
+  const addressDeleteMatch = content.match(/\[ADDRESS_DELETE:([^\]]+)\]/);
+  const addressSetDefaultMatch = content.match(/\[ADDRESS_SET_DEFAULT:([^\]]+)\]/);
+
   // Clean the text
   let text = content
     .replace(/\[SHOW_PRODUCTS\]/g, '')
@@ -1296,6 +1334,11 @@ function parseAIResponse(content: string, products: Product[]) {
     .replace(/\[NOTIFY_OUT_OF_STOCK:[^\]]+\]/g, '')
     .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
     .replace(/\[CREATE_MULTI_ORDER:[^\]]+\]/g, '')
+    .replace(/\[ADDRESS_LIST\]/g, '')
+    .replace(/\[ADDRESS_ADD:[^\]]+\]/g, '')
+    .replace(/\[ADDRESS_EDIT:[^\]]+\]/g, '')
+    .replace(/\[ADDRESS_DELETE:[^\]]+\]/g, '')
+    .replace(/\[ADDRESS_SET_DEFAULT:[^\]]+\]/g, '')
     .trim();
 
   // Find specific product - prioritize exact match, then partial match
@@ -1436,6 +1479,36 @@ function parseAIResponse(content: string, products: Product[]) {
     }
   }
 
+  // Parse address action
+  let addressAction: AddressAction | undefined;
+  if (addressListMatch) {
+    addressAction = { type: 'list' };
+  } else if (addressAddMatch) {
+    const parts = addressAddMatch[1].split('|');
+    addressAction = {
+      type: 'add',
+      label: parts[0]?.trim(),
+      address: parts[1]?.trim()
+    };
+  } else if (addressEditMatch) {
+    const parts = addressEditMatch[1].split('|');
+    addressAction = {
+      type: 'edit',
+      label: parts[0]?.trim(),
+      address: parts[1]?.trim()
+    };
+  } else if (addressDeleteMatch) {
+    addressAction = {
+      type: 'delete',
+      label: addressDeleteMatch[1]?.trim()
+    };
+  } else if (addressSetDefaultMatch) {
+    addressAction = {
+      type: 'set_default',
+      label: addressSetDefaultMatch[1]?.trim()
+    };
+  }
+
   return { 
     text, 
     showProducts, 
@@ -1445,7 +1518,8 @@ function parseAIResponse(content: string, products: Product[]) {
     cartAction, 
     outOfStockNotification,
     createOrder,
-    createMultiOrder
+    createMultiOrder,
+    addressAction
   };
 }
 
@@ -2280,7 +2354,7 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
       console.log("AI response:", aiContent);
 
       // Parse AI response
-      const { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction, outOfStockNotification, createOrder, createMultiOrder } = parseAIResponse(aiContent, productList);
+      const { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction, outOfStockNotification, createOrder, createMultiOrder, addressAction } = parseAIResponse(aiContent, productList);
 
       // Handle out of stock notification - create admin notification
       if (outOfStockNotification) {
@@ -2306,6 +2380,53 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
       // Always add text message first if there's text
       if (text) {
         lineMessages.push({ type: "text", text });
+      }
+
+      // Handle address actions
+      if (addressAction) {
+        console.log("[LINE] Address action:", addressAction);
+        
+        if (addressAction.type === 'list') {
+          const { data: addresses } = await supabase.from("customer_addresses").select("*").eq("platform_user_id", userId).eq("platform", "line").order("is_default", { ascending: false });
+          if (addresses && addresses.length > 0) {
+            const addressList = addresses.map((a: any, i: number) => `${i + 1}. ${a.label}: ${a.address}${a.is_default ? ' ⭐' : ''}`).join('\n');
+            lineMessages.push({ type: "text", text: `📍 ที่อยู่จัดส่งของคุณ:\n${addressList}` });
+          }
+        } else if (addressAction.type === 'add' && addressAction.label && addressAction.address) {
+          const { data: existing } = await supabase.from("customer_addresses").select("id").eq("platform_user_id", userId).eq("platform", "line").eq("label", addressAction.label).maybeSingle();
+          if (existing) {
+            await supabase.from("customer_addresses").update({ address: addressAction.address, updated_at: new Date().toISOString() }).eq("id", existing.id);
+          } else {
+            const { count } = await supabase.from("customer_addresses").select("*", { count: 'exact', head: true }).eq("platform_user_id", userId).eq("platform", "line");
+            await supabase.from("customer_addresses").insert({ platform_user_id: userId, platform: "line", label: addressAction.label, address: addressAction.address, is_default: count === 0 });
+          }
+          lineMessages.push({ type: "text", text: `✅ บันทึกที่อยู่ "${addressAction.label}" เรียบร้อยแล้วค่ะ` });
+        } else if (addressAction.type === 'edit' && addressAction.label && addressAction.address) {
+          const { data: existing } = await supabase.from("customer_addresses").select("id").eq("platform_user_id", userId).eq("platform", "line").eq("label", addressAction.label).maybeSingle();
+          if (existing) {
+            await supabase.from("customer_addresses").update({ address: addressAction.address, updated_at: new Date().toISOString() }).eq("id", existing.id);
+            lineMessages.push({ type: "text", text: `✅ แก้ไขที่อยู่ "${addressAction.label}" เรียบร้อยแล้วค่ะ` });
+          } else {
+            lineMessages.push({ type: "text", text: `❌ ไม่พบที่อยู่ "${addressAction.label}" ค่ะ` });
+          }
+        } else if (addressAction.type === 'delete' && addressAction.label) {
+          const { data: existing } = await supabase.from("customer_addresses").select("id").eq("platform_user_id", userId).eq("platform", "line").eq("label", addressAction.label).maybeSingle();
+          if (existing) {
+            await supabase.from("customer_addresses").delete().eq("id", existing.id);
+            lineMessages.push({ type: "text", text: `🗑️ ลบที่อยู่ "${addressAction.label}" เรียบร้อยแล้วค่ะ` });
+          } else {
+            lineMessages.push({ type: "text", text: `❌ ไม่พบที่อยู่ "${addressAction.label}" ค่ะ` });
+          }
+        } else if (addressAction.type === 'set_default' && addressAction.label) {
+          const { data: existing } = await supabase.from("customer_addresses").select("id").eq("platform_user_id", userId).eq("platform", "line").eq("label", addressAction.label).maybeSingle();
+          if (existing) {
+            await supabase.from("customer_addresses").update({ is_default: false }).eq("platform_user_id", userId).eq("platform", "line");
+            await supabase.from("customer_addresses").update({ is_default: true }).eq("id", existing.id);
+            lineMessages.push({ type: "text", text: `⭐ ตั้งที่อยู่ "${addressAction.label}" เป็นค่าเริ่มต้นแล้วค่ะ` });
+          } else {
+            lineMessages.push({ type: "text", text: `❌ ไม่พบที่อยู่ "${addressAction.label}" ค่ะ` });
+          }
+        }
       }
 
       // Handle cart actions
