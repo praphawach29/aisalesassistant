@@ -289,27 +289,30 @@ export default function AdminChats() {
             </div>
           ) : (
             <ScrollArea className="h-[calc(100vh-320px)] sm:h-[calc(100vh-340px)]">
-              <div className="space-y-1.5 sm:space-y-3 px-3 sm:px-4 lg:px-0 pb-4">
+              <div className="space-y-1.5 sm:space-y-3 px-2 sm:px-4 lg:px-0 pb-4">
                 {filteredConversations.map((conversation) => (
                   <div
                     key={conversation.id}
                     onClick={() => openConversationDetail(conversation)}
-                    className="flex items-center gap-2 sm:gap-4 p-2 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="flex items-start gap-2 sm:gap-4 p-2 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer overflow-hidden"
                   >
                     {/* Platform Icon */}
-                    <div className="text-lg sm:text-2xl flex-shrink-0">
+                    <div className="text-base sm:text-2xl flex-shrink-0 pt-0.5">
                       {getPlatformIcon(conversation.platform)}
                     </div>
 
                     {/* Conversation Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                        <span className="font-medium text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="font-medium text-xs sm:text-sm truncate">
                           {conversation.customer_name || 'ไม่ระบุชื่อ'}
                         </span>
-                        <Badge variant="outline" className="text-[10px] sm:text-xs px-1 sm:px-2 hidden sm:inline-flex">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs px-1 sm:px-2 hidden sm:inline-flex flex-shrink-0">
                           {getPlatformLabel(conversation.platform)}
                         </Badge>
+                        <span className="text-[10px] sm:hidden text-muted-foreground flex-shrink-0 ml-auto">
+                          {getTimeAgo(conversation.last_message_at)}
+                        </span>
                       </div>
                       {conversation.customer_phone && (
                         <div className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
@@ -318,15 +321,15 @@ export default function AdminChats() {
                         </div>
                       )}
                       {conversation.last_message && (
-                        <p className="text-[10px] sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 truncate">
+                        <p className="text-[10px] sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2 break-words">
                           {conversation.last_message}
                         </p>
                       )}
                     </div>
 
-                    {/* Time */}
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    {/* Time - hidden on mobile, shown inline above */}
+                    <div className="text-right flex-shrink-0 hidden sm:block">
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">
                         {getTimeAgo(conversation.last_message_at)}
                       </p>
                     </div>
