@@ -41,15 +41,20 @@ export default function EmbedWidget() {
     'bottom-left': 'left-4 bottom-4',
   };
 
+  // Calculate responsive dimensions
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const responsiveWidth = isMobile ? Math.min(windowWidth, window.innerWidth - 32) : windowWidth;
+  const responsiveHeight = isMobile ? Math.min(windowHeight, window.innerHeight - 120) : windowHeight;
+
   return (
     <div className={cn('fixed z-50', positionClasses[position as keyof typeof positionClasses] || 'right-4 bottom-4')}>
       {/* Chat Window */}
       {isOpen && (
         <div 
-          className="mb-4 bg-card rounded-2xl shadow-2xl border overflow-hidden transition-all duration-300 animate-in slide-in-from-bottom-5"
+          className="mb-4 bg-card rounded-2xl shadow-2xl border overflow-hidden transition-all duration-300 animate-in slide-in-from-bottom-5 max-w-[calc(100vw-32px)] max-h-[calc(100vh-120px)]"
           style={{ 
-            width: `${windowWidth}px`, 
-            height: `${windowHeight}px` 
+            width: `min(${windowWidth}px, calc(100vw - 32px))`, 
+            height: `min(${windowHeight}px, calc(100vh - 120px))` 
           }}
         >
           {/* Header */}
@@ -63,10 +68,10 @@ export default function EmbedWidget() {
               ) : (
                 <MessageCircle className="w-5 h-5" />
               )}
-              <span className="font-semibold">{botName}</span>
+              <span className="font-semibold text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">{botName}</span>
             </div>
             <button 
-              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors flex-shrink-0"
               onClick={() => setIsOpen(false)}
             >
               <X className="w-4 h-4" />
@@ -93,16 +98,16 @@ export default function EmbedWidget() {
         )}
         style={{ 
           backgroundColor: primaryColor,
-          width: `${buttonSize}px`,
-          height: `${buttonSize}px`
+          width: `${Math.min(buttonSize, 48)}px`,
+          height: `${Math.min(buttonSize, 48)}px`
         }}
       >
         {isOpen ? (
-          <X className="w-6 h-6" />
+          <X className="w-5 h-5 sm:w-6 sm:h-6" />
         ) : logoUrl ? (
-          <img src={logoUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+          <img src={logoUrl} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover" />
         ) : (
-          <MessageCircle className="w-6 h-6" />
+          <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
         )}
       </button>
     </div>
