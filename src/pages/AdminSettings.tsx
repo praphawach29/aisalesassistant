@@ -10,7 +10,7 @@ import { useCacheInvalidation } from "@/hooks/useCacheInvalidation";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Save, Store, Bell, Shield, Loader2 } from "lucide-react";
+import { Save, Store, Bell, Shield, Loader2, CreditCard } from "lucide-react";
 import { AdminLayout } from '@/components/admin/AdminLayout';
 
 interface StoreSetting {
@@ -51,6 +51,12 @@ const AdminSettings = () => {
   const [notifyLowStock, setNotifyLowStock] = useState(true);
   const [lowStockThreshold, setLowStockThreshold] = useState("5");
   const [autoNotifyCustomers, setAutoNotifyCustomers] = useState(true);
+  
+  // Payment settings (for Flex Message)
+  const [bankName, setBankName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankAccountName, setBankAccountName] = useState("");
+  const [promptpayId, setPromptpayId] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -92,6 +98,17 @@ const AdminSettings = () => {
       if (notifyStock) setNotifyLowStock(notifyStock.value === 'true');
       if (stockThreshold) setLowStockThreshold(stockThreshold.value || '5');
       if (autoNotify) setAutoNotifyCustomers(autoNotify.value === 'true');
+      
+      // Load payment settings for Flex Message
+      const bankNameSetting = data?.find(s => s.key === 'bank_name');
+      const bankAccNumSetting = data?.find(s => s.key === 'bank_account_number');
+      const bankAccNameSetting = data?.find(s => s.key === 'bank_account_name');
+      const promptpaySetting = data?.find(s => s.key === 'promptpay_id');
+      
+      if (bankNameSetting) setBankName(bankNameSetting.value || '');
+      if (bankAccNumSetting) setBankAccountNumber(bankAccNumSetting.value || '');
+      if (bankAccNameSetting) setBankAccountName(bankAccNameSetting.value || '');
+      if (promptpaySetting) setPromptpayId(promptpaySetting.value || '');
       
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -138,6 +155,12 @@ const AdminSettings = () => {
       await saveSetting('NOTIFY_LOW_STOCK', String(notifyLowStock), 'แจ้งเตือนสินค้าใกล้หมด');
       await saveSetting('LOW_STOCK_THRESHOLD', lowStockThreshold, 'จำนวนสินค้าที่ถือว่าใกล้หมด');
       await saveSetting('AUTO_NOTIFY_CUSTOMERS', String(autoNotifyCustomers), 'แจ้งเตือนลูกค้าอัตโนมัติเมื่อสถานะออเดอร์เปลี่ยน');
+
+      // Save payment settings for Flex Message
+      await saveSetting('bank_name', bankName, 'ชื่อธนาคารสำหรับ Flex Message');
+      await saveSetting('bank_account_number', bankAccountNumber, 'เลขบัญชีธนาคารสำหรับ Flex Message');
+      await saveSetting('bank_account_name', bankAccountName, 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
+      await saveSetting('promptpay_id', promptpayId, 'เลขพร้อมเพย์สำหรับ Flex Message');
 
       // Invalidate edge function cache
       await invalidateCache(['settings']);
@@ -311,6 +334,87 @@ const AdminSettings = () => {
                 placeholder="เช่น: การสั่งซื้อสินค้าถือว่าลูกค้ายอมรับเงื่อนไขการซื้อขาย..."
                 rows={3}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment Settings for Flex Message */}
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-600">
+              <CreditCard className="h-5 w-5" />
+              ข้อมูลชำระเงินสำหรับ LINE Flex Message
+            </CardTitle>
+            <CardDescription>
+              ข้อมูลนี้จะแสดงใน Flex Message เมื่อลูกค้าสั่งซื้อสำเร็จผ่าน LINE
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Bank Info */}
+            <div>
+              <Label className="text-base font-medium">ข้อมูลบัญชีธนาคาร</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                แสดงในการ์ดยืนยันออเดอร์พร้อมปุ่มคัดลอกเลขบัญชี
+              </p>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">ชื่อธนาคาร</Label>
+                  <Input
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="เช่น: ธนาคารกสิกรไทย"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">เลขบัญชี</Label>
+                  <Input
+                    value={bankAccountNumber}
+                    onChange={(e) => setBankAccountNumber(e.target.value)}
+                    placeholder="เช่น: 123-4-56789-0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">ชื่อบัญชี</Label>
+                  <Input
+                    value={bankAccountName}
+                    onChange={(e) => setBankAccountName(e.target.value)}
+                    placeholder="เช่น: นาย ใจดี มีเงิน"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* PromptPay */}
+            <div className="border-t pt-6">
+              <Label className="text-base font-medium">พร้อมเพย์</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                แสดง QR Code พร้อมเพย์พร้อมยอดเงินในการ์ดยืนยันออเดอร์
+              </p>
+              <div className="max-w-sm space-y-2">
+                <Label className="text-sm text-muted-foreground">เลขพร้อมเพย์</Label>
+                <Input
+                  value={promptpayId}
+                  onChange={(e) => setPromptpayId(e.target.value)}
+                  placeholder="เบอร์โทรหรือเลขบัตรประชาชน เช่น: 0812345678"
+                />
+                <p className="text-xs text-muted-foreground">
+                  ใส่เบอร์โทรศัพท์ (10 หลัก) หรือเลขบัตรประชาชน (13 หลัก)
+                </p>
+              </div>
+              
+              {promptpayId && (
+                <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium mb-2">ตัวอย่าง QR Code (ยอด 100 บาท)</p>
+                  <img 
+                    src={`https://promptpay.io/${promptpayId}/100.png`}
+                    alt="PromptPay QR Code"
+                    className="w-32 h-32 border rounded"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
