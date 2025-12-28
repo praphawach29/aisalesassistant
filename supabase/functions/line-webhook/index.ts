@@ -173,6 +173,24 @@ interface MultiOrderData {
   couponCode?: string;
 }
 
+// Saved address interface (same as Facebook webhook)
+interface SavedAddress {
+  id: string;
+  label: string;
+  address: string;
+  isDefault: boolean;
+}
+
+// Customer context for personalized responses
+interface CustomerContext {
+  isReturning: boolean;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  cartItemCount?: number;
+  savedAddresses?: SavedAddress[];
+}
+
 // ============= Build System Prompt (Same as Web Chat) =============
 function buildSystemPrompt(
   settings: AISettings,
@@ -1632,6 +1650,34 @@ serve(async (req) => {
       // Reverse to get chronological order (oldest to newest) for AI
       const historyMessages = rawHistoryMessages ? [...rawHistoryMessages].reverse() : [];
 
+      // ============= Fetch saved addresses for returning customers =============
+      let savedAddresses: SavedAddress[] = [];
+      const { data: addressesData } = await supabase
+        .from("customer_addresses")
+        .select("*")
+        .eq("platform_user_id", userId)
+        .eq("platform", "line")
+        .order("is_default", { ascending: false });
+
+      if (addressesData && addressesData.length > 0) {
+        savedAddresses = addressesData.map((a: any) => ({
+          id: a.id,
+          label: a.label,
+          address: a.address,
+          isDefault: a.is_default
+        }));
+        console.log(`[LINE] Found ${savedAddresses.length} saved addresses for user ${userId}`);
+      }
+
+      // Build customer context for personalized responses
+      const customerContext: CustomerContext = {
+        isReturning: !!conversation.customer_name,
+        customerName: conversation.customer_name || undefined,
+        customerPhone: conversation.customer_phone || undefined,
+        customerAddress: conversation.customer_address || undefined,
+        savedAddresses: savedAddresses.length > 0 ? savedAddresses : undefined
+      };
+
       // Check if this is effectively a new session (no messages OR last message was more than 1 hour ago)
       let isNewSession = !historyMessages || historyMessages.length === 0;
       if (!isNewSession && historyMessages.length > 0) {
@@ -2142,6 +2188,31 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
 - ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
       }
       
+      // Add saved addresses context for returning customers
+      if (customerContext.savedAddresses && customerContext.savedAddresses.length > 0 && !isGreeting) {
+        const addressList = customerContext.savedAddresses.map((a, i) => 
+          `${i + 1}. "${a.label}": ${a.address}${a.isDefault ? ' (ค่าเริ่มต้น)' : ''}`
+        ).join('\n');
+        
+        const savedAddressInstruction = `[ข้อมูลลูกค้าเก่า - ที่อยู่จัดส่งที่บันทึกไว้]
+ลูกค้าท่านนี้มีที่อยู่จัดส่งที่บันทึกไว้:
+${addressList}
+
+📋 วิธีใช้ที่อยู่เดิม:
+- เมื่อถามข้อมูลจัดส่ง ให้แจ้งลูกค้าว่ามีที่อยู่เดิมบันทึกไว้
+- ตัวอย่าง: "พบที่อยู่เดิมของคุณนะคะ ต้องการจัดส่งไปที่ ${customerContext.savedAddresses[0].address} ใช่ไหมคะ? หรือต้องการเปลี่ยนที่อยู่ใหม่คะ?"
+${customerContext.customerName ? `- ชื่อเดิม: ${customerContext.customerName}` : ''}
+${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${customerContext.customerPhone}` : ''}
+
+⚠️ กฎสำคัญ:
+- ถ้าลูกค้าตอบ "ใช่", "ที่เดิม", "ตามที่อยู่เดิม", "เหมือนเดิม" → ใช้ที่อยู่ที่ is_default = true หรือรายการแรก
+- ถ้าลูกค้าระบุ label เช่น "บ้าน", "ออฟฟิศ" → ใช้ที่อยู่ที่ตรงกับ label นั้น
+- ถ้าลูกค้าต้องการเปลี่ยน → ถามที่อยู่ใหม่ตามปกติ`;
+        
+        aiMessages.push({ role: "system", content: savedAddressInstruction });
+        console.log(`[LINE] Added saved addresses context: ${customerContext.savedAddresses.length} addresses`);
+      }
+      
       // (productListPattern and isNewProductList already defined above at line 2062-2063)
       
       // Add current user message
@@ -2521,6 +2592,35 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
                   })
                   .eq('id', conversation.id);
 
+                // Save address for future orders (if new)
+                if (cartAction.customerAddress) {
+                  const { data: existingAddress } = await supabase
+                    .from("customer_addresses")
+                    .select("id")
+                    .eq("platform_user_id", userId)
+                    .eq("platform", "line")
+                    .eq("address", cartAction.customerAddress)
+                    .maybeSingle();
+
+                  if (!existingAddress) {
+                    // Check if this is first address (make it default)
+                    const { count: addressCount } = await supabase
+                      .from("customer_addresses")
+                      .select("*", { count: "exact", head: true })
+                      .eq("platform_user_id", userId)
+                      .eq("platform", "line");
+
+                    await supabase.from("customer_addresses").insert({
+                      platform_user_id: userId,
+                      platform: "line",
+                      label: "บ้าน",
+                      address: cartAction.customerAddress,
+                      is_default: (addressCount || 0) === 0
+                    });
+                    console.log(`[LINE] Saved new address for user ${userId}`);
+                  }
+                }
+
                 // Send confirmation
                 lineMessages.push({
                   type: "flex",
@@ -2607,6 +2707,34 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
                   customer_address: createOrder.customerAddress
                 })
                 .eq("id", conversation.id);
+              
+              // Save address for future orders (if new)
+              if (createOrder.customerAddress) {
+                const { data: existingAddr } = await supabase
+                  .from("customer_addresses")
+                  .select("id")
+                  .eq("platform_user_id", userId)
+                  .eq("platform", "line")
+                  .eq("address", createOrder.customerAddress)
+                  .maybeSingle();
+
+                if (!existingAddr) {
+                  const { count: addrCount } = await supabase
+                    .from("customer_addresses")
+                    .select("*", { count: "exact", head: true })
+                    .eq("platform_user_id", userId)
+                    .eq("platform", "line");
+
+                  await supabase.from("customer_addresses").insert({
+                    platform_user_id: userId,
+                    platform: "line",
+                    label: "บ้าน",
+                    address: createOrder.customerAddress,
+                    is_default: (addrCount || 0) === 0
+                  });
+                  console.log(`[LINE] Saved new address for user ${userId} (single order)`);
+                }
+              }
               
               console.log(`[LINE] Single order created: ${order.order_number}`);
               
@@ -2739,6 +2867,34 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
                 customer_address: createMultiOrder.customerAddress
               })
               .eq("id", conversation.id);
+            
+            // Save address for future orders (if new)
+            if (createMultiOrder.customerAddress) {
+              const { data: existingMultiAddr } = await supabase
+                .from("customer_addresses")
+                .select("id")
+                .eq("platform_user_id", userId)
+                .eq("platform", "line")
+                .eq("address", createMultiOrder.customerAddress)
+                .maybeSingle();
+
+              if (!existingMultiAddr) {
+                const { count: multiAddrCount } = await supabase
+                  .from("customer_addresses")
+                  .select("*", { count: "exact", head: true })
+                  .eq("platform_user_id", userId)
+                  .eq("platform", "line");
+
+                await supabase.from("customer_addresses").insert({
+                  platform_user_id: userId,
+                  platform: "line",
+                  label: "บ้าน",
+                  address: createMultiOrder.customerAddress,
+                  is_default: (multiAddrCount || 0) === 0
+                });
+                console.log(`[LINE] Saved new address for user ${userId} (multi order)`);
+              }
+            }
             
             console.log(`[LINE] Multi-product order created: ${order.order_number}`);
             
