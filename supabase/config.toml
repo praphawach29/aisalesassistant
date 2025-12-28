@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.process-knowledge-file]
 verify_jwt = true
+
+[functions.auto-notify-order]
+verify_jwt = false
