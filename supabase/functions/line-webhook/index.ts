@@ -1829,9 +1829,31 @@ serve(async (req) => {
           .maybeSingle();
 
         if (!conversation) {
+          // Fetch user profile from LINE API to get display name
+          let customerName: string | null = null;
+          try {
+            const profileResponse = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${lineAccessToken}`
+              }
+            });
+            if (profileResponse.ok) {
+              const profile = await profileResponse.json();
+              customerName = profile.displayName || null;
+              console.log(`[LINE] Got user profile: ${customerName}`);
+            }
+          } catch (profileError) {
+            console.error('[LINE] Error fetching user profile:', profileError);
+          }
+
           const { data: newConv } = await supabase
             .from('chat_conversations')
-            .insert({ platform: 'line', platform_user_id: userId })
+            .insert({ 
+              platform: 'line', 
+              platform_user_id: userId,
+              customer_name: customerName
+            })
             .select()
             .single();
           conversation = newConv;
