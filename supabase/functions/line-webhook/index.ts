@@ -2058,52 +2058,70 @@ serve(async (req) => {
       // historyMessages contains previous messages, plus we add current user message
       const aiMessages: { role: string; content: string }[] = [];
       
-      // If it's a new session or greeting, don't add old history (start fresh)
+      // Detect if user is specifying new product list (contains quantity patterns)
+      const productListPattern = /(\d+\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค))|((ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)\s*\d+)|(อย่างละ\s*\d+)|(\d+\s*(สี|ไซส์|size|s|m|l|xl))/i;
+      const isNewProductList = productListPattern.test(userMessage);
+      
+      // CRITICAL FIX: When user specifies new product list, CLEAR old history that contains quantities
+      // This prevents AI from adding old quantities with new ones
       if (!isNewSession && !isGreeting && historyMessages && historyMessages.length > 0) {
-        for (const m of historyMessages) {
-          aiMessages.push({ role: m.role, content: m.content });
+        if (isNewProductList) {
+          // Only keep very recent messages (last 4) and filter out any that mention quantities
+          const recentHistory = historyMessages.slice(-4);
+          const filteredHistory = recentHistory.filter((m: any) => {
+            // Filter out assistant messages that contain quantity confirmations
+            if (m.role === 'assistant') {
+              const hasQuantityConfirmation = /จำนวน\s*\d+\s*(ตัว|ชิ้น)|(\d+)\s*(ตัว|ชิ้น|คู่)/i.test(m.content);
+              const hasOrderConfirmation = /ยืนยันรายการ|รายการสินค้า|รวม.*ชิ้น/i.test(m.content);
+              if (hasQuantityConfirmation || hasOrderConfirmation) {
+                console.log(`[LINE] Filtered out old quantity message: ${m.content.substring(0, 50)}...`);
+                return false;
+              }
+            }
+            return true;
+          });
+          for (const m of filteredHistory) {
+            aiMessages.push({ role: m.role, content: m.content });
+          }
+          console.log(`[LINE] New product list detected. History filtered: ${historyMessages.length} -> ${filteredHistory.length} messages`);
+        } else {
+          for (const m of historyMessages) {
+            aiMessages.push({ role: m.role, content: m.content });
+          }
         }
       }
       
-      // Add critical quantity reminder BEFORE the AI processes the message
-      // This helps prevent the AI from doubling quantities
-      if (!isGreeting && !isNewSession) {
-        // Pre-analyze quantities from the last user message to include in the reminder
-        const quantityAnalysis: string[] = [];
-        const lines = userMessage.split(/[\n,และ]/);
-        let totalItems = 0;
-        for (const line of lines) {
-          // Match patterns: "X ตัว", "X ชิ้น", "จำนวน X"
-          const qtyMatch = line.match(/(\d+)\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)/);
-          if (qtyMatch) {
-            const qty = parseInt(qtyMatch[1]);
-            totalItems += qty;
-            quantityAnalysis.push(`พบ "${qtyMatch[0]}" = ${qty}`);
-          }
-        }
-        if (quantityAnalysis.length > 0) {
-          quantityAnalysis.push(`รวมทั้งหมด = ${totalItems} ชิ้น`);
-        }
+      // CRITICAL: When user specifies a new product list, add ABSOLUTE instruction
+      if (isNewProductList && !isGreeting) {
+        // Extract quantities from CURRENT message only
+        const quantityMatches: string[] = userMessage.match(/(\d+)\s*(ตัว|ชิ้น|คู่|อัน|ชุด)/gi) || [];
+        const quantities: number[] = quantityMatches.map((m: string) => {
+          const num = m.match(/\d+/)?.[0] || '1';
+          return parseInt(num);
+        });
+        const totalFromMessage = quantities.reduce((sum: number, q: number) => sum + q, 0);
         
-        // Include pre-analyzed quantities to make it explicit
-        const analysisText = quantityAnalysis.length > 0 ? `\n\n🔢 การวิเคราะห์จำนวนจากระบบ:\n${quantityAnalysis.join('\n')}\n\n⚠️ คุณต้องใช้ตัวเลขตามที่ระบบวิเคราะห์นี้เท่านั้น! ห้ามเพิ่มหรือบวกจำนวนเอง!` : '';
-        
-        const quantityReminder = `[🚨 คำสั่งบังคับที่ต้องปฏิบัติตามเด็ดขาด - ละเมิดไม่ได้!]
+        aiMessages.push({ 
+          role: "system", 
+          content: `[🚨 คำสั่งบังคับเด็ดขาด - จำนวนสินค้า 🚨]
 
-ข้อความล่าสุดของลูกค้า: "${userMessage}"
-${analysisText}
+⚠️ ลูกค้าพิมพ์ข้อความนี้: "${userMessage}"
 
-📋 กฎที่ต้องทำตามเป๊ะ:
-1. ถ้าลูกค้าพิมพ์ "1 ตัว" → ต้องยืนยัน 1 ตัว ห้ามเป็น 2 ตัว!
-2. ถ้าลูกค้าพิมพ์ "อย่างละ 1" → แต่ละรายการ 1 ตัว ไม่ใช่ 2 ตัว!
-3. ถ้ามีหลายรายการ เช่น "A 1 ตัว B 1 ตัว C 1 ตัว" → A=1, B=1, C=1 รวม 3 ตัว ไม่ใช่ 6 ตัว!
-4. ห้ามบวกจำนวนจากประวัติสนทนาเก่า
-5. ห้ามคูณจำนวนโดยไม่มีเหตุผล
+📊 วิเคราะห์จำนวนจากข้อความนี้โดยตรง:
+${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
+รวมทั้งหมดจากข้อความนี้ = ${totalFromMessage} ชิ้น
 
-❌ ถ้าคุณยืนยันจำนวนผิด (เช่น พิมพ์ "1 ตัว" แต่ยืนยัน "2 ตัว") ถือว่าล้มเหลว!`;
-        
-        aiMessages.push({ role: "system", content: quantityReminder });
-        console.log(`[LINE] Quantity reminder added. Analysis: ${quantityAnalysis.join(', ')}`);
+🔴 กฎเด็ดขาด 100%:
+1. ใช้เฉพาะจำนวนจากข้อความล่าสุดนี้เท่านั้น!
+2. ลืมจำนวนทั้งหมดจากบทสนทนาก่อนหน้า!
+3. ห้ามบวก ห้ามคูณ ห้ามเพิ่มจำนวน!
+4. ถ้าลูกค้าพิมพ์ "1 ตัว" ต้องยืนยัน "1 ตัว" เท่านั้น!
+
+ตัวอย่าง:
+- ลูกค้าพิมพ์ "เสื้อ 1 ตัว กางเกง 1 ตัว" = ต้องยืนยัน "เสื้อ 1 ตัว + กางเกง 1 ตัว = รวม 2 ชิ้น"
+- ห้ามยืนยันเป็น "เสื้อ 2 ตัว กางเกง 2 ตัว" เด็ดขาด!` 
+        });
+        console.log(`[LINE] Quantity override added. Analysis: ${quantityMatches.join(', ')} = ${totalFromMessage} ชิ้น`);
       }
       
       // Add context reminder about last discussed product ONLY if not greeting and not new session
@@ -2124,33 +2142,7 @@ ${analysisText}
 - ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
       }
       
-      // CRITICAL: When user specifies a new product list, add strong instruction to REPLACE not ADD
-      const productListPattern = /(\d+\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค))|((ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)\s*\d+)|(อย่างละ\s*\d+)|(\d+\s*(สี|ไซส์|size|s|m|l|xl))/i;
-      const isNewProductList = productListPattern.test(userMessage);
-      
-      if (isNewProductList && !isGreeting) {
-        console.log(`[LINE] New product list detected. Adding REPLACE instruction.`);
-        aiMessages.push({ 
-          role: "system", 
-          content: `[⚠️ คำสั่งบังคับ - กฎที่ต้องปฏิบัติตามเด็ดขาด!]
-
-ลูกค้ากำลังแจ้งรายการสินค้าใหม่ในข้อความนี้: "${userMessage}"
-
-📋 กฎสำคัญ:
-1. รายการสินค้าในข้อความนี้คือ **รายการใหม่ทั้งหมด** ที่ต้อง **แทนที่** รายการเก่าทั้งหมด
-2. **ห้ามบวกรวม** กับรายการที่เคยพูดถึงในบทสนทนาก่อนหน้า
-3. **ห้ามอ้างอิง** จำนวนหรือรายการจากข้อความก่อนหน้า
-4. **อ่านเฉพาะข้อความล่าสุดนี้เท่านั้น** แล้วยืนยันจำนวนตามที่เห็น
-
-🔢 วิธีนับ:
-- ดูจำนวนที่ลูกค้าพิมพ์ในข้อความนี้เท่านั้น
-- "1 ตัว" = 1 ตัว, "2 ตัว" = 2 ตัว (ตามที่พิมพ์)
-- ถ้ามีหลายรายการ ให้นับแยกแต่ละรายการ
-
-❌ ผิด: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 2 ตัว B 2 ตัว C 2 ตัว"
-✅ ถูก: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 1 ตัว B 1 ตัว C 1 ตัว รวม 3 ตัว"` 
-        });
-      }
+      // (productListPattern and isNewProductList already defined above at line 2062-2063)
       
       // Add current user message
       aiMessages.push({ role: "user", content: userMessage });
