@@ -49,7 +49,9 @@ export function ChatWidget({
         <div 
           className={cn(
             'mb-4 bg-card rounded-2xl shadow-2xl border overflow-hidden transition-all duration-300',
-            isMinimized ? 'h-14' : 'h-[500px] w-[380px]'
+            isMinimized 
+              ? 'h-14' 
+              : 'h-[calc(100vh-120px)] w-[calc(100vw-32px)] max-h-[600px] max-w-[400px] sm:h-[500px] sm:w-[380px]'
           )}
           style={primaryColor ? { '--primary': primaryColor } as React.CSSProperties : undefined}
         >
@@ -57,7 +59,7 @@ export function ChatWidget({
           <div className="flex items-center justify-between p-3 bg-primary text-primary-foreground">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
-              <span className="font-semibold">AI Sales Assistant</span>
+              <span className="font-semibold text-sm sm:text-base">AI Sales Assistant</span>
             </div>
             <div className="flex items-center gap-1">
               <Button 
@@ -95,10 +97,10 @@ export function ChatWidget({
             setIsOpen(false);
             setIsMinimized(false);
           }}
-          className="h-14 w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
+          className="h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
           style={primaryColor ? { backgroundColor: primaryColor } as React.CSSProperties : undefined}
         >
-          <X className="w-6 h-6" />
+          <X className="w-5 h-5 sm:w-6 sm:h-6" />
         </Button>
       ) : (
         <button
@@ -106,12 +108,12 @@ export function ChatWidget({
             setIsOpen(true);
             setIsMinimized(false);
           }}
-          className="h-14 w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 overflow-hidden border-2 border-primary"
+          className="h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 overflow-hidden border-2 border-primary"
         >
           <Avatar className="h-full w-full">
             <AvatarImage src={botAvatar} alt="Chat Assistant" className="object-cover" />
             <AvatarFallback className="bg-primary text-primary-foreground">
-              <MessageCircle className="w-6 h-6" />
+              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             </AvatarFallback>
           </Avatar>
         </button>
