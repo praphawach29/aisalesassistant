@@ -297,15 +297,25 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch AI settings
-    const { data: aiSettingsData } = await supabase
-      .from("ai_settings")
-      .select("*")
-      .eq("is_active", true)
-      .maybeSingle();
+    // Fetch ALL required data in PARALLEL for speed optimization
+    const [
+      aiSettingsResult,
+      productsResult,
+      faqsResult,
+      settingsResult,
+      scrapedResult,
+      knowledgeResult
+    ] = await Promise.all([
+      supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle(),
+      supabase.from("products").select("*").eq("is_active", true),
+      supabase.from("faqs").select("question, answer").eq("is_active", true),
+      supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]),
+      supabase.from("scraped_content").select("source_name, summary, content").eq("is_active", true),
+      supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true)
+    ]);
 
-    // Default settings if none found
-    const aiSettings: AISettings = aiSettingsData || {
+    // Process AI settings
+    const aiSettings: AISettings = aiSettingsResult.data || {
       ai_name: "น้องช้อป",
       gender: "female",
       personality: "ร่าเริง เป็นกันเอง สนุกสนาน กระตือรือร้น ชอบช่วยเหลือลูกค้า",
@@ -319,26 +329,14 @@ serve(async (req) => {
 
     console.log("Using AI settings:", aiSettings.ai_name);
 
-    // Fetch products for context
-    const { data: products } = await supabase
-      .from("products")
-      .select("*")
-      .eq("is_active", true);
+    // Process products
+    const products = productsResult.data || [];
 
-    // Fetch FAQs for context
-    const { data: faqs } = await supabase
-      .from("faqs")
-      .select("*")
-      .eq("is_active", true);
+    // Process FAQs
+    const faqs = faqsResult.data || [];
 
-    // Fetch store settings
-    const { data: settingsData } = await supabase
-      .from("settings")
-      .select("key, value")
-      .in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]);
-
-    // Build store settings object
-    const storeSettingsMap = new Map(settingsData?.map(s => [s.key, s.value]) || []);
+    // Process store settings
+    const storeSettingsMap = new Map(settingsResult.data?.map((s: any) => [s.key, s.value]) || []);
     const storeSettings: StoreSettings = {
       storeName: storeSettingsMap.get("STORE_NAME") || "",
       storePhone: storeSettingsMap.get("STORE_PHONE") || "",
@@ -364,7 +362,7 @@ serve(async (req) => {
     });
 
     // Build product catalog with image URLs and variants
-    const productCatalog = products?.map(p => {
+    const productCatalog = products.map((p: any) => {
       let productInfo = `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}]`;
       
       // Add variants info
@@ -384,37 +382,27 @@ serve(async (req) => {
     }).join('\n') || 'ยังไม่มีสินค้าในระบบ';
 
     // Build FAQ list
-    const faqList = faqs?.map(f => 
+    const faqList = faqs.map((f: any) => 
       `Q: ${f.question}\nA: ${f.answer}`
     ).join('\n\n') || '';
 
-    // Fetch scraped content for additional context
-    const { data: scrapedData } = await supabase
-      .from("scraped_content")
-      .select("source_name, summary, content")
-      .eq("is_active", true);
-
-    // Build scraped content string (use summary if available, otherwise truncated content)
-    const scrapedContentList = scrapedData?.map(s => {
+    // Process scraped content
+    const scrapedData = scrapedResult.data || [];
+    const scrapedContentList = scrapedData.map((s: any) => {
       const text = s.summary || (s.content ? s.content.substring(0, 1000) + '...' : '');
       return `### ${s.source_name || 'แหล่งข้อมูล'}:\n${text}`;
     }).join('\n\n') || '';
 
-    console.log("Scraped content loaded:", scrapedData?.length || 0, "items");
+    console.log("Scraped content loaded:", scrapedData.length, "items");
 
-    // Fetch knowledge base documents for additional context
-    const { data: knowledgeData } = await supabase
-      .from("knowledge_base")
-      .select("title, summary, original_content, category")
-      .eq("is_active", true);
-
-    // Build knowledge base content string
-    const knowledgeBaseList = knowledgeData?.map(k => {
+    // Process knowledge base
+    const knowledgeData = knowledgeResult.data || [];
+    const knowledgeBaseList = knowledgeData.map((k: any) => {
       const text = k.summary || (k.original_content ? k.original_content.substring(0, 2000) : '');
       return `### ${k.title}${k.category ? ` (${k.category})` : ''}:\n${text}`;
     }).join('\n\n') || '';
 
-    console.log("Knowledge base loaded:", knowledgeData?.length || 0, "items");
+    console.log("Knowledge base loaded:", knowledgeData.length, "items");
 
     // Combine scraped content and knowledge base
     let combinedExternalContent = scrapedContentList;
