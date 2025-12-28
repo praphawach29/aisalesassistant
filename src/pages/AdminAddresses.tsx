@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Search, MapPin, Edit, Trash2, Plus, Home, Building2, MessageCircle, Facebook, Download } from 'lucide-react';
+import { Loader2, Search, MapPin, Edit, Trash2, Plus, Home, Building2, MessageCircle, Facebook, Download, Upload } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
@@ -35,6 +36,9 @@ export default function AdminAddresses() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAddress, setEditingAddress] = useState<CustomerAddress | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importData, setImportData] = useState<Array<{platform: string; platform_user_id: string; label: string; address: string; is_default: boolean}>>([]);
+  const [isImporting, setIsImporting] = useState(false);
   const [formData, setFormData] = useState({
     label: '',
     address: '',
@@ -194,6 +198,141 @@ export default function AdminAddresses() {
     toast.success(`ส่งออก ${filteredAddresses.length} รายการสำเร็จ`);
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          toast.error('ไฟล์ CSV ต้องมีอย่างน้อย 1 แถวข้อมูล');
+          return;
+        }
+
+        // Parse header
+        const header = lines[0].toLowerCase();
+        const hasHeader = header.includes('platform') || header.includes('แพลตฟอร์ม');
+        const startIndex = hasHeader ? 1 : 0;
+
+        const parsed: Array<{platform: string; platform_user_id: string; label: string; address: string; is_default: boolean}> = [];
+        
+        for (let i = startIndex; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          // Parse CSV line (handle quoted values)
+          const values: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (const char of line) {
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          values.push(current.trim());
+
+          if (values.length >= 4) {
+            parsed.push({
+              platform: values[0] || 'line',
+              platform_user_id: values[1],
+              label: values[2] || 'บ้าน',
+              address: values[3],
+              is_default: values[4]?.toLowerCase() === 'ใช่' || values[4]?.toLowerCase() === 'true' || values[4] === '1'
+            });
+          }
+        }
+
+        if (parsed.length === 0) {
+          toast.error('ไม่พบข้อมูลที่ถูกต้องในไฟล์ CSV');
+          return;
+        }
+
+        setImportData(parsed);
+        setIsImportDialogOpen(true);
+      } catch (error) {
+        console.error('Error parsing CSV:', error);
+        toast.error('ไม่สามารถอ่านไฟล์ CSV ได้');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
+  const handleImport = async () => {
+    if (importData.length === 0) return;
+
+    setIsImporting(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const item of importData) {
+        if (!item.platform_user_id || !item.address) {
+          errorCount++;
+          continue;
+        }
+
+        // Check if address already exists
+        const { data: existing } = await supabase
+          .from('customer_addresses')
+          .select('id')
+          .eq('platform_user_id', item.platform_user_id)
+          .eq('platform', item.platform)
+          .eq('label', item.label)
+          .maybeSingle();
+
+        if (existing) {
+          // Update existing
+          const { error } = await supabase
+            .from('customer_addresses')
+            .update({ 
+              address: item.address, 
+              is_default: item.is_default,
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', existing.id);
+          
+          if (error) errorCount++;
+          else successCount++;
+        } else {
+          // Insert new
+          const { error } = await supabase
+            .from('customer_addresses')
+            .insert({
+              platform: item.platform,
+              platform_user_id: item.platform_user_id,
+              label: item.label,
+              address: item.address,
+              is_default: item.is_default
+            });
+          
+          if (error) errorCount++;
+          else successCount++;
+        }
+      }
+
+      toast.success(`นำเข้าสำเร็จ ${successCount} รายการ${errorCount > 0 ? `, ล้มเหลว ${errorCount} รายการ` : ''}`);
+      setIsImportDialogOpen(false);
+      setImportData([]);
+      fetchAddresses();
+    } catch (error) {
+      console.error('Error importing:', error);
+      toast.error('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <AdminLayout title="ที่อยู่ลูกค้า">
@@ -250,11 +389,25 @@ export default function AdminAddresses() {
                   className="pl-9"
                 />
               </div>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="csv-import"
+              />
+              <Button variant="outline" onClick={() => document.getElementById('csv-import')?.click()}>
+                <Upload className="w-4 h-4 mr-2" />
+                นำเข้า CSV
+              </Button>
               <Button onClick={exportToCSV} disabled={filteredAddresses.length === 0}>
                 <Download className="w-4 h-4 mr-2" />
                 ส่งออก CSV
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              รูปแบบ CSV: แพลตฟอร์ม, ID ลูกค้า, ป้ายกำกับ, ที่อยู่, ค่าเริ่มต้น (ใช่/ไม่)
+            </p>
           </CardContent>
         </Card>
 
@@ -378,6 +531,60 @@ export default function AdminAddresses() {
             </Button>
             <Button onClick={handleSave}>
               บันทึก
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>นำเข้าที่อยู่จาก CSV</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              พบข้อมูล {importData.length} รายการ กรุณาตรวจสอบก่อนนำเข้า
+            </p>
+            <ScrollArea className="h-64 border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>แพลตฟอร์ม</TableHead>
+                    <TableHead>ID ลูกค้า</TableHead>
+                    <TableHead>ป้ายกำกับ</TableHead>
+                    <TableHead>ที่อยู่</TableHead>
+                    <TableHead>ค่าเริ่มต้น</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {importData.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{item.platform}</TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                          {item.platform_user_id.slice(0, 15)}...
+                        </code>
+                      </TableCell>
+                      <TableCell>{item.label}</TableCell>
+                      <TableCell className="max-w-xs truncate">{item.address}</TableCell>
+                      <TableCell>{item.is_default ? 'ใช่' : 'ไม่'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsImportDialogOpen(false);
+              setImportData([]);
+            }}>
+              ยกเลิก
+            </Button>
+            <Button onClick={handleImport} disabled={isImporting}>
+              {isImporting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              นำเข้า {importData.length} รายการ
             </Button>
           </DialogFooter>
         </DialogContent>
