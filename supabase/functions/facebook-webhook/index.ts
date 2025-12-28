@@ -157,6 +157,22 @@ interface OrderData {
   couponCode?: string;
 }
 
+// Multi-product order item
+interface MultiOrderItem {
+  productName: string;
+  quantity: number;
+  variants?: string;
+}
+
+// Multi-product order data
+interface MultiOrderData {
+  items: MultiOrderItem[];
+  customerName: string;
+  customerAddress: string;
+  customerPhone: string;
+  couponCode?: string;
+}
+
 interface CartAction {
   type: 'add' | 'view' | 'clear' | 'checkout' | 'remove' | 'update';
   productName?: string;
@@ -482,11 +498,15 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 - **ใช้เมื่อ**: stock = 0 หรือ stock < จำนวนที่ลูกค้าสั่ง
 
 ## ⚠️ กฎการสร้างออเดอร์ (สำคัญที่สุด!):
-- **ต้องใช้ [CREATE_ORDER:...] เมื่อลูกค้ายืนยันสั่งซื้อและให้ข้อมูลครบ** → ห้ามสร้างเลขออเดอร์เองเด็ดขาด
-- **รูปแบบ**: [CREATE_ORDER:ชื่อสินค้าเต็ม|จำนวน|ชื่อลูกค้า|ที่อยู่จัดส่ง|เบอร์โทร|ตัวเลือก(สี/ไซส์)]
-- **ตัวอย่าง**: [CREATE_ORDER:รองเท้าผ้าใบ|2|ประภาวัชร์ สุทธิประภา|155/88 แกรนด์พลีโน่ ถนนสุขาภิบาล5 กรุงเทพ 10220|0955851136|สีขาว ไซส์ 39, สีดำ ไซส์ 40]
+- **ถ้าลูกค้าสั่งหลายรายการ (มากกว่า 1 สินค้า)** → ต้องใช้ [CREATE_MULTI_ORDER:...]
+  - **รูปแบบ**: [CREATE_MULTI_ORDER:ชื่อสินค้า1,จำนวน1,ตัวเลือก1;ชื่อสินค้า2,จำนวน2,ตัวเลือก2;...|ชื่อลูกค้า|ที่อยู่|เบอร์โทร]
+  - **ตัวอย่าง**: ลูกค้าสั่งเสื้อยืดคอกลม สีขาว M 1 ตัว + เสื้อเชิ้ตแขนยาว สีขาว M 1 ตัว + กางเกงขาสั้น สีดำ M 1 ตัว
+    → [CREATE_MULTI_ORDER:เสื้อยืดคอกลม,1,สีขาว ไซส์ M;เสื้อเชิ้ตแขนยาว,1,สีขาว ไซส์ M;กางเกงขาสั้น,1,สีดำ ไซส์ M|ประภาวัชร์|ที่อยู่...|เบอร์โทร]
+- **ถ้าลูกค้าสั่งสินค้าเดียว** → ใช้ [CREATE_ORDER:...]
+  - **รูปแบบ**: [CREATE_ORDER:ชื่อสินค้าเต็ม|จำนวน|ชื่อลูกค้า|ที่อยู่จัดส่ง|เบอร์โทร|ตัวเลือก(สี/ไซส์)]
+  - **ตัวอย่าง**: [CREATE_ORDER:รองเท้าผ้าใบ|2|ประภาวัชร์ สุทธิประภา|155/88 แกรนด์พลีโน่ ถนนสุขาภิบาล5 กรุงเทพ 10220|0955851136|สีขาว ไซส์ 39, สีดำ ไซส์ 40]
 - **ห้ามแต่งเลขออเดอร์เอง** (เช่น SD123, ORD-xxx) → ระบบจะสร้างเลขออเดอร์ให้อัตโนมัติ
-- **ถ้าลูกค้ายืนยันโอนเงิน/ชำระเงิน และข้อมูลครบแล้ว** → ต้องใส่ [CREATE_ORDER:...] ในข้อความตอบกลับ
+- **ถ้าลูกค้ายืนยันโอนเงิน/ชำระเงิน และข้อมูลครบแล้ว** → ต้องใส่คำสั่งสร้างออเดอร์ในข้อความตอบกลับ
 
 ## 🚫 กฎสำคัญ:
 - **ห้ามบอกจำนวนสต็อก** → ถ้าถามให้ตอบว่า "สินค้ามีพร้อมจำหน่าย${particleEnd}"
@@ -877,7 +897,7 @@ async function getAIResponse(
   customerContext: CustomerContext,
   isFirstMessage: boolean = false,
   senderId: string = ''
-): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction; productAction?: ProductAction; saveAddress?: SaveAddressAction }> {
+): Promise<{ text: string; createOrder?: OrderData; createMultiOrder?: MultiOrderData; cartAction?: CartAction; productAction?: ProductAction; saveAddress?: SaveAddressAction }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
@@ -1062,6 +1082,7 @@ async function getAIResponse(
 
     // Parse special commands
     const createOrderMatch = content.match(/\[CREATE_ORDER:([^\]]+)\]/);
+    const createMultiOrderMatch = content.match(/\[CREATE_MULTI_ORDER:([^\]]+)\]/);
     const addCartMatch = content.match(/\[CART_ADD:([^\]]+)\]/) || content.match(/\[ADD_CART:([^\]]+)\]/);
     const removeCartMatch = content.match(/\[CART_REMOVE:([^\]]+)\]/);
     const updateCartMatch = content.match(/\[CART_UPDATE:([^\]]+)\]/);
@@ -1100,7 +1121,36 @@ async function getAIResponse(
     }
     // Parse order data if present
     let createOrder: OrderData | undefined;
-    if (createOrderMatch) {
+    let createMultiOrder: MultiOrderData | undefined;
+    
+    // Parse multi-order first (higher priority for multiple products)
+    if (createMultiOrderMatch) {
+      const mainParts = createMultiOrderMatch[1].split('|');
+      // Format: items|customerName|customerAddress|customerPhone
+      // items format: productName1,qty1,variants1;productName2,qty2,variants2;...
+      if (mainParts.length >= 4) {
+        const itemsStr = mainParts[0].trim();
+        const items: MultiOrderItem[] = itemsStr.split(';').map((itemStr: string) => {
+          const itemParts = itemStr.split(',');
+          return {
+            productName: itemParts[0]?.trim() || '',
+            quantity: parseInt(itemParts[1]?.trim()) || 1,
+            variants: itemParts[2]?.trim() || undefined
+          };
+        }).filter((item: MultiOrderItem) => item.productName);
+        
+        if (items.length > 0) {
+          createMultiOrder = {
+            items,
+            customerName: mainParts[1].trim(),
+            customerAddress: mainParts[2].trim(),
+            customerPhone: mainParts[3].trim(),
+            couponCode: mainParts[4]?.trim() || undefined
+          };
+          console.log('[FB] Parsed multi-order:', createMultiOrder);
+        }
+      }
+    } else if (createOrderMatch) {
       const orderParts = createOrderMatch[1].split('|');
       if (orderParts.length >= 5) {
         createOrder = {
@@ -1179,6 +1229,7 @@ async function getAIResponse(
 
     // Clean up the response
     content = content
+      .replace(/\[CREATE_MULTI_ORDER:[^\]]+\]/g, '')
       .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
       .replace(/\[CART_ADD:[^\]]+\]/g, '')
       .replace(/\[ADD_CART:[^\]]+\]/g, '')
@@ -1198,7 +1249,7 @@ async function getAIResponse(
       .replace(/\[NOTIFY_OUT_OF_STOCK:[^\]]+\]/g, '')
       .trim();
 
-    return { text: content, createOrder, cartAction, productAction, saveAddress };
+    return { text: content, createOrder, createMultiOrder, cartAction, productAction, saveAddress };
 
   } catch (error) {
     console.error("AI call error:", error);
@@ -2328,6 +2379,121 @@ serve(async (req) => {
                 customerAddress: orderData.customerAddress,
                 couponCode: orderData.couponCode
               });
+            }
+          } else {
+            responseMessage = "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ";
+          }
+        }
+
+        // Handle multi-product order creation
+        if (aiResult.createMultiOrder) {
+          const multiOrderData = aiResult.createMultiOrder;
+          console.log("Creating multi-product order:", multiOrderData);
+
+          // Find all products
+          const orderItemsToCreate: Array<{
+            product_id: string;
+            product_name: string;
+            quantity: number;
+            price: number;
+            variants?: string;
+          }> = [];
+          let totalAmount = 0;
+
+          for (const item of multiOrderData.items) {
+            const { data: products } = await supabase
+              .from("products")
+              .select("*")
+              .eq("is_active", true)
+              .ilike("name", `%${item.productName}%`)
+              .limit(1);
+
+            if (products && products.length > 0) {
+              const product = products[0];
+              const price = product.promotion_price || product.price;
+              const itemTotal = price * item.quantity;
+              totalAmount += itemTotal;
+
+              orderItemsToCreate.push({
+                product_id: product.id,
+                product_name: product.name + (item.variants ? ` (${item.variants})` : ''),
+                quantity: item.quantity,
+                price: price,
+                variants: item.variants
+              });
+            }
+          }
+
+          if (orderItemsToCreate.length > 0) {
+            // Create order
+            const { data: order, error: orderError } = await supabase
+              .from("orders")
+              .insert({
+                customer_name: multiOrderData.customerName,
+                customer_address: multiOrderData.customerAddress,
+                customer_phone: multiOrderData.customerPhone,
+                customer_facebook_id: senderId,
+                platform: "facebook",
+                total_amount: totalAmount
+              })
+              .select()
+              .single();
+
+            if (order && !orderError) {
+              // Insert all order items and update stock
+              for (const item of orderItemsToCreate) {
+                await supabase.from("order_items").insert({
+                  order_id: order.id,
+                  product_id: item.product_id,
+                  product_name: item.product_name,
+                  quantity: item.quantity,
+                  price: item.price
+                });
+
+                // Get current stock and update
+                const { data: currentProduct } = await supabase
+                  .from("products")
+                  .select("stock")
+                  .eq("id", item.product_id)
+                  .single();
+                
+                if (currentProduct) {
+                  await supabase
+                    .from("products")
+                    .update({ stock: currentProduct.stock - item.quantity })
+                    .eq("id", item.product_id);
+                }
+              }
+
+              // Update conversation
+              await supabase
+                .from("chat_conversations")
+                .update({
+                  customer_name: multiOrderData.customerName,
+                  customer_phone: multiOrderData.customerPhone
+                })
+                .eq("id", conversation.id);
+
+              console.log(`Facebook multi-product order created: ${order.order_number}`);
+
+              responseMessage = formatOrderConfirmationMessage({
+                orderNumber: order.order_number,
+                items: orderItemsToCreate.map(item => ({
+                  product_name: item.product_name.replace(/ \([^)]+\)$/, ''),
+                  quantity: item.quantity,
+                  price: item.price,
+                  variants: item.variants
+                })),
+                totalAmount: totalAmount,
+                discountAmount: undefined,
+                customerName: multiOrderData.customerName,
+                customerPhone: multiOrderData.customerPhone,
+                customerAddress: multiOrderData.customerAddress,
+                couponCode: multiOrderData.couponCode
+              });
+            } else {
+              console.error("Error creating multi-order:", orderError);
+              responseMessage = "ขออภัยค่ะ เกิดข้อผิดพลาดในการสร้างออเดอร์ กรุณาลองใหม่อีกครั้ง";
             }
           } else {
             responseMessage = "ขออภัยค่ะ ไม่พบสินค้าที่ต้องการ";
