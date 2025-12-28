@@ -1321,7 +1321,7 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
             margin: "md"
           }
         ] : []),
-        // PromptPay QR Code section
+        // PromptPay QR Code section with image
         ...(data.promptpayId ? [
           {
             type: "box",
@@ -1329,35 +1329,49 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
             contents: [
               {
                 type: "text",
-                text: "📱 พร้อมเพย์",
+                text: "📱 สแกน QR พร้อมเพย์",
                 weight: "bold",
                 size: "sm",
                 color: "#1F2937",
-                margin: "none"
+                margin: "none",
+                align: "center"
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                  {
+                    type: "image",
+                    url: `https://promptpay.io/${data.promptpayId}/${(data.totalAmount - data.discountAmount)}.png`,
+                    size: "lg",
+                    aspectMode: "fit",
+                    aspectRatio: "1:1"
+                  },
+                  {
+                    type: "text",
+                    text: `฿${(data.totalAmount - data.discountAmount).toLocaleString()}`,
+                    size: "lg",
+                    weight: "bold",
+                    color: "#1E88E5",
+                    align: "center",
+                    margin: "sm"
+                  }
+                ],
+                margin: "sm",
+                backgroundColor: "#FFFFFF",
+                cornerRadius: "md",
+                paddingAll: "md",
+                borderWidth: "1px",
+                borderColor: "#E5E7EB"
               },
               {
                 type: "box",
                 layout: "horizontal",
                 contents: [
-                  { type: "text", text: "เลขพร้อมเพย์:", size: "sm", color: "#666666", flex: 2 },
-                  { type: "text", text: data.promptpayId, size: "sm", color: "#1F2937", flex: 4, weight: "bold" }
+                  { type: "text", text: "เลขพร้อมเพย์:", size: "xs", color: "#666666", flex: 2 },
+                  { type: "text", text: data.promptpayId, size: "xs", color: "#1F2937", flex: 3, weight: "bold" }
                 ],
-                margin: "sm",
-                backgroundColor: "#F0FDF4",
-                cornerRadius: "md",
-                paddingAll: "sm"
-              },
-              {
-                type: "button",
-                action: {
-                  type: "uri",
-                  label: "📲 สแกน QR พร้อมเพย์",
-                  uri: `https://promptpay.io/${data.promptpayId}/${(data.totalAmount - data.discountAmount)}.png`
-                },
-                style: "primary",
-                height: "sm",
-                margin: "sm",
-                color: "#1E88E5"
+                margin: "sm"
               },
               {
                 type: "button",
@@ -1368,11 +1382,14 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
                 },
                 style: "secondary",
                 height: "sm",
-                margin: "xs"
+                margin: "sm"
               }
             ],
             margin: data.bankInfo ? "md" : "none",
-            paddingBottom: "md"
+            paddingBottom: "md",
+            backgroundColor: "#F0FDF4",
+            cornerRadius: "lg",
+            paddingAll: "md"
           },
           {
             type: "separator",
