@@ -223,15 +223,15 @@ export default function AdminKnowledgeBase() {
 
   return (
     <AdminLayout title="ฐานความรู้">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <BookOpen className="w-6 h-6" />
-              ฐานความรู้ (Knowledge Base)
+            <h1 className="text-lg sm:text-2xl font-bold flex items-center gap-2">
+              <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+              ฐานความรู้
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               อัพโหลดเอกสารให้ AI อ่านและใช้ตอบคำถามลูกค้า
             </p>
           </div>
@@ -239,17 +239,18 @@ export default function AdminKnowledgeBase() {
             onClick={() => queryClient.invalidateQueries({ queryKey: ['knowledge-base'] })}
             variant="outline"
             size="sm"
+            className="w-full sm:w-auto h-9"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            รีเฟรช
+            <RefreshCw className="w-4 h-4 sm:mr-2" />
+            <span className="sm:inline">รีเฟรช</span>
           </Button>
         </div>
 
         {/* Upload Area */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-3 sm:p-6">
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center transition-colors ${
                 dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
               } ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
               onDragEnter={handleDrag}
@@ -258,24 +259,24 @@ export default function AdminKnowledgeBase() {
               onDrop={handleDrop}
             >
               {isUploading ? (
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                  <p className="text-lg font-medium">{uploadProgress}</p>
+                <div className="flex flex-col items-center gap-2 sm:gap-3">
+                  <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin text-primary" />
+                  <p className="text-sm sm:text-lg font-medium">{uploadProgress}</p>
                 </div>
               ) : (
                 <>
-                  <Upload className="w-10 h-10 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-lg font-medium mb-2">
+                  <Upload className="w-8 h-8 sm:w-10 sm:h-10 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+                  <p className="text-sm sm:text-lg font-medium mb-1 sm:mb-2">
                     ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์
                   </p>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
                     รองรับ PDF, PNG, JPG, WEBP (สูงสุด 10MB)
                   </p>
                   <Label htmlFor="file-upload" className="cursor-pointer">
-                    <Button asChild>
+                    <Button asChild className="h-9 sm:h-10">
                       <span>
-                        <Upload className="w-4 h-4 mr-2" />
-                        เลือกไฟล์
+                        <Upload className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden xs:inline">เลือกไฟล์</span>
                       </span>
                     </Button>
                     <Input
@@ -294,78 +295,119 @@ export default function AdminKnowledgeBase() {
 
         {/* Documents List */}
         <Card>
-          <CardHeader>
-            <CardTitle>เอกสารทั้งหมด ({items.length})</CardTitle>
+          <CardHeader className="py-3 sm:py-6">
+            <CardTitle className="text-base sm:text-lg">เอกสารทั้งหมด ({items.length})</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>
             ) : items.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>ยังไม่มีเอกสารในฐานความรู้</p>
-                <p className="text-sm">อัพโหลดเอกสารเพื่อให้ AI ใช้ตอบคำถามลูกค้า</p>
+                <FileText className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm sm:text-base">ยังไม่มีเอกสารในฐานความรู้</p>
+                <p className="text-xs sm:text-sm">อัพโหลดเอกสารเพื่อให้ AI ใช้ตอบคำถามลูกค้า</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {items.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        {getFileIcon(item.file_type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium truncate">{item.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Badge variant="outline" className="text-xs">
-                            {item.file_type.toUpperCase()}
-                          </Badge>
-                          {item.category && (
-                            <Badge variant="secondary" className="text-xs">
-                              {item.category}
-                            </Badge>
-                          )}
-                          <span className="hidden sm:inline">
-                            {new Date(item.created_at).toLocaleDateString('th-TH')}
-                          </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                      {/* Icon + Content */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg shrink-0">
+                          {getFileIcon(item.file_type)}
                         </div>
-                        {item.summary && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                            {item.summary}
-                          </p>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="font-medium text-sm sm:text-base truncate">{item.title}</h3>
+                            {/* Mobile actions - top right */}
+                            <div className="flex items-center gap-1 sm:hidden shrink-0">
+                              <Switch
+                                checked={item.is_active}
+                                onCheckedChange={(checked) => 
+                                  toggleActiveMutation.mutate({ id: item.id, is_active: checked })
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs">
+                              {item.file_type.toUpperCase()}
+                            </Badge>
+                            {item.category && (
+                              <Badge variant="secondary" className="text-[10px] sm:text-xs">
+                                {item.category}
+                              </Badge>
+                            )}
+                            <span className="text-[10px] sm:text-xs">
+                              {new Date(item.created_at).toLocaleDateString('th-TH')}
+                            </span>
+                          </div>
+                          {item.summary && (
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-1 sm:line-clamp-2">
+                              {item.summary}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <Switch
-                        checked={item.is_active}
-                        onCheckedChange={(checked) => 
-                          toggleActiveMutation.mutate({ id: item.id, is_active: checked })
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedItem(item);
-                          setIsViewDialogOpen(true);
-                        }}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setDeleteItemId(item.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      
+                      {/* Mobile action buttons */}
+                      <div className="flex items-center justify-end gap-1 pt-2 border-t sm:hidden">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2.5"
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setIsViewDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          ดู
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive h-8 px-2.5"
+                          onClick={() => setDeleteItemId(item.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                          ลบ
+                        </Button>
+                      </div>
+
+                      {/* Desktop actions */}
+                      <div className="hidden sm:flex items-center gap-2 ml-4 shrink-0">
+                        <Switch
+                          checked={item.is_active}
+                          onCheckedChange={(checked) => 
+                            toggleActiveMutation.mutate({ id: item.id, is_active: checked })
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setIsViewDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteItemId(item.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
