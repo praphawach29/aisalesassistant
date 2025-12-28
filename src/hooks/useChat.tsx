@@ -71,9 +71,17 @@ interface OrderData {
   totalAmount: number;
 }
 
-function parseOrderCommand(text: string): { cleanText: string; orderData?: OrderData } {
+function parseOrderCommand(text: string): { cleanText: string; orderData?: OrderData; checkOrderNumber?: string } {
   let cleanText = text;
   let orderData: OrderData | undefined;
+  let checkOrderNumber: string | undefined;
+
+  // Match CHECK_ORDER command
+  const checkMatch = text.match(/\[CHECK_ORDER:([^\]]+)\]/);
+  if (checkMatch) {
+    checkOrderNumber = checkMatch[1].trim();
+    cleanText = cleanText.replace(/\[CHECK_ORDER:[^\]]+\]/g, '');
+  }
 
   // Match CREATE_ORDER command
   // Format: [CREATE_ORDER:item1|qty|price,item2|qty|price|name|phone|address|total]
@@ -121,8 +129,17 @@ function parseOrderCommand(text: string): { cleanText: string; orderData?: Order
     cleanText = cleanText.replace(/\[CREATE_ORDER:[^\]]+\]/g, '');
   }
 
-  return { cleanText: cleanText.trim(), orderData };
+  return { cleanText: cleanText.trim(), orderData, checkOrderNumber };
 }
+
+// Order status labels in Thai
+const ORDER_STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
+  pending: { label: 'รอยืนยัน', emoji: '⏳' },
+  confirmed: { label: 'ยืนยันแล้ว', emoji: '✅' },
+  shipped: { label: 'จัดส่งแล้ว', emoji: '🚚' },
+  delivered: { label: 'จัดส่งสำเร็จ', emoji: '📦' },
+  cancelled: { label: 'ยกเลิก', emoji: '❌' }
+};
 
 export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -248,10 +265,10 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
       // Analyze the slip with AI
       const analyzeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-payment-slip`;
       
-      // Get order total for verification
+      // Get order data for verification and notification
       const { data: orderData } = await supabase
         .from('orders')
-        .select('total_amount')
+        .select('total_amount, order_number, customer_name')
         .eq('id', orderId)
         .single();
 
@@ -276,6 +293,46 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
       } else {
         console.error('Error analyzing slip:', await response.text());
       }
+
+      // Create admin notification for new payment slip
+      const notificationTitle = analysisResult?.auto_verified 
+        ? 'สลิปโอนเงินได้รับการยืนยันอัตโนมัติ!' 
+        : 'มีสลิปโอนเงินใหม่รอตรวจสอบ';
+      
+      let notificationMessage = `ออเดอร์ ${orderData?.order_number || orderId} จาก ${orderData?.customer_name || 'ลูกค้า'}\n`;
+      notificationMessage += `ยอดออเดอร์: ฿${orderData?.total_amount?.toLocaleString() || '-'}`;
+      
+      if (analysisResult?.success) {
+        notificationMessage += `\n\n🔍 ผลวิเคราะห์ AI:`;
+        if (analysisResult.analyzed_amount) {
+          notificationMessage += `\n💰 ยอดโอน: ฿${analysisResult.analyzed_amount.toLocaleString()}`;
+        }
+        if (analysisResult.analyzed_bank) {
+          notificationMessage += `\n🏦 ธนาคาร: ${analysisResult.analyzed_bank}`;
+        }
+        notificationMessage += `\n📊 ความมั่นใจ: ${analysisResult.confidence_score}%`;
+        
+        if (analysisResult.auto_verified) {
+          notificationMessage += `\n\n✅ ยืนยันอัตโนมัติสำเร็จ`;
+        }
+      }
+
+      await supabase.from('admin_notifications').insert({
+        type: analysisResult?.auto_verified ? 'payment_verified' : 'new_payment_slip',
+        title: notificationTitle,
+        message: notificationMessage,
+        data: {
+          order_id: orderId,
+          order_number: orderData?.order_number,
+          customer_name: orderData?.customer_name,
+          slip_id: slipRecord?.id,
+          analyzed_amount: analysisResult?.analyzed_amount,
+          analyzed_bank: analysisResult?.analyzed_bank,
+          confidence_score: analysisResult?.confidence_score,
+          auto_verified: analysisResult?.auto_verified,
+          image_url: publicUrl
+        }
+      });
 
       return { slipUrl: publicUrl, analysisResult };
     } catch (error) {
@@ -550,7 +607,43 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
       }
 
       // Parse order command from the response
-      const { cleanText: orderCleanText, orderData } = parseOrderCommand(assistantContent);
+      const { cleanText: orderCleanText, orderData, checkOrderNumber } = parseOrderCommand(assistantContent);
+      
+      // Handle order status check
+      if (checkOrderNumber) {
+        console.log('[WebChat] Checking order status:', checkOrderNumber);
+        const { data: orderInfo, error: orderFetchError } = await supabase
+          .from('orders')
+          .select('id, order_number, status, total_amount, tracking_number, created_at, customer_name')
+          .eq('order_number', checkOrderNumber)
+          .maybeSingle();
+
+        if (orderInfo && !orderFetchError) {
+          const statusInfo = ORDER_STATUS_LABELS[orderInfo.status] || { label: orderInfo.status, emoji: '📋' };
+          let statusMessage = `\n\n📦 **ข้อมูลออเดอร์: ${orderInfo.order_number}**\n`;
+          statusMessage += `${statusInfo.emoji} สถานะ: **${statusInfo.label}**\n`;
+          statusMessage += `💰 ยอดรวม: ฿${orderInfo.total_amount?.toLocaleString()}\n`;
+          statusMessage += `📅 วันที่สั่ง: ${new Date(orderInfo.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}\n`;
+          
+          if (orderInfo.tracking_number) {
+            statusMessage += `🚚 เลขพัสดุ: **${orderInfo.tracking_number}**\n`;
+          }
+          
+          if (orderInfo.status === 'pending') {
+            statusMessage += `\n💳 หากยังไม่ได้ชำระเงิน กรุณาโอนเงินและกดปุ่ม 📎 เพื่อแนบสลิปค่ะ`;
+          } else if (orderInfo.status === 'shipped' && orderInfo.tracking_number) {
+            statusMessage += `\n📍 สามารถติดตามพัสดุได้ที่เว็บไซต์ขนส่งค่ะ`;
+          }
+          
+          assistantContent = orderCleanText + statusMessage;
+        } else {
+          assistantContent = orderCleanText + `\n\n❌ ไม่พบออเดอร์หมายเลข ${checkOrderNumber} ค่ะ\nรบกวนตรวจสอบเลขที่ออเดอร์อีกครั้งนะคะ`;
+        }
+        
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, content: assistantContent } : m
+        ));
+      }
       
       // Handle order creation
       if (orderData) {
