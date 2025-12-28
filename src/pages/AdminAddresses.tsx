@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Search, MapPin, Edit, Trash2, Plus, Home, Building2, MessageCircle, Facebook } from 'lucide-react';
+import { Loader2, Search, MapPin, Edit, Trash2, Plus, Home, Building2, MessageCircle, Facebook, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
@@ -171,6 +171,29 @@ export default function AdminAddresses() {
     return acc;
   }, {} as Record<string, CustomerAddress[]>);
 
+  const exportToCSV = () => {
+    const headers = ['แพลตฟอร์ม', 'ID ลูกค้า', 'ป้ายกำกับ', 'ที่อยู่', 'ค่าเริ่มต้น', 'วันที่สร้าง', 'วันที่อัปเดต'];
+    const rows = filteredAddresses.map(addr => [
+      addr.platform,
+      addr.platform_user_id,
+      addr.label,
+      `"${addr.address.replace(/"/g, '""')}"`,
+      addr.is_default ? 'ใช่' : 'ไม่',
+      format(new Date(addr.created_at), 'd MMM yyyy HH:mm', { locale: th }),
+      format(new Date(addr.updated_at), 'd MMM yyyy HH:mm', { locale: th })
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `customer-addresses-${format(new Date(), 'yyyyMMdd-HHmmss')}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`ส่งออก ${filteredAddresses.length} รายการสำเร็จ`);
+  };
+
   if (authLoading || loading) {
     return (
       <AdminLayout title="ที่อยู่ลูกค้า">
@@ -214,7 +237,7 @@ export default function AdminAddresses() {
           </Card>
         </div>
 
-        {/* Search */}
+        {/* Search and Export */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex gap-4">
@@ -227,6 +250,10 @@ export default function AdminAddresses() {
                   className="pl-9"
                 />
               </div>
+              <Button onClick={exportToCSV} disabled={filteredAddresses.length === 0}>
+                <Download className="w-4 h-4 mr-2" />
+                ส่งออก CSV
+              </Button>
             </div>
           </CardContent>
         </Card>
