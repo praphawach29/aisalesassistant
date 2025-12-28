@@ -158,79 +158,81 @@ export default function AdminRelatedProducts() {
 
   return (
     <AdminLayout title="สินค้าที่เกี่ยวข้อง">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">สินค้าที่เกี่ยวข้อง</h1>
-          <p className="text-muted-foreground">ตั้งค่าคู่สินค้าที่เกี่ยวข้องสำหรับแนะนำลูกค้า (Cross-sell)</p>
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header - Hide on mobile since AdminLayout shows title */}
+        <div className="hidden sm:block">
+          <h1 className="text-xl sm:text-2xl font-bold">สินค้าที่เกี่ยวข้อง</h1>
+          <p className="text-sm text-muted-foreground">ตั้งค่าคู่สินค้าที่เกี่ยวข้องสำหรับแนะนำลูกค้า (Cross-sell)</p>
         </div>
 
         {/* Add new relation */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5" />
-              เพิ่มคู่สินค้าที่เกี่ยวข้อง
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+              เพิ่มคู่สินค้า
             </CardTitle>
-            <CardDescription>
-              เลือกสินค้า 2 รายการที่ต้องการเชื่อมโยง เมื่อลูกค้าสนใจสินค้าหนึ่ง บอทจะแนะนำอีกสินค้าให้
+            <CardDescription className="text-xs sm:text-sm">
+              เลือกสินค้า 2 รายการที่ต้องการเชื่อมโยง
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1 space-y-2">
-                <label className="text-sm font-medium">สินค้าหลัก</label>
-                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="เลือกสินค้า..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map(product => (
-                      <SelectItem key={product.id} value={product.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{product.name}</span>
-                          {product.category && (
-                            <Badge variant="outline" className="text-xs">{product.category}</Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="hidden sm:flex items-center justify-center">
-                <Link2 className="w-5 h-5 text-muted-foreground" />
-              </div>
-
-              <div className="flex-1 space-y-2">
-                <label className="text-sm font-medium">สินค้าที่เกี่ยวข้อง</label>
-                <Select value={selectedRelated} onValueChange={setSelectedRelated}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="เลือกสินค้า..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products
-                      .filter(p => p.id !== selectedProduct)
-                      .map(product => (
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+            <div className="space-y-4">
+              {/* Product selectors */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm font-medium">สินค้าหลัก</label>
+                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                    <SelectTrigger className="h-10 sm:h-11">
+                      <SelectValue placeholder="เลือกสินค้า..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map(product => (
                         <SelectItem key={product.id} value={product.id}>
                           <div className="flex items-center gap-2">
-                            <span>{product.name}</span>
+                            <span className="truncate max-w-[180px] sm:max-w-none">{product.name}</span>
                             {product.category && (
-                              <Badge variant="outline" className="text-xs">{product.category}</Badge>
+                              <Badge variant="outline" className="text-[10px] sm:text-xs hidden sm:inline-flex">{product.category}</Badge>
                             )}
                           </div>
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm font-medium">สินค้าที่เกี่ยวข้อง</label>
+                  <Select value={selectedRelated} onValueChange={setSelectedRelated}>
+                    <SelectTrigger className="h-10 sm:h-11">
+                      <SelectValue placeholder="เลือกสินค้า..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products
+                        .filter(p => p.id !== selectedProduct)
+                        .map(product => (
+                          <SelectItem key={product.id} value={product.id}>
+                            <div className="flex items-center gap-2">
+                              <span className="truncate max-w-[180px] sm:max-w-none">{product.name}</span>
+                              {product.category && (
+                                <Badge variant="outline" className="text-[10px] sm:text-xs hidden sm:inline-flex">{product.category}</Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
+              {/* Add button */}
               <Button 
                 onClick={handleAddRelation} 
                 disabled={isAdding || !selectedProduct || !selectedRelated}
+                className="w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                เพิ่ม
+                เพิ่มคู่สินค้า
               </Button>
             </div>
           </CardContent>
@@ -238,94 +240,162 @@ export default function AdminRelatedProducts() {
 
         {/* List of relations */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              คู่สินค้าที่ตั้งค่าไว้
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+              คู่สินค้าที่ตั้งค่าไว้ ({uniquePairs.length})
             </CardTitle>
-            <CardDescription>
-              รายการคู่สินค้าที่เชื่อมโยงกัน (แสดงทั้ง 2 ทิศทาง)
-            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 sm:p-6 sm:pt-0">
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">กำลังโหลด...</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">กำลังโหลด...</div>
             ) : uniquePairs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="text-center py-8 text-muted-foreground text-sm px-4">
+                <Package className="w-10 h-10 mx-auto mb-3 opacity-50" />
                 ยังไม่มีคู่สินค้าที่เกี่ยวข้อง
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>สินค้า A</TableHead>
-                    <TableHead className="text-center w-16"></TableHead>
-                    <TableHead>สินค้า B</TableHead>
-                    <TableHead className="text-right w-24">จัดการ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* Mobile View */}
+                <div className="sm:hidden divide-y">
                   {uniquePairs.map((rp) => (
-                    <TableRow key={rp.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          {rp.product.image_url ? (
-                            <img 
-                              src={rp.product.image_url} 
-                              alt={rp.product.name}
-                              className="w-10 h-10 object-cover rounded"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
-                              <Package className="w-5 h-5 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-medium">{rp.product.name}</div>
-                            {rp.product.category && (
-                              <Badge variant="outline" className="text-xs">{rp.product.category}</Badge>
-                            )}
+                    <div key={rp.id} className="p-4 space-y-3">
+                      {/* Product A */}
+                      <div className="flex items-center gap-3">
+                        {rp.product.image_url ? (
+                          <img 
+                            src={rp.product.image_url} 
+                            alt={rp.product.name}
+                            className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Package className="w-5 h-5 text-muted-foreground" />
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          {rp.related_product.image_url ? (
-                            <img 
-                              src={rp.related_product.image_url} 
-                              alt={rp.related_product.name}
-                              className="w-10 h-10 object-cover rounded"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
-                              <Package className="w-5 h-5 text-muted-foreground" />
-                            </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">{rp.product.name}</div>
+                          {rp.product.category && (
+                            <Badge variant="outline" className="text-[10px] mt-1">{rp.product.category}</Badge>
                           )}
-                          <div>
-                            <div className="font-medium">{rp.related_product.name}</div>
-                            {rp.related_product.category && (
-                              <Badge variant="outline" className="text-xs">{rp.related_product.category}</Badge>
-                            )}
-                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </div>
+
+                      {/* Arrow */}
+                      <div className="flex items-center gap-2 pl-4">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                          <Link2 className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <span className="text-xs text-muted-foreground">เชื่อมโยงกับ</span>
+                      </div>
+
+                      {/* Product B */}
+                      <div className="flex items-center gap-3">
+                        {rp.related_product.image_url ? (
+                          <img 
+                            src={rp.related_product.image_url} 
+                            alt={rp.related_product.name}
+                            className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Package className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm truncate">{rp.related_product.name}</div>
+                          {rp.related_product.category && (
+                            <Badge variant="outline" className="text-[10px] mt-1">{rp.related_product.category}</Badge>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-9 w-9 flex-shrink-0"
                           onClick={() => handleDeleteRelation(rp.product_id, rp.related_product_id)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>สินค้า A</TableHead>
+                        <TableHead className="text-center w-16"></TableHead>
+                        <TableHead>สินค้า B</TableHead>
+                        <TableHead className="text-right w-24">จัดการ</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {uniquePairs.map((rp) => (
+                        <TableRow key={rp.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {rp.product.image_url ? (
+                                <img 
+                                  src={rp.product.image_url} 
+                                  alt={rp.product.name}
+                                  className="w-10 h-10 object-cover rounded"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                                  <Package className="w-5 h-5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-medium">{rp.product.name}</div>
+                                {rp.product.category && (
+                                  <Badge variant="outline" className="text-xs">{rp.product.category}</Badge>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <ArrowRight className="w-4 h-4 text-muted-foreground mx-auto" />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {rp.related_product.image_url ? (
+                                <img 
+                                  src={rp.related_product.image_url} 
+                                  alt={rp.related_product.name}
+                                  className="w-10 h-10 object-cover rounded"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+                                  <Package className="w-5 h-5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-medium">{rp.related_product.name}</div>
+                                {rp.related_product.category && (
+                                  <Badge variant="outline" className="text-xs">{rp.related_product.category}</Badge>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteRelation(rp.product_id, rp.related_product_id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
