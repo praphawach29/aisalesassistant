@@ -2117,14 +2117,35 @@ serve(async (req) => {
         }
 
         const isFirstMessage = isNewSession;
-
+        
         // Detect greeting messages
         const greetingPatterns = /^(สวัสดี|หวัดดี|ดี|hello|hi|hey|hola|หวัดดีครับ|หวัดดีค่ะ|สวัสดีครับ|สวัสดีค่ะ|ดีครับ|ดีค่ะ|ดีจ้า|สวัสดีจ้า|หวัดดีจ้า)[ๆ]*[\s]*[ครับค่ะคะจ้านะ]*$/i;
         const isGreeting = greetingPatterns.test(userMessage.trim());
         
-        if (isGreeting) {
-          console.log("Greeting detected - will respond with greeting only");
+        // Check if this is the first greeting in the session
+        // A greeting should introduce if: it's first message OR no greeting was answered in last 10 messages
+        let isFirstGreeting = isFirstMessage;
+        if (isGreeting && !isFirstMessage && history && history.length > 0) {
+          // Check if there was a recent greeting + introduction in history
+          const recentMessages = history.slice(-10);
+          const hasRecentIntroduction = recentMessages.some((m: any) => {
+            if (m.role === 'assistant') {
+              // Check if bot already introduced itself (มี "ร้าน" หรือ "น้อง" + "ยินดี" หรือ "ต้อนรับ")
+              const hasIntro = (m.content.includes('ร้าน') || m.content.includes('น้อง')) && 
+                              (m.content.includes('ยินดี') || m.content.includes('ต้อนรับ') || m.content.includes('จัดส่ง'));
+              return hasIntro;
+            }
+            return false;
+          });
+          
+          // If no recent introduction found, treat this as first greeting
+          if (!hasRecentIntroduction) {
+            isFirstGreeting = true;
+            console.log(`[FB] No recent introduction found - treating as first greeting`);
+          }
         }
+        
+        console.log(`[FB] Session: isNewSession=${isNewSession}, isGreeting=${isGreeting}, isFirstGreeting=${isFirstGreeting}, history=${history?.length || 0}`);
 
         // Detect if user is specifying new product list (contains quantity patterns)
         const productListPattern = /(\d+\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค))|((ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)\s*\d+)|(อย่างละ\s*\d+)|(\d+\s*(สี|ไซส์|size|s|m|l|xl))/i;
@@ -2164,8 +2185,8 @@ serve(async (req) => {
           }
         }
         
-        // For first greeting, add instruction to introduce self and store
-        if (isGreeting && isFirstMessage) {
+        // For first greeting (new session OR no recent introduction), add instruction to introduce self and store
+        if (isGreeting && isFirstGreeting) {
           // Fetch store name and shipping info for greeting
           const { data: storeNameSetting } = await supabase
             .from("settings")
@@ -2210,8 +2231,8 @@ serve(async (req) => {
 ⚠️ ห้าม:
 - ห้ามตอบสั้นเกินไป (ต้องแนะนำตัว+ร้าน)
 - ห้ามทักทายซ้ำซ้อนในข้อความเดียว` });
-        } else if (isGreeting && !isFirstMessage) {
-          // For subsequent greetings, keep it short
+        } else if (isGreeting && !isFirstGreeting) {
+          // For subsequent greetings (already introduced recently), keep it short
           messages.push({ role: "system", content: `[INSTRUCTION: ลูกค้าทักทายอีกครั้ง - ไม่ต้องแนะนำตัวซ้ำ]
 - ตอบทักทายสั้นๆ เช่น "สวัสดีค่ะ 😊 มีอะไรให้ช่วยเหลือไหมคะ?"
 - ห้ามแนะนำตัวหรือร้านซ้ำ
