@@ -1091,11 +1091,38 @@ serve(async (req) => {
       });
     }
 
+    // Track processed message IDs to prevent duplicate processing
+    // Facebook sometimes sends the same webhook multiple times
+    const processedMessageIds = new Set<string>();
+    
     // Process messaging events
     for (const entry of body.entry || []) {
       for (const event of entry.messaging || []) {
         const senderId = event.sender?.id;
         if (!senderId) continue;
+        
+        // Deduplication: Check if this message was already processed
+        const messageId = event.message?.mid || event.postback?.mid || `${senderId}_${event.timestamp}`;
+        if (processedMessageIds.has(messageId)) {
+          console.log(`Skipping duplicate message: ${messageId}`);
+          continue;
+        }
+        processedMessageIds.add(messageId);
+        
+        // Also check in database for cross-request deduplication
+        if (event.message?.mid) {
+          const { data: existingMessage } = await supabase
+            .from("chat_messages")
+            .select("id")
+            .eq("content", event.message.text || "")
+            .gte("created_at", new Date(Date.now() - 60000).toISOString()) // Last 60 seconds
+            .limit(1);
+          
+          if (existingMessage && existingMessage.length > 0) {
+            console.log(`Skipping already processed message (found in DB): ${event.message.mid}`);
+            continue;
+          }
+        }
 
         // Handle postback events (button clicks)
         if (event.postback) {
