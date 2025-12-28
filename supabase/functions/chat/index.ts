@@ -366,29 +366,24 @@ ${custom_rules ? `## ⚠️ กฎพิเศษที่ต้องปฏิ�
 ### Upsell:
 - หากสนใจสินค้าถูก → แนะนำรุ่นที่ดีกว่าเล็กน้อย
 
-### Cross-sell (แนะนำสินค้าที่เข้าคู่กัน):
-**เมื่อลูกค้าสนใจหรือสั่งซื้อสินค้า → แนะนำสินค้าที่เกี่ยวข้องตามหลักการนี้:**
+### Cross-sell (แนะนำสินค้าที่เกี่ยวข้อง):
+**เมื่อลูกค้าสนใจหรือสั่งซื้อสินค้า → แนะนำสินค้าที่เกี่ยวข้องตามข้อมูลในรายการสินค้า:**
 
-| ลูกค้าสนใจ | แนะนำสินค้าเหล่านี้ |
-|-----------|-------------------|
-| เสื้อ (เสื้อยืด, เสื้อเชิ้ต, เสื้อโปโล) | กางเกง, กระเป๋า, รองเท้า, เข็มขัด |
-| กางเกง (กางเกงยีนส์, กางเกงขาสั้น) | เสื้อ, เข็มขัด, รองเท้า |
-| รองเท้า | ถุงเท้า, กระเป๋า, เสื้อผ้า |
-| กระเป๋า | กระเป๋าสตางค์, รองเท้า, เครื่องประดับ |
-| เครื่องประดับ (นาฬิกา, แหวน, สร้อย) | เครื่องประดับอื่นๆ, กระเป๋า |
-| ของใช้ในบ้าน | ของใช้ในบ้านที่เกี่ยวข้อง |
-| อาหาร/เครื่องดื่ม | อาหาร/เครื่องดื่มอื่นที่เข้าคู่ |
+**วิธีการใช้ข้อมูลสินค้าที่เกี่ยวข้อง:**
+- ดูจากข้อมูล "สินค้าที่เกี่ยวข้อง" ในรายการสินค้าแต่ละตัว (ถ้ามี)
+- ถ้าสินค้ามีข้อมูลสินค้าที่เกี่ยวข้อง → แนะนำสินค้าเหล่านั้น
+- ถ้าสินค้าไม่มีข้อมูลสินค้าที่เกี่ยวข้อง → แนะนำสินค้าใน category เดียวกันหรือคล้ายกัน
 
 **กฎการแนะนำ:**
 - **หลังลูกค้าเลือกสินค้าและกำลังจะสั่งซื้อ** → ถามว่า "สนใจดู [สินค้าที่เกี่ยวข้อง] เพิ่มไหม${particleQuestion}?" (ไม่บังคับ แนะนำเบาๆ)
-- **หลังสร้างออเดอร์เสร็จ** → ถามว่าสนใจสินค้าอื่นไหม ถ้าลูกค้าสนใจ ให้แนะนำสินค้าที่เข้าคู่
-- **ดูจาก category ของสินค้า** → แนะนำสินค้าใน category ที่เข้าคู่กัน
-- **ไม่แนะนำสินค้าซ้ำ** → ถ้าลูกค้าสั่งเสื้อยืดแล้ว ไม่แนะนำเสื้อยืดอีก แนะนำกางเกงหรือสินค้าอื่นแทน
+- **หลังสร้างออเดอร์เสร็จ** → ถามว่าสนใจสินค้าอื่นไหม ถ้าลูกค้าสนใจ ให้แนะนำสินค้าที่เกี่ยวข้อง
+- **ใช้ข้อมูลสินค้าที่เกี่ยวข้องเป็นหลัก** → ถ้าแอดมินตั้งค่าคู่สินค้าไว้ ให้ใช้ข้อมูลนั้น
+- **ไม่แนะนำสินค้าซ้ำ** → ถ้าลูกค้าสั่งเสื้อยืดแล้ว ไม่แนะนำเสื้อยืดอีก แนะนำสินค้าอื่นแทน
 - **แนะนำไม่เกิน 1-2 รายการ** → ไม่รบกวนลูกค้ามากเกินไป
 
 **ตัวอย่าง:**
-- ลูกค้าเลือกเสื้อยืด → "เสื้อยืดตัวนี้เข้ากับกางเกงยีนส์ของร้านเลย${particleEnd} สนใจดูเพิ่มไหม${particleQuestion}? [PRODUCT:กางเกงยีนส์]"
-- ลูกค้าเลือกรองเท้า → "ร้านมีถุงเท้าคุณภาพดีที่เข้าคู่กับรองเท้าตัวนี้ด้วยนะ${particleQuestion} [PRODUCT:ถุงเท้า]"
+- สินค้า "เสื้อยืดคอกลม" มี สินค้าที่เกี่ยวข้อง: [กางเกงยีนส์] → แนะนำกางเกงยีนส์
+- ลูกค้าเลือกสินค้า → "สินค้านี้เข้ากับ [ชื่อสินค้าที่เกี่ยวข้อง] ของร้านเลย${particleEnd} สนใจดูเพิ่มไหม${particleQuestion}? [PRODUCT:ชื่อสินค้าที่เกี่ยวข้อง]"
 
 ### สร้าง Urgency:
 - "ตอนนี้โปรโมชั่นลดราคาอยู่${particleEnd}"
@@ -493,6 +488,7 @@ serve(async (req) => {
     let scrapedData = getCached<any[]>('scraped_content');
     let knowledgeData = getCached<any[]>('knowledge_base');
     let aiSettingsData = getCached<any>('ai_settings');
+    let relatedProductsData = getCached<any[]>('related_products');
 
     // Check what needs to be fetched
     const needsAiSettings = !aiSettingsData;
@@ -501,6 +497,7 @@ serve(async (req) => {
     const needsSettings = !settingsData;
     const needsScraped = !scrapedData;
     const needsKnowledge = !knowledgeData;
+    const needsRelatedProducts = !relatedProductsData;
 
     const cacheHits = [];
     const cacheMisses = [];
@@ -510,6 +507,7 @@ serve(async (req) => {
     if (needsSettings) cacheMisses.push('settings'); else cacheHits.push('settings');
     if (needsScraped) cacheMisses.push('scraped'); else cacheHits.push('scraped');
     if (needsKnowledge) cacheMisses.push('knowledge'); else cacheHits.push('knowledge');
+    if (needsRelatedProducts) cacheMisses.push('related_products'); else cacheHits.push('related_products');
 
     if (cacheMisses.length > 0) {
       console.log(`Cache miss: ${cacheMisses.join(', ')} | Cache hit: ${cacheHits.join(', ')}`);
@@ -521,14 +519,16 @@ serve(async (req) => {
         faqsResult,
         settingsResult,
         scrapedResult,
-        knowledgeResult
+        knowledgeResult,
+        relatedProductsResult
       ] = await Promise.all([
         needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
         needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
         needsFaqs ? supabase.from("faqs").select("question, answer").eq("is_active", true) : Promise.resolve({ data: faqs }),
         needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]) : Promise.resolve({ data: settingsData }),
         needsScraped ? supabase.from("scraped_content").select("source_name, summary, content").eq("is_active", true) : Promise.resolve({ data: scrapedData }),
-        needsKnowledge ? supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true) : Promise.resolve({ data: knowledgeData })
+        needsKnowledge ? supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true) : Promise.resolve({ data: knowledgeData }),
+        needsRelatedProducts ? supabase.from("related_products").select("product_id, related_product_id") : Promise.resolve({ data: relatedProductsData })
       ]);
 
       // Update cache for fetched data
@@ -556,6 +556,10 @@ serve(async (req) => {
         knowledgeData = knowledgeResult.data || [];
         setCache('knowledge_base', knowledgeData);
       }
+      if (needsRelatedProducts) {
+        relatedProductsData = relatedProductsResult.data || [];
+        setCache('related_products', relatedProductsData);
+      }
     } else {
       console.log('All data served from cache!');
     }
@@ -581,6 +585,15 @@ serve(async (req) => {
     scrapedData = scrapedData || [];
     knowledgeData = knowledgeData || [];
     settingsData = settingsData || [];
+    relatedProductsData = relatedProductsData || [];
+
+    // Build related products map for cross-sell
+    const relatedProductsMap = new Map<string, string[]>();
+    for (const rp of relatedProductsData) {
+      const existing = relatedProductsMap.get(rp.product_id) || [];
+      existing.push(rp.related_product_id);
+      relatedProductsMap.set(rp.product_id, existing);
+    }
 
     // Process store settings
     const storeSettingsMap = new Map(settingsData.map((s: any) => [s.key, s.value]));
@@ -608,7 +621,7 @@ serve(async (req) => {
       hasShippingInfo: !!storeSettings.shippingInfo
     });
 
-    // Build product catalog with image URLs and variants
+    // Build product catalog with image URLs, variants, and related products
     const productCatalog = products.map((p: any) => {
       let productInfo = `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}]`;
       
@@ -624,9 +637,22 @@ serve(async (req) => {
           productInfo += ` | ตัวเลือก: [${variantTexts.join(' | ')}]`;
         }
       }
+
+      // Add related products info (from admin configuration)
+      const relatedIds = relatedProductsMap.get(p.id) || [];
+      if (relatedIds.length > 0) {
+        const relatedNames = relatedIds
+          .map(id => products.find((prod: any) => prod.id === id)?.name)
+          .filter(Boolean);
+        if (relatedNames.length > 0) {
+          productInfo += ` | สินค้าที่เกี่ยวข้อง: [${relatedNames.join(', ')}]`;
+        }
+      }
       
       return productInfo;
     }).join('\n') || 'ยังไม่มีสินค้าในระบบ';
+
+    console.log("Related products configured:", relatedProductsData.length, "pairs");
 
     // Build FAQ list
     const faqList = faqs.map((f: any) => 

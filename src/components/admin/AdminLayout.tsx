@@ -27,7 +27,8 @@ import {
   Code,
   Globe,
   BookOpen,
-  CreditCard
+  CreditCard,
+  Link2
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -40,6 +41,7 @@ const menuItems = [
   { path: '/admin/orders', label: 'ออเดอร์', icon: ShoppingCart },
   { path: '/admin/payment-slips', label: 'สลิปโอนเงิน', icon: CreditCard },
   { path: '/admin/products', label: 'สินค้า', icon: Package },
+  { path: '/admin/related-products', label: 'สินค้าที่เกี่ยวข้อง', icon: Link2 },
   { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
   { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
   { path: '/admin/notifications', label: 'แจ้งเตือน', icon: Bell },
