@@ -26,7 +26,8 @@ import {
   Radio,
   Code,
   Globe,
-  BookOpen
+  BookOpen,
+  CreditCard
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -37,6 +38,7 @@ interface AdminLayoutProps {
 const menuItems = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/admin/orders', label: 'ออเดอร์', icon: ShoppingCart },
+  { path: '/admin/payment-slips', label: 'สลิปโอนเงิน', icon: CreditCard },
   { path: '/admin/products', label: 'สินค้า', icon: Package },
   { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
   { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
