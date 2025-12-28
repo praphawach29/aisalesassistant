@@ -1307,6 +1307,39 @@ async function validateCoupon(supabase: any, code: string, totalAmount: number):
   return { valid: true, discountAmount, message: `ใช้โค้ด ${code} ลด ฿${discountAmount.toLocaleString()} ค่ะ` };
 }
 
+// ============= Duplicate Order Detection =============
+async function checkDuplicateOrder(
+  supabase: any, 
+  userId: string, 
+  totalAmount: number, 
+  customerPhone: string,
+  timeWindowMinutes: number = 5
+): Promise<{ isDuplicate: boolean; existingOrderNumber?: string }> {
+  try {
+    const timeWindow = new Date(Date.now() - timeWindowMinutes * 60 * 1000).toISOString();
+    
+    const { data: existingOrders } = await supabase
+      .from('orders')
+      .select('order_number, created_at, total_amount')
+      .eq('customer_line_id', userId)
+      .eq('total_amount', totalAmount)
+      .eq('customer_phone', customerPhone)
+      .gte('created_at', timeWindow)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (existingOrders && existingOrders.length > 0) {
+      console.log(`[LINE] Duplicate order detected: ${existingOrders[0].order_number} (created ${existingOrders[0].created_at})`);
+      return { isDuplicate: true, existingOrderNumber: existingOrders[0].order_number };
+    }
+    
+    return { isDuplicate: false };
+  } catch (error) {
+    console.error('[LINE] Error checking duplicate order:', error);
+    return { isDuplicate: false }; // Allow order creation on error
+  }
+}
+
 // ============= AI Response Parser =============
 function parseAIResponse(content: string, products: Product[]) {
   const showProducts = content.includes('[SHOW_PRODUCTS]');
@@ -2802,6 +2835,16 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
               text: `ขออภัยค่ะ สินค้า "${product.name}" เหลือเพียง ${product.stock} ชิ้น กรุณาปรับจำนวนค่ะ` 
             });
           } else {
+            // Check for duplicate order before creating
+            const duplicateCheck = await checkDuplicateOrder(supabase, userId, totalAmount, createOrder.customerPhone);
+            
+            if (duplicateCheck.isDuplicate) {
+              console.log(`[LINE] Skipping duplicate order creation, existing: ${duplicateCheck.existingOrderNumber}`);
+              lineMessages.push({ 
+                type: "text", 
+                text: `ออเดอร์ของคุณถูกสร้างแล้วค่ะ หมายเลข: ${duplicateCheck.existingOrderNumber} 📦\n\nหากต้องการสั่งใหม่ กรุณารอสักครู่แล้วลองใหม่ค่ะ` 
+              });
+            } else {
             // Create order
             const { data: order, error: orderError } = await supabase
               .from("orders")
@@ -2896,6 +2939,7 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
               console.error("[LINE] Error creating order:", orderError);
               lineMessages.push({ type: "text", text: "ขออภัยค่ะ ไม่สามารถสร้างออเดอร์ได้ กรุณาลองใหม่ค่ะ" });
             }
+            } // Close duplicate check else block
           }
         } else {
           lineMessages.push({ type: "text", text: `ขออภัยค่ะ ไม่พบสินค้า "${createOrder.productName}" ค่ะ` });
@@ -2952,6 +2996,16 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
         }
         
         if (stockOk && orderItemsToCreate.length > 0) {
+          // Check for duplicate order before creating
+          const duplicateMultiCheck = await checkDuplicateOrder(supabase, userId, totalAmount, createMultiOrder.customerPhone);
+          
+          if (duplicateMultiCheck.isDuplicate) {
+            console.log(`[LINE] Skipping duplicate multi-order creation, existing: ${duplicateMultiCheck.existingOrderNumber}`);
+            lineMessages.push({ 
+              type: "text", 
+              text: `ออเดอร์ของคุณถูกสร้างแล้วค่ะ หมายเลข: ${duplicateMultiCheck.existingOrderNumber} 📦\n\nหากต้องการสั่งใหม่ กรุณารอสักครู่แล้วลองใหม่ค่ะ` 
+            });
+          } else {
           // Create order
           const { data: order, error: orderError } = await supabase
             .from("orders")
@@ -3056,6 +3110,7 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
             console.error("[LINE] Error creating multi-order:", orderError);
             lineMessages.push({ type: "text", text: "ขออภัยค่ะ เกิดข้อผิดพลาดในการสร้างออเดอร์ กรุณาลองใหม่ค่ะ" });
           }
+          } // Close duplicate check else block
         }
       }
 
