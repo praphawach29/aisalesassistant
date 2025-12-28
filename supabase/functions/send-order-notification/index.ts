@@ -404,7 +404,7 @@ async function sendToLine(accessToken: string, userId: string, message: any): Pr
   }
 }
 
-async function sendToFacebook(accessToken: string, userId: string, message: string): Promise<boolean> {
+async function sendToFacebook(accessToken: string, userId: string, message: any): Promise<boolean> {
   try {
     console.log(`Sending Facebook notification to ${userId}`);
     
@@ -415,7 +415,7 @@ async function sendToFacebook(accessToken: string, userId: string, message: stri
       },
       body: JSON.stringify({
         recipient: { id: userId },
-        message: { text: message },
+        message: message,
         messaging_type: 'UPDATE',
       }),
     });
@@ -432,6 +432,136 @@ async function sendToFacebook(accessToken: string, userId: string, message: stri
     console.error('Error sending Facebook notification:', error);
     return false;
   }
+}
+
+// Create Facebook Generic Template for status update
+function createFacebookStatusUpdateTemplate(order: any, statusInfo: { text: string; emoji: string; color: string }) {
+  let subtitle = `📋 ${order.order_number}\n💰 ฿${Number(order.total_amount).toLocaleString()}\n📊 สถานะ: ${statusInfo.text}`;
+  
+  if (order.status === 'shipped' && order.tracking_number) {
+    subtitle += `\n📦 เลขพัสดุ: ${order.tracking_number}`;
+  }
+  
+  const buttons: any[] = [
+    {
+      type: "postback",
+      title: "📜 ประวัติออเดอร์",
+      payload: "CHECK_ORDER_HISTORY"
+    }
+  ];
+  
+  // Add tracking button if shipped
+  if (order.status === 'shipped' && order.tracking_number) {
+    buttons.unshift({
+      type: "web_url",
+      title: "🔍 ติดตามพัสดุ",
+      url: `https://track.thailandpost.co.th/?trackNumber=${order.tracking_number}`,
+      webview_height_ratio: "full"
+    });
+  }
+  
+  return {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "generic",
+        elements: [
+          {
+            title: `${statusInfo.emoji} อัปเดตสถานะออเดอร์`,
+            subtitle: subtitle,
+            buttons: buttons
+          }
+        ]
+      }
+    }
+  };
+}
+
+// Create Facebook Generic Template for payment confirmation
+function createFacebookPaymentConfirmedTemplate(order: any) {
+  return {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "generic",
+        elements: [
+          {
+            title: "✅ ยืนยันการชำระเงินสำเร็จ!",
+            subtitle: `📋 ${order.order_number}\n💰 ยอดรวม: ฿${Number(order.total_amount).toLocaleString()}\n\n🎉 กำลังเตรียมจัดส่งค่ะ`,
+            buttons: [
+              {
+                type: "postback",
+                title: "📜 ประวัติออเดอร์",
+                payload: "CHECK_ORDER_HISTORY"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  };
+}
+
+// Create Facebook Generic Template for payment rejection
+function createFacebookPaymentRejectedTemplate(order: any, reason?: string) {
+  let subtitle = `📋 ${order.order_number}\n💰 ยอดที่ต้องชำระ: ฿${Number(order.total_amount).toLocaleString()}`;
+  if (reason) {
+    subtitle += `\n\n⚠️ เหตุผล: ${reason}`;
+  }
+  subtitle += `\n\n📸 กรุณาส่งสลิปใหม่อีกครั้งค่ะ`;
+  
+  return {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "generic",
+        elements: [
+          {
+            title: "❌ สลิปไม่ผ่านการตรวจสอบ",
+            subtitle: subtitle,
+            buttons: [
+              {
+                type: "postback",
+                title: "📜 ดูรายละเอียดออเดอร์",
+                payload: "CHECK_ORDER_HISTORY"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  };
+}
+
+// Create Facebook Generic Template for tracking update
+function createFacebookTrackingUpdateTemplate(order: any) {
+  return {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "generic",
+        elements: [
+          {
+            title: "🚚 อัปเดตการจัดส่ง!",
+            subtitle: `📋 ${order.order_number}\n📦 เลขพัสดุ: ${order.tracking_number}\n\n📍 สามารถติดตามพัสดุได้แล้วค่ะ`,
+            buttons: [
+              {
+                type: "web_url",
+                title: "🔍 ติดตามพัสดุ",
+                url: `https://track.thailandpost.co.th/?trackNumber=${order.tracking_number}`,
+                webview_height_ratio: "full"
+              },
+              {
+                type: "postback",
+                title: "📜 ประวัติออเดอร์",
+                payload: "CHECK_ORDER_HISTORY"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  };
 }
 
 serve(async (req) => {
@@ -544,83 +674,29 @@ serve(async (req) => {
       }
     }
 
-    // Send to Facebook with enhanced formatting
+    // Send to Facebook with beautiful Generic Templates
     if (order.platform === 'facebook' && order.customer_facebook_id) {
       if (!facebookToken) {
         console.error('Facebook access token not configured');
         results.push({ platform: 'facebook', success: false, error: 'Token not configured' });
       } else {
-        let message = '';
+        let fbMessage: any = null;
         
         if (notification_type === 'custom' && custom_message) {
-          message = custom_message;
+          fbMessage = { text: custom_message };
         } else if (notification_type === 'tracking_update' && order.tracking_number) {
-          message = `🚚 อัปเดตการจัดส่ง!\n`;
-          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n\n`;
-          message += `📦 หมายเลขพัสดุ:\n`;
-          message += `   ${order.tracking_number}\n\n`;
-          message += `──────────────────\n`;
-          message += `📍 สามารถติดตามพัสดุได้แล้วค่ะ\n`;
-          message += `🔎 นำเลขพัสดุไปค้นหาที่เว็บขนส่ง\n\n`;
-          message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
-          message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
+          fbMessage = createFacebookTrackingUpdateTemplate(order);
         } else if (notification_type === 'payment_confirmed') {
-          message = `✅ ยืนยันการชำระเงินสำเร็จ!\n`;
-          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n`;
-          message += `💰 ยอดรวม: ฿${Number(order.total_amount).toLocaleString()}\n\n`;
-          message += `──────────────────\n`;
-          message += `🎉 เราได้รับชำระเงินแล้ว\n`;
-          message += `⏳ กำลังเตรียมจัดส่งค่ะ\n\n`;
-          message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
-          message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
+          fbMessage = createFacebookPaymentConfirmedTemplate(order);
         } else if (notification_type === 'payment_rejected') {
-          message = `❌ สลิปไม่ผ่านการตรวจสอบ\n`;
-          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n`;
-          message += `💰 ยอดที่ต้องชำระ: ฿${Number(order.total_amount).toLocaleString()}\n\n`;
-          if (custom_message) {
-            message += `⚠️ เหตุผล: ${custom_message}\n\n`;
-          }
-          message += `──────────────────\n`;
-          message += `📸 กรุณาส่งสลิปใหม่อีกครั้งค่ะ\n\n`;
-          message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
-          message += `หากมีข้อสงสัย สอบถามได้เลยค่ะ 🙏`;
+          fbMessage = createFacebookPaymentRejectedTemplate(order, custom_message);
         } else if (notification_type === 'status_update') {
           const statusInfo = statusMessages[order.status] || statusMessages['pending'];
-          
-          message = `${statusInfo.emoji} อัปเดตสถานะออเดอร์\n`;
-          message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-          message += `📋 หมายเลขออเดอร์: ${order.order_number}\n\n`;
-          message += `📊 สถานะ: ${statusInfo.text}\n`;
-          
-          // Add tracking number if shipped
-          if (order.tracking_number && order.status === 'shipped') {
-            message += `\n📦 หมายเลขพัสดุ:\n`;
-            message += `   ${order.tracking_number}\n`;
-            message += `\n📍 สามารถติดตามพัสดุได้แล้วค่ะ\n`;
-          }
-          
-          // Status-specific messages
-          if (order.status === 'confirmed') {
-            message += `\n⏳ กำลังเตรียมสินค้าให้ค่ะ\n`;
-          } else if (order.status === 'delivered') {
-            message += `\n✅ สินค้าถึงมือแล้ว หากมีปัญหาแจ้งได้เลยค่ะ\n`;
-          } else if (order.status === 'cancelled') {
-            message += `\n❌ ออเดอร์ถูกยกเลิก หากมีข้อสงสัยแจ้งได้เลยค่ะ\n`;
-          }
-          
-          message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
-          message += `📝 พิมพ์ "ประวัติออเดอร์" เพื่อดูออเดอร์ทั้งหมด\n\n`;
-          message += `ขอบคุณที่ใช้บริการค่ะ 🙏✨`;
+          fbMessage = createFacebookStatusUpdateTemplate(order, statusInfo);
         }
 
-        if (message) {
-          const success = await sendToFacebook(facebookToken, order.customer_facebook_id, message);
+        if (fbMessage) {
+          const success = await sendToFacebook(facebookToken, order.customer_facebook_id, fbMessage);
           results.push({ platform: 'facebook', success });
           if (success) notificationSent = true;
         }
