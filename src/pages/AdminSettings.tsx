@@ -57,6 +57,24 @@ const AdminSettings = () => {
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
   const [promptpayId, setPromptpayId] = useState("");
+  const [promptpayError, setPromptpayError] = useState("");
+
+  // Validate PromptPay ID (10 digits for phone or 13 digits for national ID)
+  const validatePromptpayId = (value: string): string => {
+    if (!value) return ""; // Empty is allowed
+    const digitsOnly = value.replace(/\D/g, '');
+    if (digitsOnly.length !== 10 && digitsOnly.length !== 13) {
+      return "เลขพร้อมเพย์ต้องเป็นเบอร์โทร 10 หลัก หรือเลขบัตรประชาชน 13 หลัก";
+    }
+    return "";
+  };
+
+  const handlePromptpayChange = (value: string) => {
+    // Only allow digits and common separators
+    const cleanValue = value.replace(/[^0-9-]/g, '');
+    setPromptpayId(cleanValue);
+    setPromptpayError(validatePromptpayId(cleanValue));
+  };
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -143,6 +161,18 @@ const AdminSettings = () => {
   };
 
   const handleSave = async () => {
+    // Validate promptpay before saving
+    const ppError = validatePromptpayId(promptpayId);
+    if (ppError) {
+      setPromptpayError(ppError);
+      toast({
+        title: "ข้อมูลไม่ถูกต้อง",
+        description: ppError,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSaving(true);
     try {
       // Save store settings
@@ -394,12 +424,17 @@ const AdminSettings = () => {
                 <Label className="text-sm text-muted-foreground">เลขพร้อมเพย์</Label>
                 <Input
                   value={promptpayId}
-                  onChange={(e) => setPromptpayId(e.target.value)}
+                  onChange={(e) => handlePromptpayChange(e.target.value)}
                   placeholder="เบอร์โทรหรือเลขบัตรประชาชน เช่น: 0812345678"
+                  className={promptpayError ? "border-destructive" : ""}
                 />
-                <p className="text-xs text-muted-foreground">
-                  ใส่เบอร์โทรศัพท์ (10 หลัก) หรือเลขบัตรประชาชน (13 หลัก)
-                </p>
+                {promptpayError ? (
+                  <p className="text-xs text-destructive">{promptpayError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    ใส่เบอร์โทรศัพท์ (10 หลัก) หรือเลขบัตรประชาชน (13 หลัก)
+                  </p>
+                )}
               </div>
               
               {promptpayId && (
