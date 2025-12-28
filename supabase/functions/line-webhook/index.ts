@@ -1039,6 +1039,11 @@ interface OrderConfirmationData {
   customerAddress: string;
   items: Array<{ product_name: string; quantity: number; price: number; variants?: string }>;
   couponCode?: string;
+  bankInfo?: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  };
 }
 
 function buildOrderConfirmationFlex(data: OrderConfirmationData) {
@@ -1245,13 +1250,84 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
       type: "box",
       layout: "vertical",
       contents: [
+        // Bank account info section
+        ...(data.bankInfo ? [
+          {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "🏦 ข้อมูลบัญชีโอนเงิน",
+                weight: "bold",
+                size: "sm",
+                color: "#1F2937",
+                margin: "none"
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                  {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                      { type: "text", text: "ธนาคาร:", size: "sm", color: "#666666", flex: 2 },
+                      { type: "text", text: data.bankInfo.bankName, size: "sm", color: "#1F2937", flex: 4, weight: "bold" }
+                    ]
+                  },
+                  {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                      { type: "text", text: "เลขบัญชี:", size: "sm", color: "#666666", flex: 2 },
+                      { type: "text", text: data.bankInfo.accountNumber, size: "sm", color: "#1F2937", flex: 4, weight: "bold" }
+                    ],
+                    margin: "xs"
+                  },
+                  {
+                    type: "box",
+                    layout: "horizontal",
+                    contents: [
+                      { type: "text", text: "ชื่อบัญชี:", size: "sm", color: "#666666", flex: 2 },
+                      { type: "text", text: data.bankInfo.accountName, size: "sm", color: "#1F2937", flex: 4, weight: "bold", wrap: true }
+                    ],
+                    margin: "xs"
+                  }
+                ],
+                margin: "sm",
+                backgroundColor: "#EBF5FF",
+                cornerRadius: "md",
+                paddingAll: "sm"
+              },
+              {
+                type: "button",
+                action: {
+                  type: "message",
+                  label: "📋 คัดลอกเลขบัญชี",
+                  text: `เลขบัญชีโอนเงิน: ${data.bankInfo.accountNumber} (${data.bankInfo.bankName} - ${data.bankInfo.accountName})`
+                },
+                style: "secondary",
+                height: "sm",
+                margin: "sm"
+              }
+            ],
+            margin: "none",
+            paddingBottom: "md"
+          },
+          {
+            type: "separator",
+            margin: "md"
+          }
+        ] : []),
         {
           type: "text",
           text: "💳 กรุณาชำระเงินและแจ้งสลิปโอนเงิน",
           size: "sm",
           color: "#666666",
           align: "center",
-          wrap: true
+          wrap: true,
+          margin: data.bankInfo ? "md" : "none"
         },
         {
           type: "button",
@@ -2464,6 +2540,23 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
 
       // Build LINE messages
       const lineMessages: any[] = [];
+      
+      // Fetch bank account info for order confirmation
+      let bankInfo: { bankName: string; accountNumber: string; accountName: string } | undefined;
+      const { data: bankSettings } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['bank_name', 'bank_account_number', 'bank_account_name']);
+      
+      if (bankSettings && bankSettings.length > 0) {
+        const bankName = bankSettings.find(s => s.key === 'bank_name')?.value;
+        const accountNumber = bankSettings.find(s => s.key === 'bank_account_number')?.value;
+        const accountName = bankSettings.find(s => s.key === 'bank_account_name')?.value;
+        
+        if (bankName && accountNumber && accountName) {
+          bankInfo = { bankName, accountNumber, accountName };
+        }
+      }
 
       // Always add text message first if there's text
       if (text) {
@@ -2847,7 +2940,8 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
                       price: item.price,
                       variants: item.variants || undefined
                     })),
-                    couponCode: cartAction.couponCode || undefined
+                    couponCode: cartAction.couponCode || undefined,
+                    bankInfo
                   })
                 });
               }
@@ -2974,7 +3068,8 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
                     price: price,
                     variants: createOrder.variants
                   }],
-                  couponCode: createOrder.couponCode || undefined
+                  couponCode: createOrder.couponCode || undefined,
+                  bankInfo
                 })
               });
             } else {
@@ -3145,7 +3240,8 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
                   price: item.price,
                   variants: item.variants
                 })),
-                couponCode: createMultiOrder.couponCode || undefined
+                couponCode: createMultiOrder.couponCode || undefined,
+                bankInfo
               })
             });
           } else {
