@@ -1683,14 +1683,20 @@ serve(async (req) => {
         content: userMessage
       });
 
-      // Fetch AI settings
-      const { data: aiSettingsData } = await supabase
-        .from("ai_settings")
-        .select("*")
-        .eq("is_active", true)
-        .maybeSingle();
+      // Fetch all required data in PARALLEL for speed optimization
+      const [
+        aiSettingsResult,
+        productsResult,
+        faqsResult,
+        settingsResult
+      ] = await Promise.all([
+        supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle(),
+        supabase.from("products").select("*").eq("is_active", true),
+        supabase.from("faqs").select("question, answer").eq("is_active", true),
+        supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"])
+      ]);
 
-      const aiSettings: AISettings = aiSettingsData || {
+      const aiSettings: AISettings = aiSettingsResult.data || {
         ai_name: "น้องช้อป",
         gender: "female",
         personality: "ร่าเริง เป็นกันเอง ชอบช่วยเหลือลูกค้า",
@@ -1702,16 +1708,12 @@ serve(async (req) => {
         custom_rules: null,
       };
 
-      // Fetch products
-      const { data: products } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true);
-
-      const productList = products || [];
+      const productList = productsResult.data || [];
+      const faqs = faqsResult.data || [];
+      const faqList = faqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n');
       
       // Build product catalog with variants info for AI
-      const productCatalog = productList.map(p => {
+      const productCatalog = productList.map((p: any) => {
         let info = `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (ลด: ฿${p.promotion_price})` : ''}`;
         if (p.description) info += ` - ${p.description}`;
         
@@ -1729,17 +1731,8 @@ serve(async (req) => {
         return info;
       }).join('\n') || 'ยังไม่มีสินค้า';
 
-      // Fetch FAQs
-      const { data: faqs } = await supabase.from("faqs").select("*").eq("is_active", true);
-      const faqList = faqs?.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') || '';
-
-      // Fetch store settings
-      const { data: settingsData } = await supabase
-        .from("settings")
-        .select("key, value")
-        .in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"]);
-
-      const settingsMap = new Map(settingsData?.map(s => [s.key, s.value]) || []);
+      // Process store settings (already fetched in parallel above)
+      const settingsMap = new Map(settingsResult.data?.map((s: any) => [s.key, s.value]) || []);
       const storeSettings: StoreSettings = {
         storeName: settingsMap.get("STORE_NAME") || "",
         shippingInfo: settingsMap.get("SHIPPING_INFO") || "",
@@ -1821,8 +1814,8 @@ serve(async (req) => {
         console.log("Typing indicator error (non-critical):", typingError);
       }
 
-      // Call AI - using gemini-2.5-flash-lite for fastest response
-      console.log("Calling Lovable AI (gemini-2.5-flash-lite)...");
+      // Call AI - using gemini-2.5-flash for faster response with better quality
+      console.log("Calling Lovable AI (gemini-2.5-flash)...");
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -1830,7 +1823,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash-lite",
+          model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
             ...aiMessages,
