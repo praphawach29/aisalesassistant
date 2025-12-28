@@ -2068,9 +2068,42 @@ serve(async (req) => {
       // Add critical quantity reminder BEFORE the AI processes the message
       // This helps prevent the AI from doubling quantities
       if (!isGreeting && !isNewSession) {
-        const quantityReminder = `[⚠️ คำสั่งบังคับ: อ่านข้อความล่าสุดของลูกค้าอย่างระมัดระวัง! ถ้าลูกค้าพิมพ์ "1 ตัว" = 1 ตัวเท่านั้น, "อย่างละ 1" = แต่ละรายการ 1 ตัว ห้ามคูณ 2 หรือบวกกับจำนวนก่อนหน้าเด็ดขาด! ข้อความล่าสุดของลูกค้าคือ: "${userMessage}" - นับจำนวนจากข้อความนี้เท่านั้น!]`;
+        // Pre-analyze quantities from the last user message to include in the reminder
+        const quantityAnalysis: string[] = [];
+        const lines = userMessage.split(/[\n,และ]/);
+        let totalItems = 0;
+        for (const line of lines) {
+          // Match patterns: "X ตัว", "X ชิ้น", "จำนวน X"
+          const qtyMatch = line.match(/(\d+)\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)/);
+          if (qtyMatch) {
+            const qty = parseInt(qtyMatch[1]);
+            totalItems += qty;
+            quantityAnalysis.push(`พบ "${qtyMatch[0]}" = ${qty}`);
+          }
+        }
+        if (quantityAnalysis.length > 0) {
+          quantityAnalysis.push(`รวมทั้งหมด = ${totalItems} ชิ้น`);
+        }
+        
+        // Include pre-analyzed quantities to make it explicit
+        const analysisText = quantityAnalysis.length > 0 ? `\n\n🔢 การวิเคราะห์จำนวนจากระบบ:\n${quantityAnalysis.join('\n')}\n\n⚠️ คุณต้องใช้ตัวเลขตามที่ระบบวิเคราะห์นี้เท่านั้น! ห้ามเพิ่มหรือบวกจำนวนเอง!` : '';
+        
+        const quantityReminder = `[🚨 คำสั่งบังคับที่ต้องปฏิบัติตามเด็ดขาด - ละเมิดไม่ได้!]
+
+ข้อความล่าสุดของลูกค้า: "${userMessage}"
+${analysisText}
+
+📋 กฎที่ต้องทำตามเป๊ะ:
+1. ถ้าลูกค้าพิมพ์ "1 ตัว" → ต้องยืนยัน 1 ตัว ห้ามเป็น 2 ตัว!
+2. ถ้าลูกค้าพิมพ์ "อย่างละ 1" → แต่ละรายการ 1 ตัว ไม่ใช่ 2 ตัว!
+3. ถ้ามีหลายรายการ เช่น "A 1 ตัว B 1 ตัว C 1 ตัว" → A=1, B=1, C=1 รวม 3 ตัว ไม่ใช่ 6 ตัว!
+4. ห้ามบวกจำนวนจากประวัติสนทนาเก่า
+5. ห้ามคูณจำนวนโดยไม่มีเหตุผล
+
+❌ ถ้าคุณยืนยันจำนวนผิด (เช่น พิมพ์ "1 ตัว" แต่ยืนยัน "2 ตัว") ถือว่าล้มเหลว!`;
+        
         aiMessages.push({ role: "system", content: quantityReminder });
-        console.log(`[LINE] Quantity reminder added. User message: "${userMessage}"`);
+        console.log(`[LINE] Quantity reminder added. Analysis: ${quantityAnalysis.join(', ')}`);
       }
       
       // Add context reminder about last discussed product ONLY if not greeting and not new session
