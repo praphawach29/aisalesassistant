@@ -335,14 +335,21 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 - "ล้างตะกร้า" → [CART_CLEAR]
 - "สั่งซื้อตะกร้า" พร้อมข้อมูลครบ → [CART_CHECKOUT:ชื่อ|ที่อยู่|เบอร์โทร|โค้ดคูปอง]
 
-## 📝 การรับออเดอร์ (ถามทีละข้อ):
+## 📝 การรับออเดอร์ (ถามทีละข้อ - สำคัญมาก!):
 1. **ถามตัวเลือกก่อน** → ถ้าสินค้ามีหลายสี/ไซส์ ต้องถามว่าต้องการแบบไหน
-2. ยืนยันรายการสินค้า ตัวเลือก และจำนวน
-3. ถามชื่อ-นามสกุล
+2. **ยืนยันจำนวนและรายการก่อนถามข้อมูลจัดส่ง (บังคับ!)** → ต้องสรุปและถามยืนยันจำนวนทุกครั้ง
+   - ตัวอย่าง: "ขอยืนยันนะ${particleQuestion} สั่งเสื้อยืดคอกลม สีขาว ไซส์ M 1 ตัว และสีดำ ไซส์ M 1 ตัว รวม 2 ตัว ถูกต้องไหม${particleQuestion}?"
+   - **ห้ามข้ามขั้นตอนนี้** → ต้องได้รับการยืนยันจากลูกค้าก่อนถามข้อมูลจัดส่ง
+3. (หลังลูกค้ายืนยันจำนวนแล้ว) ถามชื่อ-นามสกุล
 4. ถามที่อยู่จัดส่ง (พร้อมรหัสไปรษณีย์)
 5. ถามเบอร์โทรศัพท์
 6. สรุปออเดอร์และยอดรวม
 7. **สร้างออเดอร์โดยใส่ [CREATE_ORDER:ชื่อสินค้าเต็ม|จำนวน|ชื่อลูกค้า|ที่อยู่|เบอร์โทร|ตัวเลือก] ต่อท้ายข้อความ** → ระบบจะสร้างออเดอร์และแจ้งเลขออเดอร์ให้อัตโนมัติ
+
+## ✅ ตัวอย่างการยืนยันจำนวนที่ถูกต้อง:
+- ลูกค้าพิมพ์ "ขาว M 1 ตัว ดำ M 1 ตัว" → ต้องถาม: "ขอยืนยันนะ${particleQuestion} สั่งสีขาว ไซส์ M 1 ตัว และสีดำ ไซส์ M 1 ตัว รวม 2 ตัว ถูกต้องไหม${particleQuestion}?"
+- ลูกค้าพิมพ์ "เอา 3 ตัว สีดำ L" → ต้องถาม: "ขอยืนยันนะ${particleQuestion} สั่งสีดำ ไซส์ L จำนวน 3 ตัว ถูกต้องไหม${particleQuestion}?"
+- **ห้ามถามข้อมูลจัดส่งก่อนได้รับการยืนยันจำนวนจากลูกค้า**
 
 ## ⚠️ กฎการสร้างออเดอร์ (สำคัญที่สุด!):
 - **ต้องใช้ [CREATE_ORDER:...] เมื่อลูกค้ายืนยันสั่งซื้อและให้ข้อมูลครบ** → ห้ามสร้างเลขออเดอร์เองเด็ดขาด
@@ -764,6 +771,8 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
     paddingAll: "sm"
   }));
 
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
   return {
     type: "bubble",
     size: "mega",
@@ -780,7 +789,7 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
         },
         {
           type: "text",
-          text: `${cartItems.length} รายการ`,
+          text: `${cartItems.length} รายการ (รวม ${totalItems} ชิ้น)`,
           size: "sm",
           color: "#666666",
           margin: "sm"
@@ -804,7 +813,20 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
           contents: [
             {
               type: "text",
-              text: "รวมทั้งหมด",
+              text: `📦 รวม ${totalItems} ชิ้น`,
+              size: "md",
+              color: "#666666"
+            }
+          ],
+          margin: "lg"
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            {
+              type: "text",
+              text: "💰 ยอดรวม",
               size: "lg",
               weight: "bold",
               color: "#1F2937"
@@ -818,7 +840,7 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
               align: "end"
             }
           ],
-          margin: "lg"
+          margin: "sm"
         }
       ],
       paddingAll: "lg"
