@@ -99,13 +99,13 @@ const Index = () => {
               <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-primary" />
             </div>
             
-            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-relaxed sm:leading-relaxed md:leading-relaxed lg:leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
               <span className="text-foreground">เปลี่ยนแชทบอทธรรมดา</span>
               <br />
               <span className="gradient-text">ให้เป็นพนักงานขายมืออาชีพ</span>
             </h1>
             
-            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
+            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-loose sm:leading-loose px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
               ระบบ AI Chatbot อัจฉริยะที่ช่วยตอบคำถาม แนะนำสินค้า และรับออเดอร์ให้คุณอัตโนมัติ 
               รองรับทั้ง LINE, Facebook และเว็บไซต์
             </p>
