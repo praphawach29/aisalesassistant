@@ -68,14 +68,14 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
         </Avatar>
       )}
       
-      <div className="flex flex-col gap-2 max-w-[85%] min-w-0">
+      <div className="flex flex-col gap-2 max-w-[75%] min-w-0 overflow-hidden">
         <div className={cn(
-          'rounded-2xl px-3 py-2',
+          'rounded-2xl px-3 py-2 overflow-hidden',
           isUser
             ? 'bg-primary text-primary-foreground rounded-br-md'
             : 'bg-muted text-foreground rounded-bl-md'
         )}>
-          <p className="text-xs whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">
+          <p className="text-xs leading-relaxed break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
             {displayContent || (
               <span className="inline-flex gap-1">
                 <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
