@@ -11,6 +11,32 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY") || "";
 
+// ============= In-Memory Cache with TTL =============
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const cache: Map<string, CacheEntry<any>> = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function setCache<T>(key: string, data: T, ttl: number = CACHE_TTL): void {
+  cache.set(key, {
+    data,
+    expiresAt: Date.now() + ttl,
+  });
+}
+
 // Decryption utilities
 async function getKey(): Promise<CryptoKey> {
   const encoder = new TextEncoder();
@@ -297,25 +323,82 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch ALL required data in PARALLEL for speed optimization
-    const [
-      aiSettingsResult,
-      productsResult,
-      faqsResult,
-      settingsResult,
-      scrapedResult,
-      knowledgeResult
-    ] = await Promise.all([
-      supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle(),
-      supabase.from("products").select("*").eq("is_active", true),
-      supabase.from("faqs").select("question, answer").eq("is_active", true),
-      supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]),
-      supabase.from("scraped_content").select("source_name, summary, content").eq("is_active", true),
-      supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true)
-    ]);
+    // ============= Try to get data from cache first =============
+    let products = getCached<any[]>('products');
+    let faqs = getCached<any[]>('faqs');
+    let settingsData = getCached<any[]>('settings');
+    let scrapedData = getCached<any[]>('scraped_content');
+    let knowledgeData = getCached<any[]>('knowledge_base');
+    let aiSettingsData = getCached<any>('ai_settings');
+
+    // Check what needs to be fetched
+    const needsAiSettings = !aiSettingsData;
+    const needsProducts = !products;
+    const needsFaqs = !faqs;
+    const needsSettings = !settingsData;
+    const needsScraped = !scrapedData;
+    const needsKnowledge = !knowledgeData;
+
+    const cacheHits = [];
+    const cacheMisses = [];
+    if (needsAiSettings) cacheMisses.push('ai_settings'); else cacheHits.push('ai_settings');
+    if (needsProducts) cacheMisses.push('products'); else cacheHits.push('products');
+    if (needsFaqs) cacheMisses.push('faqs'); else cacheHits.push('faqs');
+    if (needsSettings) cacheMisses.push('settings'); else cacheHits.push('settings');
+    if (needsScraped) cacheMisses.push('scraped'); else cacheHits.push('scraped');
+    if (needsKnowledge) cacheMisses.push('knowledge'); else cacheHits.push('knowledge');
+
+    if (cacheMisses.length > 0) {
+      console.log(`Cache miss: ${cacheMisses.join(', ')} | Cache hit: ${cacheHits.join(', ')}`);
+      
+      // Fetch all missing data in parallel
+      const [
+        aiSettingsResult,
+        productsResult,
+        faqsResult,
+        settingsResult,
+        scrapedResult,
+        knowledgeResult
+      ] = await Promise.all([
+        needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
+        needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
+        needsFaqs ? supabase.from("faqs").select("question, answer").eq("is_active", true) : Promise.resolve({ data: faqs }),
+        needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]) : Promise.resolve({ data: settingsData }),
+        needsScraped ? supabase.from("scraped_content").select("source_name, summary, content").eq("is_active", true) : Promise.resolve({ data: scrapedData }),
+        needsKnowledge ? supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true) : Promise.resolve({ data: knowledgeData })
+      ]);
+
+      // Update cache for fetched data
+      if (needsAiSettings && aiSettingsResult.data) {
+        aiSettingsData = aiSettingsResult.data;
+        setCache('ai_settings', aiSettingsData, 2 * 60 * 1000); // 2 min for AI settings
+      }
+      if (needsProducts) {
+        products = productsResult.data || [];
+        setCache('products', products);
+      }
+      if (needsFaqs) {
+        faqs = faqsResult.data || [];
+        setCache('faqs', faqs);
+      }
+      if (needsSettings) {
+        settingsData = settingsResult.data || [];
+        setCache('settings', settingsData);
+      }
+      if (needsScraped) {
+        scrapedData = scrapedResult.data || [];
+        setCache('scraped_content', scrapedData);
+      }
+      if (needsKnowledge) {
+        knowledgeData = knowledgeResult.data || [];
+        setCache('knowledge_base', knowledgeData);
+      }
+    } else {
+      console.log('All data served from cache!');
+    }
 
     // Process AI settings
-    const aiSettings: AISettings = aiSettingsResult.data || {
+    const aiSettings: AISettings = aiSettingsData || {
       ai_name: "น้องช้อป",
       gender: "female",
       personality: "ร่าเริง เป็นกันเอง สนุกสนาน กระตือรือร้น ชอบช่วยเหลือลูกค้า",
@@ -329,14 +412,15 @@ serve(async (req) => {
 
     console.log("Using AI settings:", aiSettings.ai_name);
 
-    // Process products
-    const products = productsResult.data || [];
-
-    // Process FAQs
-    const faqs = faqsResult.data || [];
+    // Ensure arrays are initialized
+    products = products || [];
+    faqs = faqs || [];
+    scrapedData = scrapedData || [];
+    knowledgeData = knowledgeData || [];
+    settingsData = settingsData || [];
 
     // Process store settings
-    const storeSettingsMap = new Map(settingsResult.data?.map((s: any) => [s.key, s.value]) || []);
+    const storeSettingsMap = new Map(settingsData.map((s: any) => [s.key, s.value]));
     const storeSettings: StoreSettings = {
       storeName: storeSettingsMap.get("STORE_NAME") || "",
       storePhone: storeSettingsMap.get("STORE_PHONE") || "",
@@ -387,7 +471,6 @@ serve(async (req) => {
     ).join('\n\n') || '';
 
     // Process scraped content
-    const scrapedData = scrapedResult.data || [];
     const scrapedContentList = scrapedData.map((s: any) => {
       const text = s.summary || (s.content ? s.content.substring(0, 1000) + '...' : '');
       return `### ${s.source_name || 'แหล่งข้อมูล'}:\n${text}`;
@@ -396,7 +479,6 @@ serve(async (req) => {
     console.log("Scraped content loaded:", scrapedData.length, "items");
 
     // Process knowledge base
-    const knowledgeData = knowledgeResult.data || [];
     const knowledgeBaseList = knowledgeData.map((k: any) => {
       const text = k.summary || (k.original_content ? k.original_content.substring(0, 2000) : '');
       return `### ${k.title}${k.category ? ` (${k.category})` : ''}:\n${text}`;
