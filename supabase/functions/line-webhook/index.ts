@@ -1044,6 +1044,7 @@ interface OrderConfirmationData {
     accountNumber: string;
     accountName: string;
   };
+  promptpayId?: string;
 }
 
 function buildOrderConfirmationFlex(data: OrderConfirmationData) {
@@ -1320,6 +1321,64 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
             margin: "md"
           }
         ] : []),
+        // PromptPay QR Code section
+        ...(data.promptpayId ? [
+          {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "📱 พร้อมเพย์",
+                weight: "bold",
+                size: "sm",
+                color: "#1F2937",
+                margin: "none"
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "เลขพร้อมเพย์:", size: "sm", color: "#666666", flex: 2 },
+                  { type: "text", text: data.promptpayId, size: "sm", color: "#1F2937", flex: 4, weight: "bold" }
+                ],
+                margin: "sm",
+                backgroundColor: "#F0FDF4",
+                cornerRadius: "md",
+                paddingAll: "sm"
+              },
+              {
+                type: "button",
+                action: {
+                  type: "uri",
+                  label: "📲 สแกน QR พร้อมเพย์",
+                  uri: `https://promptpay.io/${data.promptpayId}/${(data.totalAmount - data.discountAmount)}.png`
+                },
+                style: "primary",
+                height: "sm",
+                margin: "sm",
+                color: "#1E88E5"
+              },
+              {
+                type: "button",
+                action: {
+                  type: "message",
+                  label: "📋 คัดลอกเลขพร้อมเพย์",
+                  text: `เลขพร้อมเพย์: ${data.promptpayId}`
+                },
+                style: "secondary",
+                height: "sm",
+                margin: "xs"
+              }
+            ],
+            margin: data.bankInfo ? "md" : "none",
+            paddingBottom: "md"
+          },
+          {
+            type: "separator",
+            margin: "md"
+          }
+        ] : []),
         {
           type: "text",
           text: "💳 กรุณาชำระเงินและแจ้งสลิปโอนเงิน",
@@ -1327,7 +1386,7 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
           color: "#666666",
           align: "center",
           wrap: true,
-          margin: data.bankInfo ? "md" : "none"
+          margin: (data.bankInfo || data.promptpayId) ? "md" : "none"
         },
         {
           type: "button",
@@ -2541,17 +2600,19 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
       // Build LINE messages
       const lineMessages: any[] = [];
       
-      // Fetch bank account info for order confirmation
+      // Fetch bank account info and promptpay for order confirmation
       let bankInfo: { bankName: string; accountNumber: string; accountName: string } | undefined;
-      const { data: bankSettings } = await supabase
+      let promptpayId: string | undefined;
+      const { data: paymentSettings } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['bank_name', 'bank_account_number', 'bank_account_name']);
+        .in('key', ['bank_name', 'bank_account_number', 'bank_account_name', 'promptpay_id']);
       
-      if (bankSettings && bankSettings.length > 0) {
-        const bankName = bankSettings.find(s => s.key === 'bank_name')?.value;
-        const accountNumber = bankSettings.find(s => s.key === 'bank_account_number')?.value;
-        const accountName = bankSettings.find(s => s.key === 'bank_account_name')?.value;
+      if (paymentSettings && paymentSettings.length > 0) {
+        const bankName = paymentSettings.find(s => s.key === 'bank_name')?.value;
+        const accountNumber = paymentSettings.find(s => s.key === 'bank_account_number')?.value;
+        const accountName = paymentSettings.find(s => s.key === 'bank_account_name')?.value;
+        promptpayId = paymentSettings.find(s => s.key === 'promptpay_id')?.value;
         
         if (bankName && accountNumber && accountName) {
           bankInfo = { bankName, accountNumber, accountName };
@@ -2941,7 +3002,8 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
                       variants: item.variants || undefined
                     })),
                     couponCode: cartAction.couponCode || undefined,
-                    bankInfo
+                    bankInfo,
+                    promptpayId
                   })
                 });
               }
@@ -3069,7 +3131,8 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
                     variants: createOrder.variants
                   }],
                   couponCode: createOrder.couponCode || undefined,
-                  bankInfo
+                  bankInfo,
+                  promptpayId
                 })
               });
             } else {
@@ -3241,7 +3304,8 @@ ${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${cus
                   variants: item.variants
                 })),
                 couponCode: createMultiOrder.couponCode || undefined,
-                bankInfo
+                bankInfo,
+                promptpayId
               })
             });
           } else {
