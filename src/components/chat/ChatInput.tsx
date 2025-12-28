@@ -86,7 +86,7 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
         </div>
       )}
       
-      <div className="flex gap-2 items-end">
+      <div className="flex gap-1.5 sm:gap-2 items-end">
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -103,13 +103,13 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
           size="icon"
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="h-11 w-11 flex-shrink-0"
+          className="h-9 w-9 sm:h-11 sm:w-11 flex-shrink-0"
           title="แนบสลิปโอนเงิน"
         >
           {selectedImage ? (
-            <ImageIcon className="w-5 h-5 text-primary" />
+            <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           ) : (
-            <Paperclip className="w-5 h-5" />
+            <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
           )}
         </Button>
         
@@ -120,15 +120,15 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
           placeholder={placeholder}
           disabled={isLoading}
           rows={1}
-          className="min-h-[44px] max-h-32 resize-none"
+          className="min-h-[36px] sm:min-h-[44px] max-h-32 resize-none text-sm sm:text-base"
         />
         <Button
           type="submit"
           size="icon"
           disabled={(!input.trim() && !selectedImage) || isLoading}
-          className="h-11 w-11 flex-shrink-0"
+          className="h-9 w-9 sm:h-11 sm:w-11 flex-shrink-0"
         >
-          <Send className="w-5 h-5" />
+          <Send className="w-4 h-4 sm:w-5 sm:h-5" />
         </Button>
       </div>
     </form>

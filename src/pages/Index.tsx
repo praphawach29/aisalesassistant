@@ -83,43 +83,43 @@ const Index = () => {
         {/* Animated Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10 animate-gradient" />
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
-          <div className="absolute top-10 sm:top-20 left-[5%] sm:left-[10%] w-40 sm:w-72 h-40 sm:h-72 bg-primary/20 rounded-full blur-[80px] sm:blur-[100px] animate-float" />
-          <div className="absolute bottom-10 sm:bottom-20 right-[5%] sm:right-[10%] w-48 sm:w-96 h-48 sm:h-96 bg-accent/15 rounded-full blur-[100px] sm:blur-[120px] animate-float" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-primary/5 rounded-full blur-[100px] sm:blur-[150px]" />
+          <div className="absolute top-10 sm:top-20 left-[5%] sm:left-[10%] w-40 sm:w-56 md:w-72 h-40 sm:h-56 md:h-72 bg-primary/20 rounded-full blur-[80px] sm:blur-[100px] animate-float" />
+          <div className="absolute bottom-10 sm:bottom-20 right-[5%] sm:right-[10%] w-48 sm:w-72 md:w-96 h-48 sm:h-72 md:h-96 bg-accent/15 rounded-full blur-[100px] sm:blur-[120px] animate-float" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[450px] md:w-[600px] h-[300px] sm:h-[450px] md:h-[600px] bg-primary/5 rounded-full blur-[100px] sm:blur-[150px]" />
         </div>
         
         {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--foreground)/0.03)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground)/0.03)_1px,transparent_1px)] bg-[size:40px_40px] sm:bg-[size:60px_60px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--foreground)/0.03)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground)/0.03)_1px,transparent_1px)] bg-[size:40px_40px] sm:bg-[size:50px_50px] md:bg-[size:60px_60px]" />
         
         <div ref={heroRef.ref} className="container mx-auto px-4 py-16 sm:py-20 relative z-10">
           <div className={`max-w-5xl mx-auto text-center ${heroRef.isInView ? '' : 'opacity-0'}`}>
-            <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full glass text-primary text-xs sm:text-sm font-medium mb-6 sm:mb-8 ${heroRef.isInView ? 'animate-fade-down' : ''}`}>
+            <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full glass text-primary text-xs sm:text-sm font-medium mb-6 sm:mb-8 ${heroRef.isInView ? 'animate-fade-down' : ''}`}>
               <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>AI Sales Assistant สำหรับร้านค้าออนไลน์</span>
               <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-primary" />
             </div>
             
-            <h1 className={`text-3xl sm:text-5xl md:text-7xl font-bold mb-6 sm:mb-8 leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
               <span className="text-foreground">เปลี่ยนแชทบอทธรรมดา</span>
               <br />
               <span className="gradient-text">ให้เป็นพนักงานขายมืออาชีพ</span>
             </h1>
             
-            <p className={`text-base sm:text-xl md:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
+            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
               ระบบ AI Chatbot อัจฉริยะที่ช่วยตอบคำถาม แนะนำสินค้า และรับออเดอร์ให้คุณอัตโนมัติ 
               รองรับทั้ง LINE, Facebook และเว็บไซต์
             </p>
 
             {/* Chat indicator */}
-            <div className={`inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-primary/10 border border-primary/20 ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
+            <div className={`inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-full bg-primary/10 border border-primary/20 ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
               <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-muted-foreground text-xs sm:text-base">คลิกไอคอนแชทด้านล่างเพื่อทดลอง</span>
+              <span className="text-muted-foreground text-xs sm:text-sm md:text-base">คลิกไอคอนแชทด้านล่างเพื่อทดลอง</span>
             </div>
           </div>
         </div>
 
         {/* Scroll indicator - hidden on mobile */}
-        <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 animate-bounce hidden sm:block">
+        <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 animate-bounce hidden md:block">
           <div className="w-6 h-10 border-2 border-muted-foreground/30 rounded-full flex items-start justify-center p-2">
             <div className="w-1.5 h-3 bg-muted-foreground/50 rounded-full" />
           </div>
@@ -143,7 +143,7 @@ const Index = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-5xl mx-auto">
             {[
               { img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100&h=100&fit=crop", title: "สินค้าแฟชั่น", desc: "ถามเกี่ยวกับเสื้อผ้า รองเท้า กระเป๋า" },
               { img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100&h=100&fit=crop", title: "อิเล็กทรอนิกส์", desc: "สอบถามราคา สเปค การรับประกัน" },
@@ -191,7 +191,7 @@ const Index = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
             {features.map((feature, index) => (
               <Card 
                 key={index} 
@@ -227,7 +227,7 @@ const Index = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
             {howItWorks.map((item, index) => (
               <div 
                 key={index} 
