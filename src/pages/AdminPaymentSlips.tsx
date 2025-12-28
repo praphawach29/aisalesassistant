@@ -163,18 +163,30 @@ export default function AdminPaymentSlips() {
 
       if (orderError) throw orderError;
 
-      // Send LINE notification if applicable
-      if (slip.order?.platform === 'line' && slip.order?.customer_line_id) {
-        try {
-          await supabase.functions.invoke('send-order-notification', {
-            body: {
-              order_id: slip.order_id,
-              notification_type: 'payment_confirmed'
-            }
-          });
-        } catch (notifyError) {
-          console.error('Failed to send notification:', notifyError);
-        }
+      // Send payment confirmed notification
+      try {
+        await supabase.functions.invoke('send-order-notification', {
+          body: {
+            order_id: slip.order_id,
+            notification_type: 'payment_confirmed'
+          }
+        });
+        console.log('Payment confirmed notification sent');
+      } catch (notifyError) {
+        console.error('Failed to send payment confirmed notification:', notifyError);
+      }
+
+      // Send order receipt automatically after payment confirmation
+      try {
+        await supabase.functions.invoke('send-order-notification', {
+          body: {
+            order_id: slip.order_id,
+            notification_type: 'order_receipt'
+          }
+        });
+        console.log('Order receipt sent');
+      } catch (receiptError) {
+        console.error('Failed to send order receipt:', receiptError);
       }
 
       toast.success('ยืนยันสลิปเรียบร้อยแล้ว');
