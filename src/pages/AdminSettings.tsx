@@ -50,6 +50,7 @@ const AdminSettings = () => {
   const [notifyNewOrders, setNotifyNewOrders] = useState(true);
   const [notifyLowStock, setNotifyLowStock] = useState(true);
   const [lowStockThreshold, setLowStockThreshold] = useState("5");
+  const [autoNotifyCustomers, setAutoNotifyCustomers] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -85,10 +86,12 @@ const AdminSettings = () => {
       const notifyOrders = data?.find(s => s.key === 'NOTIFY_NEW_ORDERS');
       const notifyStock = data?.find(s => s.key === 'NOTIFY_LOW_STOCK');
       const stockThreshold = data?.find(s => s.key === 'LOW_STOCK_THRESHOLD');
+      const autoNotify = data?.find(s => s.key === 'AUTO_NOTIFY_CUSTOMERS');
       
       if (notifyOrders) setNotifyNewOrders(notifyOrders.value === 'true');
       if (notifyStock) setNotifyLowStock(notifyStock.value === 'true');
       if (stockThreshold) setLowStockThreshold(stockThreshold.value || '5');
+      if (autoNotify) setAutoNotifyCustomers(autoNotify.value === 'true');
       
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -134,6 +137,7 @@ const AdminSettings = () => {
       await saveSetting('NOTIFY_NEW_ORDERS', String(notifyNewOrders), 'แจ้งเตือนออเดอร์ใหม่');
       await saveSetting('NOTIFY_LOW_STOCK', String(notifyLowStock), 'แจ้งเตือนสินค้าใกล้หมด');
       await saveSetting('LOW_STOCK_THRESHOLD', lowStockThreshold, 'จำนวนสินค้าที่ถือว่าใกล้หมด');
+      await saveSetting('AUTO_NOTIFY_CUSTOMERS', String(autoNotifyCustomers), 'แจ้งเตือนลูกค้าอัตโนมัติเมื่อสถานะออเดอร์เปลี่ยน');
 
       // Invalidate edge function cache
       await invalidateCache(['settings']);
@@ -364,6 +368,21 @@ const AdminSettings = () => {
                 </p>
               </div>
             )}
+
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-base">แจ้งเตือนลูกค้าอัตโนมัติ</Label>
+                  <p className="text-sm text-muted-foreground">
+                    ส่งแจ้งเตือนให้ลูกค้าอัตโนมัติเมื่อสถานะออเดอร์เปลี่ยน (ผ่าน LINE/Messenger)
+                  </p>
+                </div>
+                <Switch
+                  checked={autoNotifyCustomers}
+                  onCheckedChange={setAutoNotifyCustomers}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 

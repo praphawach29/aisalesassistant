@@ -284,6 +284,27 @@ serve(async (req) => {
     console.log(`[AUTO-NOTIFY] Status change: ${old_status} -> ${new_status}`);
     console.log(`[AUTO-NOTIFY] Notification type: ${notification_type}`);
 
+    // Check if auto-notify is enabled
+    const { data: autoNotifySetting } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'AUTO_NOTIFY_CUSTOMERS')
+      .maybeSingle();
+
+    const isAutoNotifyEnabled = autoNotifySetting?.value !== 'false'; // Default to true if not set
+
+    if (!isAutoNotifyEnabled) {
+      console.log('[AUTO-NOTIFY] Automatic notifications are disabled by admin');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: 'Automatic notifications are disabled',
+          disabled: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Fetch order details
     const { data: order, error: orderError } = await supabase
       .from('orders')
