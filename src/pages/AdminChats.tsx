@@ -39,7 +39,8 @@ import {
   Phone,
   Calendar,
   Clock,
-  Trash2
+  Trash2,
+  UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatConversation, ChatMessage } from '@/types';
@@ -57,6 +58,7 @@ export default function AdminChats() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<ChatConversation | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingNames, setIsUpdatingNames] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -176,6 +178,29 @@ export default function AdminChats() {
     } finally {
       setIsDeleting(false);
       setConversationToDelete(null);
+    }
+  };
+
+  const handleUpdateCustomerNames = async () => {
+    setIsUpdatingNames(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('update-customer-names', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      if (data.updated > 0) {
+        toast.success(`อัปเดตชื่อลูกค้าแล้ว ${data.updated} รายการ`);
+        fetchConversations();
+      } else {
+        toast.info('ไม่มีการสนทนาที่ต้องอัปเดตชื่อ');
+      }
+    } catch (error) {
+      console.error('Error updating customer names:', error);
+      toast.error('เกิดข้อผิดพลาดในการอัปเดตชื่อลูกค้า');
+    } finally {
+      setIsUpdatingNames(false);
     }
   };
 
@@ -335,8 +360,18 @@ export default function AdminChats() {
             <SelectItem value="facebook">🔵 Facebook</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="icon" onClick={fetchConversations} disabled={isLoadingData} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
+        <Button variant="outline" size="icon" onClick={fetchConversations} disabled={isLoadingData} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0" title="รีเฟรช">
           <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={handleUpdateCustomerNames} 
+          disabled={isUpdatingNames} 
+          className="h-9 w-9 sm:h-10 sm:w-10 shrink-0"
+          title="อัปเดตชื่อลูกค้า"
+        >
+          <UserCheck className={`w-4 h-4 ${isUpdatingNames ? 'animate-pulse' : ''}`} />
         </Button>
       </div>
 

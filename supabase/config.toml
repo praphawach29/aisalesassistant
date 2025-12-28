@@ -41,3 +41,6 @@ verify_jwt = true
 
 [functions.auto-notify-order]
 verify_jwt = false
+
+[functions.update-customer-names]
+verify_jwt = true
