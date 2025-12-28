@@ -1254,14 +1254,33 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
           wrap: true
         },
         {
-          type: "button",
-          action: {
-            type: "message",
-            label: "📝 ดูประวัติออเดอร์",
-            text: "ประวัติออเดอร์"
-          },
-          style: "secondary",
-          height: "sm",
+          type: "box",
+          layout: "horizontal",
+          contents: [
+            {
+              type: "button",
+              action: {
+                type: "message",
+                label: "📋 คัดลอกเลขออเดอร์",
+                text: `เลขออเดอร์ของฉัน: ${data.orderNumber}`
+              },
+              style: "primary",
+              height: "sm",
+              flex: 1
+            },
+            {
+              type: "button",
+              action: {
+                type: "message",
+                label: "📝 ดูประวัติ",
+                text: "ประวัติออเดอร์"
+              },
+              style: "secondary",
+              height: "sm",
+              flex: 1,
+              margin: "sm"
+            }
+          ],
           margin: "md"
         }
       ],
