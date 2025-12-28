@@ -683,13 +683,20 @@ function formatOrderConfirmationMessage(data: OrderConfirmationData): string {
   message += `──────────────────\n`;
   message += `👤 ชื่อ: ${customerName}\n`;
   message += `📞 เบอร์โทร: ${customerPhone}\n`;
-  message += `📍 ที่อยู่: ${customerAddress}\n`;
+  message += `📍 ที่อยู่: ${customerAddress}\n\n`;
   
   // Add shipping info (courier, cost, etc.)
+  message += `📦 ค่าจัดส่ง:\n`;
   if (shippingInfo) {
-    message += `📦 การจัดส่ง: ${shippingInfo}\n`;
+    // Format multi-line shipping info properly
+    const shippingLines = shippingInfo.split('\n');
+    for (const line of shippingLines) {
+      if (line.trim()) {
+        message += `   ${line.trim()}\n`;
+      }
+    }
   } else {
-    message += `📦 การจัดส่ง: จัดส่งฟรีทั่วประเทศ (Kerry/Flash/ไปรษณีย์)\n`;
+    message += `   ส่งฟรีทั่วประเทศ (Kerry/Flash/ไปรษณีย์)\n`;
   }
   message += `\n`;
   
