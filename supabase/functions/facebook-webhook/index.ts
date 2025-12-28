@@ -2101,19 +2101,43 @@ serve(async (req) => {
           console.log("Greeting detected - will respond with greeting only");
         }
 
-        // Build messages - skip history if new session or greeting
-        let messages: Array<{ role: string; content: string }> = [];
-        
-        if (!isNewSession && !isGreeting && history && history.length > 0) {
-          messages = history.map((m: any) => ({
-            role: m.role,
-            content: m.content,
-          }));
-        }
-        
         // Detect if user is specifying new product list (contains quantity patterns)
         const productListPattern = /(\d+\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค))|((ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)\s*\d+)|(อย่างละ\s*\d+)|(\d+\s*(สี|ไซส์|size|s|m|l|xl))/i;
         const isNewProductList = productListPattern.test(userMessage);
+        
+        // Build messages - skip history if new session or greeting
+        let messages: Array<{ role: string; content: string }> = [];
+        
+        // CRITICAL FIX: When user specifies new product list, CLEAR old history that contains quantities
+        // This prevents AI from adding old quantities with new ones
+        if (!isNewSession && !isGreeting && history && history.length > 0) {
+          if (isNewProductList) {
+            // Only keep very recent messages (last 4) and filter out any that mention quantities
+            const recentHistory = history.slice(-4);
+            const filteredHistory = recentHistory.filter((m: any) => {
+              // Filter out assistant messages that contain quantity confirmations
+              if (m.role === 'assistant') {
+                const hasQuantityConfirmation = /จำนวน\s*\d+\s*(ตัว|ชิ้น)|(\d+)\s*(ตัว|ชิ้น|คู่)/i.test(m.content);
+                const hasOrderConfirmation = /ยืนยันรายการ|รายการสินค้า|รวม.*ชิ้น/i.test(m.content);
+                if (hasQuantityConfirmation || hasOrderConfirmation) {
+                  console.log(`[FB] Filtered out old quantity message: ${m.content.substring(0, 50)}...`);
+                  return false;
+                }
+              }
+              return true;
+            });
+            messages = filteredHistory.map((m: any) => ({
+              role: m.role,
+              content: m.content,
+            }));
+            console.log(`[FB] New product list detected. History filtered: ${history.length} -> ${messages.length} messages`);
+          } else {
+            messages = history.map((m: any) => ({
+              role: m.role,
+              content: m.content,
+            }));
+          }
+        }
         
         // For greetings, add instruction to NOT repeat greetings
         if (isGreeting) {
@@ -2126,28 +2150,35 @@ serve(async (req) => {
 - ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
         }
         
-        // CRITICAL: When user specifies a new product list, add strong instruction to REPLACE not ADD
+        // CRITICAL: When user specifies a new product list, add ABSOLUTE instruction
         if (isNewProductList) {
-          console.log(`[FB] New product list detected. Adding REPLACE instruction.`);
+          // Extract quantities from CURRENT message only
+          const quantityMatches: string[] = userMessage.match(/(\d+)\s*(ตัว|ชิ้น|คู่|อัน|ชุด)/gi) || [];
+          const quantities: number[] = quantityMatches.map((m: string) => {
+            const num = m.match(/\d+/)?.[0] || '1';
+            return parseInt(num);
+          });
+          const totalFromMessage = quantities.reduce((sum: number, q: number) => sum + q, 0);
+          
           messages.push({ 
             role: "system", 
-            content: `[⚠️ คำสั่งบังคับ - กฎที่ต้องปฏิบัติตามเด็ดขาด!]
+            content: `[🚨 คำสั่งบังคับเด็ดขาด - จำนวนสินค้า 🚨]
 
-ลูกค้ากำลังแจ้งรายการสินค้าใหม่ในข้อความนี้: "${userMessage}"
+⚠️ ลูกค้าพิมพ์ข้อความนี้: "${userMessage}"
 
-📋 กฎสำคัญ:
-1. รายการสินค้าในข้อความนี้คือ **รายการใหม่ทั้งหมด** ที่ต้อง **แทนที่** รายการเก่าทั้งหมด
-2. **ห้ามบวกรวม** กับรายการที่เคยพูดถึงในบทสนทนาก่อนหน้า
-3. **ห้ามอ้างอิง** จำนวนหรือรายการจากข้อความก่อนหน้า
-4. **อ่านเฉพาะข้อความล่าสุดนี้เท่านั้น** แล้วยืนยันจำนวนตามที่เห็น
+📊 วิเคราะห์จำนวนจากข้อความนี้โดยตรง:
+${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
+รวมทั้งหมดจากข้อความนี้ = ${totalFromMessage} ชิ้น
 
-🔢 วิธีนับ:
-- ดูจำนวนที่ลูกค้าพิมพ์ในข้อความนี้เท่านั้น
-- "1 ตัว" = 1 ตัว, "2 ตัว" = 2 ตัว (ตามที่พิมพ์)
-- ถ้ามีหลายรายการ ให้นับแยกแต่ละรายการ
+🔴 กฎเด็ดขาด 100%:
+1. ใช้เฉพาะจำนวนจากข้อความล่าสุดนี้เท่านั้น!
+2. ลืมจำนวนทั้งหมดจากบทสนทนาก่อนหน้า!
+3. ห้ามบวก ห้ามคูณ ห้ามเพิ่มจำนวน!
+4. ถ้าลูกค้าพิมพ์ "1 ตัว" ต้องยืนยัน "1 ตัว" เท่านั้น!
 
-❌ ผิด: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 2 ตัว B 2 ตัว C 2 ตัว"
-✅ ถูก: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 1 ตัว B 1 ตัว C 1 ตัว รวม 3 ตัว"` 
+ตัวอย่าง:
+- ลูกค้าพิมพ์ "เสื้อ 1 ตัว กางเกง 1 ตัว" = ต้องยืนยัน "เสื้อ 1 ตัว + กางเกง 1 ตัว = รวม 2 ชิ้น"
+- ห้ามยืนยันเป็น "เสื้อ 2 ตัว กางเกง 2 ตัว" เด็ดขาด!` 
           });
         }
         
