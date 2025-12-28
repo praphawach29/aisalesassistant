@@ -456,9 +456,16 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 
 ## 📦 การตรวจสอบสต็อก (สำคัญมาก!):
 - **ตรวจสอบสต็อกก่อนยืนยัน**: ถ้าจำนวนสต็อกในข้อมูลสินค้า (stock) น้อยกว่าที่ลูกค้าสั่ง → แจ้งลูกค้าทันที
-- **ถ้าสินค้าหมด (stock = 0)**: ตอบว่า "ขออภัย${particleEnd} สินค้า [ชื่อสินค้า] หมดชั่วคราว${particleEnd} สนใจสินค้าอื่นไหม${particleQuestion}?"
-- **ถ้าสินค้าไม่พอ**: ตอบว่า "ขออภัย${particleEnd} สินค้า [ชื่อสินค้า] เหลือ [จำนวน] ชิ้นสุดท้าย${particleEnd} ต้องการสั่ง [จำนวนที่มี] ชิ้นไหม${particleQuestion}?"
+- **ถ้าสินค้าหมด (stock = 0)**: ตอบว่า "ขออภัย${particleEnd} สินค้า [ชื่อสินค้า] หมดชั่วคราว${particleEnd}" แล้ว **แนะนำสินค้าทดแทนในหมวดหมู่เดียวกัน** (ดูจากข้อมูลสินค้าที่มี category เดียวกันและ stock > 0)
+  - ตัวอย่าง: "ขออภัย${particleEnd} สินค้าหมดชั่วคราว${particleEnd} แนะนำ [ชื่อสินค้าทดแทน] ในหมวดเดียวกัน ราคา ฿[ราคา] สนใจไหม${particleQuestion}?"
+  - **ถ้าไม่มีสินค้าทดแทน** → ตอบว่า "ขออภัย${particleEnd} สินค้าหมดชั่วคราว ยังไม่มีสินค้าทดแทนในขณะนี้${particleEnd} สนใจสินค้าอื่นไหม${particleQuestion}?"
+- **ถ้าสินค้าไม่พอ**: ตอบว่า "ขออภัย${particleEnd} สินค้า [ชื่อสินค้า] เหลือ [จำนวน] ชิ้นสุดท้าย${particleEnd} ต้องการสั่ง [จำนวนที่มี] ชิ้นไหม${particleQuestion}?" พร้อม **แนะนำสินค้าทดแทน** ถ้ามี
 - **อย่าแจ้งจำนวนสต็อกถ้าลูกค้าไม่ได้สั่งเกิน** → ตอบแค่ "สินค้ามีพร้อมจำหน่าย${particleEnd}"
+
+## 🔔 การแจ้งเตือน Admin เมื่อสินค้าหมด:
+- **เมื่อลูกค้าสั่งสินค้าหมดสต็อก/ไม่พอ** → ใส่ [NOTIFY_OUT_OF_STOCK:ชื่อสินค้า|จำนวนที่ลูกค้าสั่ง|จำนวนคงเหลือ] ในข้อความตอบกลับ
+- **ตัวอย่าง**: ลูกค้าสั่งเสื้อยืดสีขาว 5 ตัว แต่เหลือ 2 ตัว → ใส่ [NOTIFY_OUT_OF_STOCK:เสื้อยืดสีขาว|5|2] ต่อท้าย
+- **ใช้เมื่อ**: stock = 0 หรือ stock < จำนวนที่ลูกค้าสั่ง
 
 ## ⚠️ กฎการสร้างออเดอร์ (สำคัญที่สุด!):
 - **ต้องใช้ [CREATE_ORDER:...] เมื่อลูกค้ายืนยันสั่งซื้อและให้ข้อมูลครบ** → ห้ามสร้างเลขออเดอร์เองเด็ดขาด
@@ -854,7 +861,8 @@ async function getAIResponse(
   messages: Array<{ role: string; content: string }>, 
   supabase: any,
   customerContext: CustomerContext,
-  isFirstMessage: boolean = false
+  isFirstMessage: boolean = false,
+  senderId: string = ''
 ): Promise<{ text: string; createOrder?: OrderData; cartAction?: CartAction; productAction?: ProductAction; saveAddress?: SaveAddressAction }> {
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
@@ -1036,7 +1044,33 @@ async function getAIResponse(
     const showProductsMatch = content.match(/\[SHOW_PRODUCTS\]/);
     const showPromotionsMatch = content.match(/\[SHOW_PROMOTIONS\]/);
     const showSingleProductMatch = content.match(/\[PRODUCT:([^\]]+)\]/) || content.match(/\[SHOW_PRODUCT:([^\]]+)\]/);
+    const outOfStockMatch = content.match(/\[NOTIFY_OUT_OF_STOCK:([^\]]+)\]/);
 
+    // Handle out of stock notification
+    if (outOfStockMatch) {
+      const parts = outOfStockMatch[1].split('|');
+      if (parts.length >= 3) {
+        const productName = parts[0].trim();
+        const requestedQty = parseInt(parts[1].trim()) || 0;
+        const remainingStock = parseInt(parts[2].trim()) || 0;
+        
+        console.log(`[FB] Out of stock notification: ${productName}, requested: ${requestedQty}, remaining: ${remainingStock}`);
+        
+        // Create admin notification
+        await supabase.from('admin_notifications').insert({
+          type: 'out_of_stock_request',
+          title: '⚠️ ลูกค้าสั่งสินค้าที่สต็อกไม่พอ',
+          message: `ลูกค้าต้องการสั่ง "${productName}" จำนวน ${requestedQty} ชิ้น แต่คงเหลือเพียง ${remainingStock} ชิ้น`,
+          data: {
+            product_name: productName,
+            requested_quantity: requestedQty,
+            remaining_stock: remainingStock,
+            platform: 'facebook',
+            customer_id: senderId
+          }
+        });
+      }
+    }
     // Parse order data if present
     let createOrder: OrderData | undefined;
     if (createOrderMatch) {
@@ -1134,6 +1168,7 @@ async function getAIResponse(
       .replace(/\[PRODUCT:[^\]]+\]/g, '')
       .replace(/\[SHOW_PRODUCT:[^\]]+\]/g, '')
       .replace(/\[SAVE_ADDRESS:[^\]]+\]/g, '')
+      .replace(/\[NOTIFY_OUT_OF_STOCK:[^\]]+\]/g, '')
       .trim();
 
     return { text: content, createOrder, cartAction, productAction, saveAddress };
@@ -1965,7 +2000,7 @@ serve(async (req) => {
         }
 
         // Get AI response
-        const aiResult = await getAIResponse(messages, supabase, customerContext, isFirstMessage);
+        const aiResult = await getAIResponse(messages, supabase, customerContext, isFirstMessage, senderId);
         console.log("AI response generated:", aiResult);
 
         let responseMessage = aiResult.text;
