@@ -254,95 +254,139 @@ export default function AdminTemplates() {
   return (
     <AdminLayout title="เทมเพลตข้อความ">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">
             จัดการเทมเพลตข้อความสำหรับส่งให้ลูกค้า
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={fetchTemplates} disabled={isLoadingData}>
+        <div className="flex gap-2 shrink-0">
+          <Button variant="outline" size="icon" onClick={fetchTemplates} disabled={isLoadingData} className="h-9 w-9 sm:h-10 sm:w-10">
             <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={openCreateDialog}>
-            <Plus className="w-4 h-4 mr-2" />
-            เพิ่มเทมเพลต
+          <Button onClick={openCreateDialog} className="h-9 sm:h-10 px-3 sm:px-4">
+            <Plus className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">เพิ่มเทมเพลต</span>
           </Button>
         </div>
       </div>
 
       {/* Templates List */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquareText className="w-5 h-5" />
+        <CardHeader className="py-3 sm:py-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <MessageSquareText className="w-4 h-4 sm:w-5 sm:h-5" />
             เทมเพลตทั้งหมด ({templates.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
           {templates.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <MessageSquareText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>ยังไม่มีเทมเพลต</p>
+            <div className="text-center py-8 sm:py-12 text-muted-foreground">
+              <MessageSquareText className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+              <p className="text-sm sm:text-base">ยังไม่มีเทมเพลต</p>
               <Button variant="link" onClick={openCreateDialog}>
                 สร้างเทมเพลตแรก
               </Button>
             </div>
           ) : (
-            <ScrollArea className="h-[500px]">
-              <div className="space-y-3">
+            <ScrollArea className="h-[calc(100vh-280px)] sm:h-[500px]">
+              <div className="space-y-2 sm:space-y-3">
                 {templates.map((template) => (
                   <div
                     key={template.id}
-                    className={`flex items-start gap-4 p-4 rounded-lg border transition-colors ${
+                    className={`p-3 sm:p-4 rounded-lg border transition-colors ${
                       template.is_active ? 'bg-card' : 'bg-muted/50 opacity-60'
                     }`}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="font-medium">{template.name}</span>
-                        {getCategoryBadge(template.category)}
-                        {!template.is_active && (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            ปิดใช้งาน
-                          </Badge>
-                        )}
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4">
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2 flex-wrap flex-1">
+                            <span className="font-medium text-sm sm:text-base">{template.name}</span>
+                            {getCategoryBadge(template.category)}
+                            {!template.is_active && (
+                              <Badge variant="outline" className="text-muted-foreground text-[10px] sm:text-xs">
+                                ปิดใช้งาน
+                              </Badge>
+                            )}
+                          </div>
+                          {/* Actions - mobile: top right */}
+                          <div className="flex gap-1 sm:hidden flex-shrink-0">
+                            <Switch
+                              checked={template.is_active}
+                              onCheckedChange={() => handleToggleActive(template.id, template.is_active)}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {template.content}
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {template.content}
-                      </p>
-                    </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Switch
-                        checked={template.is_active}
-                        onCheckedChange={() => handleToggleActive(template.id, template.is_active)}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => copyToClipboard(template.content)}
-                        title="คัดลอก"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(template)}
-                        title="แก้ไข"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(template.id)}
-                        title="ลบ"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {/* Actions - desktop */}
+                      <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                        <Switch
+                          checked={template.is_active}
+                          onCheckedChange={() => handleToggleActive(template.id, template.is_active)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => copyToClipboard(template.content)}
+                          title="คัดลอก"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(template)}
+                          title="แก้ไข"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(template.id)}
+                          title="ลบ"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {/* Actions - mobile: bottom row */}
+                      <div className="flex sm:hidden items-center justify-end gap-1 pt-2 border-t">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(template.content)}
+                          className="h-8 px-2.5"
+                        >
+                          <Copy className="w-3.5 h-3.5 mr-1.5" />
+                          คัดลอก
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(template)}
+                          className="h-8 px-2.5"
+                        >
+                          <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                          แก้ไข
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive h-8 px-2.5"
+                          onClick={() => handleDelete(template.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                          ลบ
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

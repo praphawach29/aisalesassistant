@@ -347,29 +347,29 @@ export default function AdminAddresses() {
     <AdminLayout title="ที่อยู่ลูกค้า">
       <div className="space-y-6">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">ที่อยู่ทั้งหมด</CardTitle>
+            <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">ที่อยู่ทั้งหมด</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{addresses.length}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{addresses.length}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">ลูกค้าที่มีที่อยู่</CardTitle>
+            <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">ลูกค้า</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{Object.keys(groupedAddresses).length}</div>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">{Object.keys(groupedAddresses).length}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">ที่อยู่ LINE / Facebook</CardTitle>
+            <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">LINE / FB</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-xl sm:text-2xl font-bold">
                 {addresses.filter(a => a.platform === 'line').length} / {addresses.filter(a => a.platform === 'facebook').length}
               </div>
             </CardContent>
@@ -378,15 +378,15 @@ export default function AdminAddresses() {
 
         {/* Search and Export */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex gap-4">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="ค้นหาที่อยู่, ป้ายกำกับ, หรือ ID ลูกค้า..."
+                  placeholder="ค้นหาที่อยู่..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 h-9 sm:h-10"
                 />
               </div>
               <input
@@ -396,97 +396,138 @@ export default function AdminAddresses() {
                 className="hidden"
                 id="csv-import"
               />
-              <Button variant="outline" onClick={() => document.getElementById('csv-import')?.click()}>
-                <Upload className="w-4 h-4 mr-2" />
-                นำเข้า CSV
-              </Button>
-              <Button onClick={exportToCSV} disabled={filteredAddresses.length === 0}>
-                <Download className="w-4 h-4 mr-2" />
-                ส่งออก CSV
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => document.getElementById('csv-import')?.click()} className="flex-1 sm:flex-none h-9 sm:h-10">
+                  <Upload className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">นำเข้า CSV</span>
+                </Button>
+                <Button onClick={exportToCSV} disabled={filteredAddresses.length === 0} className="flex-1 sm:flex-none h-9 sm:h-10">
+                  <Download className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">ส่งออก CSV</span>
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              รูปแบบ CSV: แพลตฟอร์ม, ID ลูกค้า, ป้ายกำกับ, ที่อยู่, ค่าเริ่มต้น (ใช่/ไม่)
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
+              รูปแบบ CSV: แพลตฟอร์ม, ID ลูกค้า, ป้ายกำกับ, ที่อยู่, ค่าเริ่มต้น
             </p>
           </CardContent>
         </Card>
 
-        {/* Address Table */}
+        {/* Address List - Mobile: Cards, Desktop: Table */}
         <Card>
-          <CardContent className="pt-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>แพลตฟอร์ม</TableHead>
-                  <TableHead>ID ลูกค้า</TableHead>
-                  <TableHead>ป้ายกำกับ</TableHead>
-                  <TableHead>ที่อยู่</TableHead>
-                  <TableHead>สถานะ</TableHead>
-                  <TableHead>วันที่สร้าง</TableHead>
-                  <TableHead className="text-right">จัดการ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAddresses.length === 0 ? (
+          <CardContent className="p-0 sm:p-6">
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      ไม่พบข้อมูลที่อยู่
-                    </TableCell>
+                    <TableHead>แพลตฟอร์ม</TableHead>
+                    <TableHead>ID ลูกค้า</TableHead>
+                    <TableHead>ป้ายกำกับ</TableHead>
+                    <TableHead>ที่อยู่</TableHead>
+                    <TableHead>สถานะ</TableHead>
+                    <TableHead>วันที่สร้าง</TableHead>
+                    <TableHead className="text-right">จัดการ</TableHead>
                   </TableRow>
-                ) : (
-                  filteredAddresses.map((address) => (
-                    <TableRow key={address.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getPlatformIcon(address.platform)}
-                          <span className="capitalize">{address.platform}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {address.platform_user_id.slice(0, 15)}...
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getLabelIcon(address.label)}
-                          <span>{address.label}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate" title={address.address}>
-                        {address.address}
-                      </TableCell>
-                      <TableCell>
-                        {address.is_default && (
-                          <Badge variant="secondary">ค่าเริ่มต้น</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(address.created_at), 'd MMM yyyy', { locale: th })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(address)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(address.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredAddresses.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        ไม่พบข้อมูลที่อยู่
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredAddresses.map((address) => (
+                      <TableRow key={address.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getPlatformIcon(address.platform)}
+                            <span className="capitalize">{address.platform}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                            {address.platform_user_id.slice(0, 15)}...
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getLabelIcon(address.label)}
+                            <span>{address.label}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate" title={address.address}>
+                          {address.address}
+                        </TableCell>
+                        <TableCell>
+                          {address.is_default && (
+                            <Badge variant="secondary">ค่าเริ่มต้น</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(address.created_at), 'd MMM yyyy', { locale: th })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(address)} className="h-8 w-8">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(address.id)} className="h-8 w-8 text-destructive hover:text-destructive">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden">
+              <ScrollArea className="h-[calc(100vh-400px)]">
+                <div className="space-y-2 p-3">
+                  {filteredAddresses.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      <MapPin className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">ไม่พบข้อมูลที่อยู่</p>
+                    </div>
+                  ) : (
+                    filteredAddresses.map((address) => (
+                      <div key={address.id} className="p-3 rounded-lg border bg-card">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            {getPlatformIcon(address.platform)}
+                            <div className="flex items-center gap-1.5">
+                              {getLabelIcon(address.label)}
+                              <span className="font-medium text-sm">{address.label}</span>
+                            </div>
+                            {address.is_default && (
+                              <Badge variant="secondary" className="text-[10px]">ค่าเริ่มต้น</Badge>
+                            )}
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <Button variant="outline" size="icon" onClick={() => handleEdit(address)} className="h-7 w-7">
+                              <Edit className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="outline" size="icon" onClick={() => handleDelete(address.id)} className="h-7 w-7 text-destructive hover:text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1.5">{address.address}</p>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <code className="bg-muted px-1.5 py-0.5 rounded">{address.platform_user_id.slice(0, 12)}...</code>
+                          <span>{format(new Date(address.created_at), 'd MMM yy', { locale: th })}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </CardContent>
         </Card>
       </div>

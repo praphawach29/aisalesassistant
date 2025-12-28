@@ -311,16 +311,16 @@ export default function AdminBroadcast() {
 
   return (
     <AdminLayout title="Broadcast">
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Send Broadcast Form */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Radio className="w-5 h-5" />
+          <CardHeader className="py-3 sm:py-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Radio className="w-4 h-4 sm:w-5 sm:h-5" />
               ส่งข้อความ Broadcast
             </CardTitle>
-            <CardDescription>
-              ส่งข้อความโปรโมชั่นหรือประกาศไปยังลูกค้าผ่าน LINE และ Facebook
+            <CardDescription className="text-xs sm:text-sm">
+              ส่งข้อความโปรโมชั่นหรือประกาศไปยังลูกค้า
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -473,27 +473,27 @@ export default function AdminBroadcast() {
               <Button 
                 onClick={() => handleSendBroadcast('line')} 
                 disabled={isSending || !message.trim()}
-                className="gap-2 bg-green-600 hover:bg-green-700"
+                className="gap-1 sm:gap-2 bg-green-600 hover:bg-green-700 h-9 sm:h-10 text-xs sm:text-sm px-2 sm:px-4"
               >
-                {isSending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>🟢</span>}
-                LINE
+                {isSending ? <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" /> : <span>🟢</span>}
+                <span className="hidden xs:inline">LINE</span>
               </Button>
               <Button 
                 onClick={() => handleSendBroadcast('facebook')} 
                 disabled={isSending || !message.trim()}
-                className="gap-2 bg-blue-600 hover:bg-blue-700"
+                className="gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 h-9 sm:h-10 text-xs sm:text-sm px-2 sm:px-4"
               >
-                {isSending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>🔵</span>}
-                Facebook
+                {isSending ? <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" /> : <span>🔵</span>}
+                <span className="hidden xs:inline">FB</span>
               </Button>
               <Button 
                 onClick={() => handleSendBroadcast('all')} 
                 disabled={isSending || !message.trim()}
                 variant="default"
-                className="gap-2"
+                className="gap-1 sm:gap-2 h-9 sm:h-10 text-xs sm:text-sm px-2 sm:px-4"
               >
-                {isSending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                ทั้งหมด
+                {isSending ? <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" /> : <Send className="w-3 h-3 sm:w-4 sm:h-4" />}
+                <span className="hidden xs:inline">ทั้งหมด</span>
               </Button>
             </div>
           </CardContent>

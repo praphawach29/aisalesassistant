@@ -124,50 +124,50 @@ export default function AdminNotifications() {
   return (
     <AdminLayout title="การแจ้งเตือน">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-3 sm:pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold">{notifications.length}</p>
-              <p className="text-sm text-muted-foreground">ทั้งหมด</p>
+              <p className="text-xl sm:text-2xl font-bold">{notifications.length}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">ทั้งหมด</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-3 sm:pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{unreadCount}</p>
-              <p className="text-sm text-muted-foreground">ยังไม่อ่าน</p>
+              <p className="text-xl sm:text-2xl font-bold text-primary">{unreadCount}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">ยังไม่อ่าน</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-3 sm:pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-xl sm:text-2xl font-bold text-green-600">
                 {notifications.filter(n => n.type === 'new_order').length}
               </p>
-              <p className="text-sm text-muted-foreground">ออเดอร์ใหม่</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">ออเดอร์ใหม่</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="p-3 sm:pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-yellow-600">
+              <p className="text-xl sm:text-2xl font-bold text-yellow-600">
                 {notifications.filter(n => n.type === 'low_stock' || n.type === 'out_of_stock').length}
               </p>
-              <p className="text-sm text-muted-foreground">สต็อก</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">สต็อก</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters & Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div className="flex gap-2 flex-1">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="flex-1 sm:w-[180px] h-9 sm:h-10">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="ประเภท" />
             </SelectTrigger>
@@ -180,7 +180,7 @@ export default function AdminNotifications() {
             </SelectContent>
           </Select>
           <Select value={readFilter} onValueChange={setReadFilter}>
-            <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectTrigger className="flex-1 sm:w-[150px] h-9 sm:h-10">
               <SelectValue placeholder="สถานะ" />
             </SelectTrigger>
             <SelectContent>
@@ -196,14 +196,15 @@ export default function AdminNotifications() {
             size="sm"
             onClick={refetch}
             disabled={isLoadingNotifications}
+            className="h-9 sm:h-10 flex-1 sm:flex-none"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
-            รีเฟรช
+            <RefreshCw className={`w-4 h-4 sm:mr-2 ${isLoadingNotifications ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">รีเฟรช</span>
           </Button>
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllAsRead}>
-              <CheckCheck className="w-4 h-4 mr-2" />
-              อ่านทั้งหมด
+            <Button variant="outline" size="sm" onClick={markAllAsRead} className="h-9 sm:h-10 flex-1 sm:flex-none">
+              <CheckCheck className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">อ่านทั้งหมด</span>
             </Button>
           )}
         </div>
@@ -221,80 +222,111 @@ export default function AdminNotifications() {
 
         return (
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5" />
+            <CardHeader className="py-3 sm:py-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                 ประวัติการแจ้งเตือน ({filteredNotifications.length})
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-2 sm:p-6 pt-0 sm:pt-0">
               {filteredNotifications.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>{notifications.length === 0 ? 'ยังไม่มีการแจ้งเตือน' : 'ไม่พบการแจ้งเตือนที่ตรงกับตัวกรอง'}</p>
+                <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                  <Bell className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                  <p className="text-sm sm:text-base">{notifications.length === 0 ? 'ยังไม่มีการแจ้งเตือน' : 'ไม่พบการแจ้งเตือนที่ตรงกับตัวกรอง'}</p>
                 </div>
               ) : (
-                <ScrollArea className="h-[600px]">
-                  <div className="space-y-3">
+                <ScrollArea className="h-[calc(100vh-380px)] sm:h-[600px]">
+                  <div className="space-y-2 sm:space-y-3">
                     {filteredNotifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`flex items-start gap-4 p-4 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
+                        className={`p-3 sm:p-4 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
                           !notification.is_read ? 'bg-primary/5 border-primary/20' : 'bg-card'
                         }`}
                         onClick={() => handleNotificationClick(notification)}
                       >
-                        {/* Icon */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          {getNotificationIcon(notification.type)}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            {getNotificationBadge(notification.type)}
-                            {!notification.is_read && (
-                              <span className="w-2 h-2 rounded-full bg-primary" />
-                            )}
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          {/* Icon - hidden on mobile */}
+                          <div className="hidden sm:flex flex-shrink-0 w-10 h-10 rounded-full bg-muted items-center justify-center">
+                            {getNotificationIcon(notification.type)}
                           </div>
-                          <h4 className="font-medium">{notification.title}</h4>
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {formatDistanceToNow(new Date(notification.created_at), {
-                              addSuffix: true,
-                              locale: th
-                            })}
-                          </p>
-                        </div>
 
-                        {/* Actions */}
-                        <div className="flex gap-1 flex-shrink-0">
-                          {!notification.is_read && (
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {getNotificationBadge(notification.type)}
+                                {!notification.is_read && (
+                                  <span className="w-2 h-2 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              {/* Actions - mobile: top right */}
+                              <div className="flex gap-1 sm:hidden flex-shrink-0">
+                                {!notification.is_read && (
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markAsRead(notification.id);
+                                    }}
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNotification(notification.id);
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <h4 className="font-medium text-sm sm:text-base">{notification.title}</h4>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                              {notification.message}
+                            </p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">
+                              {formatDistanceToNow(new Date(notification.created_at), {
+                                addSuffix: true,
+                                locale: th
+                              })}
+                            </p>
+                          </div>
+
+                          {/* Actions - desktop: right side */}
+                          <div className="hidden sm:flex gap-1 flex-shrink-0">
+                            {!notification.is_read && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAsRead(notification.id);
+                                }}
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                markAsRead(notification.id);
+                                deleteNotification(notification.id);
                               }}
                             >
-                              <Check className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNotification(notification.id);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
