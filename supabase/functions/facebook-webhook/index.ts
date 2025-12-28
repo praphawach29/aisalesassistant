@@ -294,8 +294,24 @@ function buildSystemPrompt(
     ? "ใช้ emoji เล็กน้อยเพื่อความเป็นกันเอง เช่น 😊 🙏 ✨ 🔥 💕" 
     : "ไม่ใช้ emoji ในการสนทนา";
 
+  // Build introduction text for first message
+  const storeIntro = storeSettings.storeName ? `ร้าน${storeSettings.storeName}` : 'ร้านของเรา';
+  const shippingIntro = storeSettings.shippingInfo 
+    ? `การจัดส่ง: ${storeSettings.shippingInfo}` 
+    : 'มีบริการจัดส่งทั่วประเทศ';
+  
   const greetingInstruction = isFirstMessage && greeting_message
-    ? `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น):\nเริ่มต้นด้วย: "${greeting_message}"`
+    ? `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น):
+เริ่มต้นด้วย: "${greeting_message}"
+
+🏪 **กรุณาแนะนำตัวและร้านด้วย!**
+- แนะนำชื่อตัวเอง (${ai_name})
+- แนะนำ${storeIntro}สั้นๆ
+- ${shippingIntro}
+- ถามว่าสนใจสินค้าอะไรเป็นพิเศษ
+
+ตัวอย่างการทักทายที่ดี:
+"สวัสดีค่ะ! 😊 ดิฉัน${ai_name} จาก${storeIntro}ค่ะ เรามีสินค้าคุณภาพพร้อม${shippingIntro} สนใจสินค้าอะไรเป็นพิเศษคะ?"`
     : `## 👋 หมายเหตุ:\nนี่ไม่ใช่ข้อความแรกของการสนทนา ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
 
   return `คุณคือ "${ai_name}" ผู้ช่วยขายอัจฉริยะที่พูดภาษาไทยได้อย่างเป็นธรรมชาติ
@@ -613,11 +629,12 @@ interface OrderConfirmationData {
   customerAddress: string;
   couponCode?: string;
   bankAccounts?: string;
+  shippingInfo?: string;
 }
 
 // Format order confirmation message (enhanced to match LINE)
 function formatOrderConfirmationMessage(data: OrderConfirmationData): string {
-  const { orderNumber, items, totalAmount, discountAmount, customerName, customerPhone, customerAddress, couponCode, bankAccounts } = data;
+  const { orderNumber, items, totalAmount, discountAmount, customerName, customerPhone, customerAddress, couponCode, bankAccounts, shippingInfo } = data;
   
   let message = `✅ ยืนยันการสั่งซื้อสำเร็จ!\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -654,12 +671,20 @@ function formatOrderConfirmationMessage(data: OrderConfirmationData): string {
   message += `   ──────────────\n`;
   message += `   💎 ยอดชำระสุทธิ: ฿${totalAmount.toLocaleString()}\n\n`;
   
-  // Customer information
+  // Shipping information
   message += `🚚 ข้อมูลจัดส่ง:\n`;
   message += `──────────────────\n`;
   message += `👤 ชื่อ: ${customerName}\n`;
   message += `📞 เบอร์โทร: ${customerPhone}\n`;
-  message += `📍 ที่อยู่: ${customerAddress}\n\n`;
+  message += `📍 ที่อยู่: ${customerAddress}\n`;
+  
+  // Add shipping info (courier, cost, etc.)
+  if (shippingInfo) {
+    message += `📦 การจัดส่ง: ${shippingInfo}\n`;
+  } else {
+    message += `📦 การจัดส่ง: จัดส่งฟรีทั่วประเทศ (Kerry/Flash/ไปรษณีย์)\n`;
+  }
+  message += `\n`;
   
   // Payment information
   message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -2412,11 +2437,17 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
 
                 console.log(`Facebook cart order created: ${order.order_number}`);
 
-                // Fetch bank accounts for payment info
+                // Fetch bank accounts and shipping info
                 const { data: bankSettingCart } = await supabase
                   .from("settings")
                   .select("value")
                   .eq("key", "BANK_ACCOUNTS")
+                  .maybeSingle();
+
+                const { data: shippingSettingCart } = await supabase
+                  .from("settings")
+                  .select("value")
+                  .eq("key", "SHIPPING_INFO")
                   .maybeSingle();
 
                 responseMessage = formatOrderConfirmationMessage({
@@ -2428,7 +2459,8 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
                   customerPhone: cartAction.customerPhone,
                   customerAddress: cartAction.customerAddress,
                   couponCode: cartAction.couponCode,
-                  bankAccounts: bankSettingCart?.value || undefined
+                  bankAccounts: bankSettingCart?.value || undefined,
+                  shippingInfo: shippingSettingCart?.value || undefined
                 });
               } else {
                 console.error("Error creating order:", orderError);
@@ -2498,11 +2530,17 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
 
               console.log(`Facebook direct order created: ${order.order_number}`);
 
-              // Fetch bank accounts for payment info
+              // Fetch bank accounts and shipping info
               const { data: bankSetting } = await supabase
                 .from("settings")
                 .select("value")
                 .eq("key", "BANK_ACCOUNTS")
+                .maybeSingle();
+
+              const { data: shippingSetting } = await supabase
+                .from("settings")
+                .select("value")
+                .eq("key", "SHIPPING_INFO")
                 .maybeSingle();
 
               responseMessage = formatOrderConfirmationMessage({
@@ -2519,7 +2557,8 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
                 customerPhone: orderData.customerPhone,
                 customerAddress: orderData.customerAddress,
                 couponCode: orderData.couponCode,
-                bankAccounts: bankSetting?.value || undefined
+                bankAccounts: bankSetting?.value || undefined,
+                shippingInfo: shippingSetting?.value || undefined
               });
             }
           } else {
@@ -2618,11 +2657,17 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
 
               console.log(`Facebook multi-product order created: ${order.order_number}`);
 
-              // Fetch bank accounts for payment info
+              // Fetch bank accounts and shipping info
               const { data: bankSettingMulti } = await supabase
                 .from("settings")
                 .select("value")
                 .eq("key", "BANK_ACCOUNTS")
+                .maybeSingle();
+
+              const { data: shippingSettingMulti } = await supabase
+                .from("settings")
+                .select("value")
+                .eq("key", "SHIPPING_INFO")
                 .maybeSingle();
 
               responseMessage = formatOrderConfirmationMessage({
@@ -2639,7 +2684,8 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
                 customerPhone: multiOrderData.customerPhone,
                 customerAddress: multiOrderData.customerAddress,
                 couponCode: multiOrderData.couponCode,
-                bankAccounts: bankSettingMulti?.value || undefined
+                bankAccounts: bankSettingMulti?.value || undefined,
+                shippingInfo: shippingSettingMulti?.value || undefined
               });
             } else {
               console.error("Error creating multi-order:", orderError);
