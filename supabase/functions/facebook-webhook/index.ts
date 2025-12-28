@@ -2164,15 +2164,58 @@ serve(async (req) => {
           }
         }
         
-        // For greetings, add instruction to NOT repeat greetings
-        if (isGreeting) {
-          messages.push({ role: "system", content: `[INSTRUCTION: ลูกค้าทักทายเข้ามา
-⚠️ กฎสำคัญ - ห้ามทักทายซ้ำซ้อน!
-- ตอบทักทายแค่ครั้งเดียว สั้นๆ เช่น "สวัสดีค่ะ 😊 สนใจสินค้าอะไรเป็นพิเศษคะ?"
-- ห้ามพูดว่า "ยินดีต้อนรับ" หรือ "ขอต้อนรับ" ซ้ำ 2 ครั้งในข้อความเดียว
-- ห้ามแนะนำตัวซ้ำ 2 ครั้ง
-- ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์
-- ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
+        // For first greeting, add instruction to introduce self and store
+        if (isGreeting && isFirstMessage) {
+          // Fetch store name and shipping info for greeting
+          const { data: storeNameSetting } = await supabase
+            .from("settings")
+            .select("value")
+            .eq("key", "STORE_NAME")
+            .maybeSingle();
+
+          const { data: shippingInfoSetting } = await supabase
+            .from("settings")
+            .select("value")
+            .eq("key", "SHIPPING_INFO")
+            .maybeSingle();
+
+          const storeName = storeNameSetting?.value || 'ร้านของเรา';
+          const shippingInfo = shippingInfoSetting?.value || 'มีบริการจัดส่งทั่วประเทศ';
+          
+          // Get AI name from settings
+          const { data: aiSettingsForGreeting } = await supabase
+            .from("ai_settings")
+            .select("ai_name")
+            .eq("is_active", true)
+            .maybeSingle();
+          
+          const aiName = aiSettingsForGreeting?.ai_name || 'น้องช้อป';
+
+          messages.push({ role: "system", content: `[INSTRUCTION: ลูกค้าทักทายเข้ามาครั้งแรก - ต้องแนะนำตัวและร้าน!]
+
+🎯 สิ่งที่ต้องทำในคำทักทายครั้งแรก:
+1. ทักทายอย่างอบอุ่น
+2. แนะนำชื่อตัวเอง: "${aiName}"
+3. แนะนำร้าน: "${storeName}"
+4. แจ้งข้อมูลการจัดส่งสั้นๆ: ${shippingInfo.split('\n')[0]}
+5. ถามว่าสนใจสินค้าอะไร
+
+📝 ตัวอย่างคำทักทายที่ถูกต้อง:
+"สวัสดีค่ะ! 😊 ดิฉัน${aiName} จาก${storeName}ค่ะ 
+
+เรามีสินค้าคุณภาพดีหลากหลายรายการ พร้อมบริการจัดส่งทั่วประเทศ ${shippingInfo.includes('ส่งฟรี') ? '✨ มีโปรส่งฟรีด้วยค่ะ!' : ''}
+
+สนใจสินค้าอะไรเป็นพิเศษคะ?"
+
+⚠️ ห้าม:
+- ห้ามตอบสั้นเกินไป (ต้องแนะนำตัว+ร้าน)
+- ห้ามทักทายซ้ำซ้อนในข้อความเดียว` });
+        } else if (isGreeting && !isFirstMessage) {
+          // For subsequent greetings, keep it short
+          messages.push({ role: "system", content: `[INSTRUCTION: ลูกค้าทักทายอีกครั้ง - ไม่ต้องแนะนำตัวซ้ำ]
+- ตอบทักทายสั้นๆ เช่น "สวัสดีค่ะ 😊 มีอะไรให้ช่วยเหลือไหมคะ?"
+- ห้ามแนะนำตัวหรือร้านซ้ำ
+- ข้อความทักทายต้องไม่เกิน 2 ประโยค` });
         }
         
         // CRITICAL: When user specifies a new product list, add ABSOLUTE instruction
