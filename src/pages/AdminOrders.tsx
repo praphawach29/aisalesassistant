@@ -24,6 +24,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -43,7 +53,8 @@ import {
   MessageCircle,
   Send,
   Bell,
-  BellOff
+  BellOff,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -88,6 +99,8 @@ export default function AdminOrders() {
   const [sendNotificationOnSave, setSendNotificationOnSave] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -279,6 +292,63 @@ export default function AdminOrders() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete payment slips first
+      await supabase
+        .from('payment_slips')
+        .delete()
+        .eq('order_id', orderToDelete.id);
+      
+      // Delete order items
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', orderToDelete.id);
+      
+      if (itemsError) throw itemsError;
+      
+      // Delete the order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderToDelete.id);
+      
+      if (orderError) throw orderError;
+      
+      toast.success(`ลบออเดอร์ ${orderToDelete.order_number} เรียบร้อยแล้ว`);
+      
+      // Close detail sheet if deleting currently viewed order
+      if (selectedOrder?.id === orderToDelete.id) {
+        setIsDetailOpen(false);
+        setSelectedOrder(null);
+      }
+      
+      // Remove from orderItems state
+      setOrderItems(prev => {
+        const newItems = { ...prev };
+        delete newItems[orderToDelete.id];
+        return newItems;
+      });
+      
+      fetchOrders();
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('เกิดข้อผิดพลาดในการลบออเดอร์');
+    } finally {
+      setIsDeleting(false);
+      setOrderToDelete(null);
+    }
+  };
+
+  const confirmDeleteOrder = (e: React.MouseEvent, order: Order) => {
+    e.stopPropagation();
+    setOrderToDelete(order);
   };
 
   const getStatusBadge = (status: OrderStatus) => {
@@ -493,6 +563,14 @@ export default function AdminOrders() {
                             <Truck className="w-4 h-4 mr-1" />
                             แก้ไข
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => confirmDeleteOrder(e, order)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
 
@@ -568,6 +646,15 @@ export default function AdminOrders() {
                             title="แก้ไขออเดอร์"
                           >
                             <Truck className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => confirmDeleteOrder(e, order)}
+                            title="ลบออเดอร์"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -728,6 +815,20 @@ export default function AdminOrders() {
                     ส่งใบเสร็จ (Receipt)
                   </Button>
                 )}
+                
+                {/* Delete Button */}
+                <Button 
+                  variant="destructive" 
+                  onClick={(e) => {
+                    if (selectedOrder) {
+                      confirmDeleteOrder(e, selectedOrder);
+                    }
+                  }} 
+                  className="w-full gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  ลบออเดอร์นี้
+                </Button>
               </div>
             </div>
           )}
@@ -941,6 +1042,41 @@ export default function AdminOrders() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบออเดอร์</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการลบออเดอร์ <span className="font-mono font-medium">{orderToDelete?.order_number}</span> ของ "{orderToDelete?.customer_name}" ใช่หรือไม่?
+              <span className="block mt-2 text-destructive font-medium">
+                ⚠️ ข้อมูลออเดอร์, รายการสินค้า และสลิปการชำระเงินจะถูกลบถาวร
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOrder}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  กำลังลบ...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  ลบออเดอร์
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
