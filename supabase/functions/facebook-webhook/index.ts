@@ -12,6 +12,32 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || '';
 
+// ============= In-Memory Cache with TTL =============
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const cache: Map<string, CacheEntry<any>> = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function setCache<T>(key: string, data: T, ttl: number = CACHE_TTL): void {
+  cache.set(key, {
+    data,
+    expiresAt: Date.now() + ttl,
+  });
+}
+
 // Decryption utilities
 async function getKey(): Promise<CryptoKey> {
   const encoder = new TextEncoder();
@@ -757,20 +783,58 @@ async function getAIResponse(
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
 
-  // Fetch all required data in PARALLEL for speed optimization
-  const [
-    aiSettingsResult,
-    productsResult,
-    faqsResult,
-    settingsResult
-  ] = await Promise.all([
-    supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle(),
-    supabase.from("products").select("*").eq("is_active", true),
-    supabase.from("faqs").select("question, answer").eq("is_active", true),
-    supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"])
-  ]);
+  // ============= Try to get data from cache first =============
+  let aiSettingsData = getCached<any>('fb_ai_settings');
+  let products = getCached<any[]>('fb_products');
+  let faqs = getCached<any[]>('fb_faqs');
+  let settingsData = getCached<any[]>('fb_settings');
 
-  const aiSettings: AISettings = aiSettingsResult.data || {
+  const needsAiSettings = !aiSettingsData;
+  const needsProducts = !products;
+  const needsFaqs = !faqs;
+  const needsSettings = !settingsData;
+
+  if (needsAiSettings || needsProducts || needsFaqs || needsSettings) {
+    const cacheMisses = [];
+    if (needsAiSettings) cacheMisses.push('ai_settings');
+    if (needsProducts) cacheMisses.push('products');
+    if (needsFaqs) cacheMisses.push('faqs');
+    if (needsSettings) cacheMisses.push('settings');
+    console.log(`[FB] Cache miss: ${cacheMisses.join(', ')}`);
+
+    const [
+      aiSettingsResult,
+      productsResult,
+      faqsResult,
+      settingsResult
+    ] = await Promise.all([
+      needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
+      needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
+      needsFaqs ? supabase.from("faqs").select("question, answer").eq("is_active", true) : Promise.resolve({ data: faqs }),
+      needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"]) : Promise.resolve({ data: settingsData })
+    ]);
+
+    if (needsAiSettings && aiSettingsResult.data) {
+      aiSettingsData = aiSettingsResult.data;
+      setCache('fb_ai_settings', aiSettingsData, 2 * 60 * 1000); // 2 min
+    }
+    if (needsProducts) {
+      products = productsResult.data || [];
+      setCache('fb_products', products);
+    }
+    if (needsFaqs) {
+      faqs = faqsResult.data || [];
+      setCache('fb_faqs', faqs);
+    }
+    if (needsSettings) {
+      settingsData = settingsResult.data || [];
+      setCache('fb_settings', settingsData);
+    }
+  } else {
+    console.log('[FB] All data served from cache!');
+  }
+
+  const aiSettings: AISettings = aiSettingsData || {
     ai_name: "น้องช้อป",
     gender: "female",
     personality: "ร่าเริง เป็นกันเอง ชอบช่วยเหลือลูกค้า",
@@ -782,8 +846,9 @@ async function getAIResponse(
     custom_rules: null,
   };
 
-  const productList = productsResult.data || [];
-  const faqs = faqsResult.data || [];
+  const productList = products || [];
+  faqs = faqs || [];
+  settingsData = settingsData || [];
   const faqList = faqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n');
 
   // Build product catalog with variants info for AI
@@ -805,8 +870,8 @@ async function getAIResponse(
     return info;
   }).join('\n') || 'ยังไม่มีสินค้า';
 
-  // Process store settings (already fetched in parallel above)
-  const settingsMap: Map<string, string> = new Map(settingsResult.data?.map((s: any) => [s.key, s.value as string]) || []);
+  // Process store settings
+  const settingsMap: Map<string, string> = new Map(settingsData.map((s: any) => [s.key, s.value as string]));
   const storeSettings: StoreSettings = {
     storeName: settingsMap.get("STORE_NAME") || "",
     shippingInfo: settingsMap.get("SHIPPING_INFO") || "",
