@@ -1254,6 +1254,18 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
           wrap: true
         },
         {
+          type: "button",
+          action: {
+            type: "message",
+            label: "💳 แจ้งชำระเงิน",
+            text: `แจ้งชำระเงินออเดอร์ ${data.orderNumber}`
+          },
+          style: "primary",
+          height: "sm",
+          margin: "md",
+          color: "#10B981"
+        },
+        {
           type: "box",
           layout: "horizontal",
           contents: [
@@ -1261,10 +1273,10 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
               type: "button",
               action: {
                 type: "message",
-                label: "📋 คัดลอกเลขออเดอร์",
+                label: "📋 เลขออเดอร์",
                 text: `เลขออเดอร์ของฉัน: ${data.orderNumber}`
               },
-              style: "primary",
+              style: "secondary",
               height: "sm",
               flex: 1
             },
@@ -1281,7 +1293,7 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
               margin: "sm"
             }
           ],
-          margin: "md"
+          margin: "sm"
         }
       ],
       paddingAll: "lg",
