@@ -12,14 +12,16 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ENCRYPTION_KEY = Deno.env.get('ENCRYPTION_KEY') || '';
 
-// ============= In-Memory Cache with TTL =============
+// ============= In-Memory Cache with TTL and Invalidation =============
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
+  cachedAt: number;
 }
 
 const cache: Map<string, CacheEntry<any>> = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+let lastKnownInvalidationTime: number = 0;
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key);
@@ -35,7 +37,33 @@ function setCache<T>(key: string, data: T, ttl: number = CACHE_TTL): void {
   cache.set(key, {
     data,
     expiresAt: Date.now() + ttl,
+    cachedAt: Date.now(),
   });
+}
+
+function clearAllCache(): void {
+  cache.clear();
+  console.log('[FB] Cache cleared due to invalidation');
+}
+
+async function checkCacheInvalidation(supabase: any): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'CACHE_INVALIDATED_AT')
+      .maybeSingle();
+    
+    if (data?.value) {
+      const invalidationTime = new Date(data.value).getTime();
+      if (invalidationTime > lastKnownInvalidationTime) {
+        lastKnownInvalidationTime = invalidationTime;
+        clearAllCache();
+      }
+    }
+  } catch (error) {
+    // Ignore errors - cache will still work with TTL
+  }
 }
 
 // Decryption utilities
@@ -782,6 +810,9 @@ async function getAIResponse(
   if (!LOVABLE_API_KEY) {
     return { text: "ขออภัยครับ ระบบยังไม่พร้อมให้บริการ" };
   }
+
+  // Check for cache invalidation before using cache
+  await checkCacheInvalidation(supabase);
 
   // ============= Try to get data from cache first =============
   let aiSettingsData = getCached<any>('fb_ai_settings');

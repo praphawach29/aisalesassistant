@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useCacheInvalidation } from "@/hooks/useCacheInvalidation";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -38,6 +39,7 @@ const DEFAULT_STORE_SETTINGS: StoreSetting[] = [
 
 const AdminSettings = () => {
   const { toast } = useToast();
+  const { invalidateCache } = useCacheInvalidation();
   const { isAdmin, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [settings, setSettings] = useState<StoreSetting[]>(DEFAULT_STORE_SETTINGS);
@@ -132,6 +134,9 @@ const AdminSettings = () => {
       await saveSetting('NOTIFY_NEW_ORDERS', String(notifyNewOrders), 'แจ้งเตือนออเดอร์ใหม่');
       await saveSetting('NOTIFY_LOW_STOCK', String(notifyLowStock), 'แจ้งเตือนสินค้าใกล้หมด');
       await saveSetting('LOW_STOCK_THRESHOLD', lowStockThreshold, 'จำนวนสินค้าที่ถือว่าใกล้หมด');
+
+      // Invalidate edge function cache
+      await invalidateCache(['settings']);
 
       toast({
         title: "บันทึกสำเร็จ",
