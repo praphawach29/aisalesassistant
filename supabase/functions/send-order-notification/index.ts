@@ -57,8 +57,14 @@ async function getDecryptedSetting(supabase: any, key: string): Promise<string |
 
 interface NotificationRequest {
   order_id: string;
-  notification_type: 'status_update' | 'tracking_update' | 'custom' | 'payment_confirmed' | 'payment_rejected';
+  notification_type: 'status_update' | 'tracking_update' | 'custom' | 'payment_confirmed' | 'payment_rejected' | 'order_receipt';
   custom_message?: string;
+}
+
+interface OrderItem {
+  product_name: string;
+  quantity: number;
+  price: number;
 }
 
 const statusMessages: Record<string, { text: string; emoji: string; color: string }> = {
@@ -564,6 +570,219 @@ function createFacebookTrackingUpdateTemplate(order: any) {
   };
 }
 
+// Create Facebook Receipt Template for order summary
+function createFacebookReceiptTemplate(order: any, orderItems: OrderItem[]) {
+  const elements = orderItems.map(item => ({
+    title: item.product_name,
+    subtitle: `จำนวน: ${item.quantity} ชิ้น`,
+    quantity: item.quantity,
+    price: item.price * item.quantity,
+    currency: "THB"
+  }));
+
+  const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const discount = order.discount_amount || 0;
+
+  return {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "receipt",
+        recipient_name: order.customer_name,
+        order_number: order.order_number,
+        currency: "THB",
+        payment_method: "โอนเงิน",
+        order_url: "",
+        timestamp: Math.floor(new Date(order.created_at).getTime() / 1000).toString(),
+        address: {
+          street_1: order.customer_address,
+          city: "",
+          postal_code: "",
+          state: "",
+          country: "TH"
+        },
+        summary: {
+          subtotal: subtotal,
+          shipping_cost: 0,
+          total_tax: 0,
+          total_cost: order.total_amount
+        },
+        elements: elements,
+        adjustments: discount > 0 ? [
+          {
+            name: order.coupon_code ? `ส่วนลด (${order.coupon_code})` : "ส่วนลด",
+            amount: -discount
+          }
+        ] : []
+      }
+    }
+  };
+}
+
+// Create LINE Flex Message for order receipt
+function createLineReceiptFlexMessage(order: any, orderItems: OrderItem[]) {
+  const itemContents = orderItems.map(item => ({
+    type: "box",
+    layout: "horizontal",
+    contents: [
+      {
+        type: "text",
+        text: item.product_name,
+        size: "sm",
+        color: "#333333",
+        flex: 6,
+        wrap: true
+      },
+      {
+        type: "text",
+        text: `x${item.quantity}`,
+        size: "sm",
+        color: "#666666",
+        flex: 1,
+        align: "center"
+      },
+      {
+        type: "text",
+        text: `฿${(item.price * item.quantity).toLocaleString()}`,
+        size: "sm",
+        color: "#333333",
+        flex: 3,
+        align: "end"
+      }
+    ]
+  }));
+
+  const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const discount = order.discount_amount || 0;
+
+  const summaryContents: any[] = [
+    {
+      type: "separator",
+      margin: "lg"
+    },
+    {
+      type: "box",
+      layout: "horizontal",
+      margin: "lg",
+      contents: [
+        { type: "text", text: "รวม", size: "sm", color: "#666666", flex: 1 },
+        { type: "text", text: `฿${subtotal.toLocaleString()}`, size: "sm", color: "#333333", flex: 1, align: "end" }
+      ]
+    }
+  ];
+
+  if (discount > 0) {
+    summaryContents.push({
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        { type: "text", text: order.coupon_code ? `ส่วนลด (${order.coupon_code})` : "ส่วนลด", size: "sm", color: "#00B900", flex: 1 },
+        { type: "text", text: `-฿${discount.toLocaleString()}`, size: "sm", color: "#00B900", flex: 1, align: "end" }
+      ]
+    });
+  }
+
+  summaryContents.push(
+    {
+      type: "separator",
+      margin: "lg"
+    },
+    {
+      type: "box",
+      layout: "horizontal",
+      margin: "lg",
+      contents: [
+        { type: "text", text: "ยอดรวมสุทธิ", size: "md", color: "#333333", weight: "bold", flex: 1 },
+        { type: "text", text: `฿${Number(order.total_amount).toLocaleString()}`, size: "lg", color: "#1E90FF", weight: "bold", flex: 1, align: "end" }
+      ]
+    }
+  );
+
+  return {
+    type: "flex",
+    altText: `ใบเสร็จออเดอร์ ${order.order_number}`,
+    contents: {
+      type: "bubble",
+      size: "mega",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "text",
+            text: "🧾 ใบเสร็จออเดอร์",
+            weight: "bold",
+            size: "xl",
+            color: "#1E90FF"
+          },
+          {
+            type: "text",
+            text: order.order_number,
+            size: "sm",
+            color: "#666666",
+            margin: "sm"
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "sm",
+            contents: [
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "ลูกค้า:", size: "sm", color: "#666666", flex: 3 },
+                  { type: "text", text: order.customer_name, size: "sm", color: "#333333", flex: 7, align: "end" }
+                ]
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "โทร:", size: "sm", color: "#666666", flex: 3 },
+                  { type: "text", text: order.customer_phone, size: "sm", color: "#333333", flex: 7, align: "end" }
+                ]
+              }
+            ]
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "text",
+            text: "รายการสินค้า",
+            size: "sm",
+            color: "#666666",
+            margin: "lg"
+          },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "sm",
+            spacing: "sm",
+            contents: itemContents
+          },
+          ...summaryContents,
+          {
+            type: "text",
+            text: "ขอบคุณที่ใช้บริการค่ะ 🙏",
+            size: "sm",
+            color: "#00B900",
+            margin: "xl",
+            align: "center"
+          }
+        ]
+      }
+    }
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -633,6 +852,21 @@ serve(async (req) => {
       );
     }
 
+    // Fetch order items if needed for receipt
+    let orderItems: OrderItem[] = [];
+    if (notification_type === 'order_receipt') {
+      const { data: items, error: itemsError } = await supabase
+        .from('order_items')
+        .select('product_name, quantity, price')
+        .eq('order_id', order_id);
+      
+      if (itemsError) {
+        console.error('Error fetching order items:', itemsError);
+      } else {
+        orderItems = items || [];
+      }
+    }
+
     // Read and decrypt API tokens from database
     const lineToken = await getDecryptedSetting(supabase, 'LINE_CHANNEL_ACCESS_TOKEN');
     const facebookToken = await getDecryptedSetting(supabase, 'FACEBOOK_PAGE_ACCESS_TOKEN');
@@ -661,6 +895,8 @@ serve(async (req) => {
           lineMessage = createPaymentConfirmedFlexMessage(order);
         } else if (notification_type === 'payment_rejected') {
           lineMessage = createPaymentRejectedFlexMessage(order, custom_message);
+        } else if (notification_type === 'order_receipt' && orderItems.length > 0) {
+          lineMessage = createLineReceiptFlexMessage(order, orderItems);
         } else if (notification_type === 'status_update') {
           const statusInfo = statusMessages[order.status] || statusMessages['pending'];
           lineMessage = createStatusUpdateFlexMessage(order, statusInfo);
@@ -674,7 +910,7 @@ serve(async (req) => {
       }
     }
 
-    // Send to Facebook with beautiful Generic Templates
+    // Send to Facebook with beautiful Templates
     if (order.platform === 'facebook' && order.customer_facebook_id) {
       if (!facebookToken) {
         console.error('Facebook access token not configured');
@@ -690,6 +926,8 @@ serve(async (req) => {
           fbMessage = createFacebookPaymentConfirmedTemplate(order);
         } else if (notification_type === 'payment_rejected') {
           fbMessage = createFacebookPaymentRejectedTemplate(order, custom_message);
+        } else if (notification_type === 'order_receipt' && orderItems.length > 0) {
+          fbMessage = createFacebookReceiptTemplate(order, orderItems);
         } else if (notification_type === 'status_update') {
           const statusInfo = statusMessages[order.status] || statusMessages['pending'];
           fbMessage = createFacebookStatusUpdateTemplate(order, statusInfo);

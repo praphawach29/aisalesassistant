@@ -191,7 +191,7 @@ export default function AdminOrders() {
     setIsEditOpen(true);
   };
 
-  const sendNotification = async (orderId: string, notificationType: 'status_update' | 'tracking_update' | 'custom', customMsg?: string) => {
+  const sendNotification = async (orderId: string, notificationType: 'status_update' | 'tracking_update' | 'custom' | 'payment_confirmed' | 'payment_rejected' | 'order_receipt', customMsg?: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('send-order-notification', {
         body: {
@@ -696,21 +696,38 @@ export default function AdminOrders() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
-                {selectedOrder.platform !== 'web' && (
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex gap-2">
+                  {selectedOrder.platform !== 'web' && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => { setIsDetailOpen(false); openMessageDialog(selectedOrder); }} 
+                      className="flex-1 gap-2"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span className="hidden sm:inline">ส่งข้อความ</span>
+                    </Button>
+                  )}
+                  <Button onClick={() => { setIsDetailOpen(false); openEditDialog(selectedOrder); }} className="flex-1 gap-2">
+                    <Truck className="w-4 h-4" />
+                    อัพเดทสถานะ
+                  </Button>
+                </div>
+                {selectedOrder.platform !== 'web' && orderItems[selectedOrder.id] && orderItems[selectedOrder.id].length > 0 && (
                   <Button 
-                    variant="outline" 
-                    onClick={() => { setIsDetailOpen(false); openMessageDialog(selectedOrder); }} 
-                    className="flex-1 gap-2"
+                    variant="secondary" 
+                    onClick={async () => {
+                      const success = await sendNotification(selectedOrder.id, 'order_receipt');
+                      if (success) {
+                        toast.success('ส่งใบเสร็จเรียบร้อยแล้ว');
+                      }
+                    }} 
+                    className="w-full gap-2"
                   >
-                    <MessageCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">ส่งข้อความ</span>
+                    <Package className="w-4 h-4" />
+                    ส่งใบเสร็จ (Receipt)
                   </Button>
                 )}
-                <Button onClick={() => { setIsDetailOpen(false); openEditDialog(selectedOrder); }} className="flex-1 gap-2">
-                  <Truck className="w-4 h-4" />
-                  อัพเดทสถานะ
-                </Button>
               </div>
             </div>
           )}
