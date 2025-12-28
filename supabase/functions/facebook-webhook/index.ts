@@ -2051,9 +2051,38 @@ serve(async (req) => {
           }));
         }
         
+        // Detect if user is specifying new product list (contains quantity patterns)
+        const productListPattern = /(\d+\s*(ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค))|((ตัว|ชิ้น|คู่|อัน|ชุด|กล่อง|แพ็ค)\s*\d+)|(อย่างละ\s*\d+)|(\d+\s*(สี|ไซส์|size|s|m|l|xl))/i;
+        const isNewProductList = productListPattern.test(userMessage);
+        
         // For greetings, add instruction
         if (isGreeting) {
           messages.push({ role: "system", content: "[INSTRUCTION: ลูกค้าทักทายเข้ามา - ตอบทักทายสั้นๆ เป็นธรรมชาติ ถามว่าสนใจสินค้าอะไรหรือช่วยอะไรได้บ้าง ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์]" });
+        }
+        
+        // CRITICAL: When user specifies a new product list, add strong instruction to REPLACE not ADD
+        if (isNewProductList) {
+          console.log(`[FB] New product list detected. Adding REPLACE instruction.`);
+          messages.push({ 
+            role: "system", 
+            content: `[⚠️ คำสั่งบังคับ - กฎที่ต้องปฏิบัติตามเด็ดขาด!]
+
+ลูกค้ากำลังแจ้งรายการสินค้าใหม่ในข้อความนี้: "${userMessage}"
+
+📋 กฎสำคัญ:
+1. รายการสินค้าในข้อความนี้คือ **รายการใหม่ทั้งหมด** ที่ต้อง **แทนที่** รายการเก่าทั้งหมด
+2. **ห้ามบวกรวม** กับรายการที่เคยพูดถึงในบทสนทนาก่อนหน้า
+3. **ห้ามอ้างอิง** จำนวนหรือรายการจากข้อความก่อนหน้า
+4. **อ่านเฉพาะข้อความล่าสุดนี้เท่านั้น** แล้วยืนยันจำนวนตามที่เห็น
+
+🔢 วิธีนับ:
+- ดูจำนวนที่ลูกค้าพิมพ์ในข้อความนี้เท่านั้น
+- "1 ตัว" = 1 ตัว, "2 ตัว" = 2 ตัว (ตามที่พิมพ์)
+- ถ้ามีหลายรายการ ให้นับแยกแต่ละรายการ
+
+❌ ผิด: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 2 ตัว B 2 ตัว C 2 ตัว"
+✅ ถูก: ลูกค้าพิมพ์ "A 1 ตัว B 1 ตัว C 1 ตัว" แล้วยืนยันเป็น "A 1 ตัว B 1 ตัว C 1 ตัว รวม 3 ตัว"` 
+          });
         }
         
         // Add current user message
