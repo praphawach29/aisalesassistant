@@ -1519,6 +1519,16 @@ serve(async (req) => {
     // Facebook sometimes sends the same webhook multiple times
     const processedMessageIds = new Set<string>();
     
+    // Log the full webhook payload for debugging button clicks
+    console.log(`[FB] Processing ${body.entry?.length || 0} entries`);
+    for (const entry of body.entry || []) {
+      console.log(`[FB] Entry has ${entry.messaging?.length || 0} messaging events`);
+      for (const event of entry.messaging || []) {
+        // Log full event for debugging
+        console.log(`[FB] Full event keys: ${Object.keys(event).join(', ')}`);
+      }
+    }
+    
     // Process messaging events
     for (const entry of body.entry || []) {
       for (const event of entry.messaging || []) {
