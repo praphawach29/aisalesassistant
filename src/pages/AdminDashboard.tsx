@@ -60,6 +60,12 @@ interface DailyRevenue {
   orders: number;
 }
 
+interface MonthlyRevenue {
+  month: string;
+  revenue: number;
+  orders: number;
+}
+
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function AdminDashboard() {
@@ -88,6 +94,8 @@ export default function AdminDashboard() {
   });
   const [ordersByPlatform, setOrdersByPlatform] = useState<OrdersByPlatform[]>([]);
   const [dailyRevenue, setDailyRevenue] = useState<DailyRevenue[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
+  const [reportView, setReportView] = useState<'daily' | 'monthly'>('daily');
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
@@ -211,6 +219,26 @@ export default function AdminDashboard() {
       });
     }
     setDailyRevenue(last7Days);
+
+    // Monthly revenue for last 6 months
+    const last6Months: MonthlyRevenue[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const monthOrders = typedOrders.filter(o => {
+        const orderDate = new Date(o.created_at);
+        return orderDate.getFullYear() === year && 
+               orderDate.getMonth() === month && 
+               o.status !== 'cancelled';
+      });
+      last6Months.push({
+        month: date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }),
+        revenue: monthOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
+        orders: monthOrders.length
+      });
+    }
+    setMonthlyRevenue(last6Months);
 
     setOrders(typedOrders.slice(0, 5));
     setIsLoadingData(false);
@@ -376,32 +404,104 @@ export default function AdminDashboard() {
 
       {/* Charts Row */}
       <div className="grid lg:grid-cols-3 gap-3 lg:gap-4 mb-6">
-        {/* Revenue Chart */}
+        {/* Revenue Chart with Tabs */}
         <Card className="lg:col-span-2">
           <CardHeader className="p-3 lg:p-6 pb-2">
-            <CardTitle className="text-sm lg:text-lg">รายได้ 7 วันล่าสุด</CardTitle>
-            <CardDescription className="text-xs lg:text-sm">ยอดขายรวม ฿{stats.thisWeekRevenue.toLocaleString()}</CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <CardTitle className="text-sm lg:text-lg">
+                  {reportView === 'daily' ? 'รายได้รายวัน' : 'รายได้รายเดือน'}
+                </CardTitle>
+                <CardDescription className="text-xs lg:text-sm">
+                  {reportView === 'daily' 
+                    ? `7 วันล่าสุด • ฿${stats.thisWeekRevenue.toLocaleString()}`
+                    : `6 เดือนล่าสุด • ฿${stats.totalRevenue.toLocaleString()}`
+                  }
+                </CardDescription>
+              </div>
+              <div className="flex gap-1 bg-muted rounded-lg p-0.5">
+                <Button 
+                  variant={reportView === 'daily' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 text-xs px-3"
+                  onClick={() => setReportView('daily')}
+                >
+                  รายวัน
+                </Button>
+                <Button 
+                  variant={reportView === 'monthly' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 text-xs px-3"
+                  onClick={() => setReportView('monthly')}
+                >
+                  รายเดือน
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-3 lg:p-6 pt-0">
             <div className="h-[180px] lg:h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 9 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
-                  <Tooltip 
-                    formatter={(value: number) => [`฿${value.toLocaleString()}`, 'รายได้']}
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={2} />
-                </AreaChart>
+                {reportView === 'daily' ? (
+                  <AreaChart data={dailyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 9 }} />
+                    <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        name === 'orders' ? `${value} ออเดอร์` : `฿${value.toLocaleString()}`,
+                        name === 'orders' ? 'จำนวน' : 'รายได้'
+                      ]}
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
+                    />
+                    <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={2} />
+                  </AreaChart>
+                ) : (
+                  <BarChart data={monthlyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 9 }} />
+                    <YAxis className="text-xs" tick={{ fontSize: 9 }} tickFormatter={(v) => `฿${(v/1000).toFixed(0)}K`} width={45} />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        name === 'orders' ? `${value} ออเดอร์` : `฿${value.toLocaleString()}`,
+                        name === 'orders' ? 'จำนวน' : 'รายได้'
+                      ]}
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
+                    />
+                    <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="orders" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
+            </div>
+            {/* Summary stats below chart */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-4 border-t">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">วันนี้</p>
+                <p className="text-sm font-bold text-primary">฿{stats.todayRevenue.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground">{stats.todayOrders} ออเดอร์</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">สัปดาห์นี้</p>
+                <p className="text-sm font-bold text-blue-600">฿{stats.thisWeekRevenue.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground">{stats.thisWeekOrders} ออเดอร์</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">เดือนนี้</p>
+                <p className="text-sm font-bold text-green-600">฿{stats.thisMonthRevenue.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground">{stats.thisMonthOrders} ออเดอร์</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">ทั้งหมด</p>
+                <p className="text-sm font-bold text-purple-600">฿{stats.totalRevenue.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground">{stats.totalOrders} ออเดอร์</p>
+              </div>
             </div>
           </CardContent>
         </Card>
