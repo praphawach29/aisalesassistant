@@ -192,38 +192,38 @@ export default function AdminEmbedCode() {
 
   return (
     <AdminLayout title="Embed Code Generator">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Embed Code Generator</h1>
-            <p className="text-muted-foreground mt-1">
-              สร้างโค้ดสำหรับฝัง Chatbot ในเว็บไซต์ของคุณ
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Embed Code Generator</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              สร้างโค้ดสำหรับฝัง Chatbot ในเว็บไซต์
             </p>
           </div>
-          <Button onClick={saveSettings} disabled={isSaving}>
+          <Button onClick={saveSettings} disabled={isSaving} className="h-9 sm:h-10 w-full sm:w-auto">
             {isSaving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
             ) : (
-              <Save className="w-4 h-4 mr-2" />
+              <Save className="w-4 h-4 sm:mr-2" />
             )}
-            บันทึกการตั้งค่า
+            <span className="sm:inline">บันทึกการตั้งค่า</span>
           </Button>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
           {/* Customization Panel */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageCircle className="w-5 h-5" />
+            <CardHeader className="py-3 sm:py-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 ปรับแต่ง Widget
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 ปรับแต่งรูปแบบและขนาดของ Chat Widget
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 sm:space-y-6">
               {/* Color Picker */}
               <div className="space-y-2">
                 <Label>สีหลัก</Label>
@@ -423,57 +423,57 @@ export default function AdminEmbedCode() {
 
           {/* Preview Panel */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Monitor className="w-5 h-5" />
+            <CardHeader className="py-3 sm:py-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
                 ตัวอย่าง
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 ดูตัวอย่างการแสดงผลของ Widget
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="relative bg-muted/50 rounded-lg h-[400px] overflow-hidden border">
+            <CardContent className="p-3 sm:p-6">
+              <div className="relative bg-muted/50 rounded-lg h-[280px] sm:h-[400px] overflow-hidden border">
                 {/* Mock website content */}
-                <div className="p-4 space-y-4">
-                  <div className="h-8 bg-muted rounded w-3/4" />
-                  <div className="h-4 bg-muted rounded w-full" />
-                  <div className="h-4 bg-muted rounded w-5/6" />
-                  <div className="h-4 bg-muted rounded w-4/6" />
-                  <div className="grid grid-cols-2 gap-4 mt-6">
-                    <div className="h-24 bg-muted rounded" />
-                    <div className="h-24 bg-muted rounded" />
+                <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+                  <div className="h-6 sm:h-8 bg-muted rounded w-3/4" />
+                  <div className="h-3 sm:h-4 bg-muted rounded w-full" />
+                  <div className="h-3 sm:h-4 bg-muted rounded w-5/6" />
+                  <div className="h-3 sm:h-4 bg-muted rounded w-4/6" />
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-4 sm:mt-6">
+                    <div className="h-16 sm:h-24 bg-muted rounded" />
+                    <div className="h-16 sm:h-24 bg-muted rounded" />
                   </div>
                 </div>
 
                 {/* Widget Preview */}
                 <div 
-                  className={`absolute ${position === 'bottom-right' ? 'right-4' : 'left-4'} bottom-4`}
+                  className={`absolute ${position === 'bottom-right' ? 'right-3 sm:right-4' : 'left-3 sm:left-4'} bottom-3 sm:bottom-4`}
                 >
                   <button
                     className="rounded-full shadow-lg flex items-center justify-center text-white"
                     style={{ 
                       backgroundColor: primaryColor,
-                      width: `${buttonSize}px`,
-                      height: `${buttonSize}px`
+                      width: `${Math.min(parseInt(buttonSize), 48)}px`,
+                      height: `${Math.min(parseInt(buttonSize), 48)}px`
                     }}
                   >
-                    <MessageCircle className="w-6 h-6" />
+                    <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-2">
-                <Button variant="outline" className="flex-1" asChild>
+              <div className="mt-3 sm:mt-4 flex gap-2">
+                <Button variant="outline" className="flex-1 h-9 sm:h-10 text-xs sm:text-sm" asChild>
                   <a href="/widget-demo" target="_blank">
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    ดู Demo
+                    <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
+                    <span className="hidden xs:inline">ดู Demo</span>
                   </a>
                 </Button>
-                <Button variant="outline" className="flex-1" asChild>
+                <Button variant="outline" className="flex-1 h-9 sm:h-10 text-xs sm:text-sm" asChild>
                   <a href={widgetUrl} target="_blank">
-                    <Smartphone className="w-4 h-4 mr-2" />
-                    ทดสอบ Widget
+                    <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
+                    <span className="hidden xs:inline">ทดสอบ Widget</span>
                   </a>
                 </Button>
               </div>
@@ -483,75 +483,75 @@ export default function AdminEmbedCode() {
 
         {/* Embed Codes */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Code className="w-5 h-5" />
+          <CardHeader className="py-3 sm:py-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Code className="w-4 h-4 sm:w-5 sm:h-5" />
               โค้ดสำหรับฝัง
             </CardTitle>
-            <CardDescription>
-              คัดลอกโค้ดด้านล่างไปวางในเว็บไซต์ของคุณ
+            <CardDescription className="text-xs sm:text-sm">
+              คัดลอกโค้ดด้านล่างไปวางในเว็บไซต์
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6">
             <Tabs defaultValue="widget">
-              <TabsList className="mb-4">
-                <TabsTrigger value="widget">Popup Widget</TabsTrigger>
-                <TabsTrigger value="fullpage">Full Page</TabsTrigger>
-                <TabsTrigger value="script">Script Tag</TabsTrigger>
+              <TabsList className="mb-3 sm:mb-4 w-full grid grid-cols-3 h-auto">
+                <TabsTrigger value="widget" className="text-xs sm:text-sm py-1.5 sm:py-2">Widget</TabsTrigger>
+                <TabsTrigger value="fullpage" className="text-xs sm:text-sm py-1.5 sm:py-2">Full Page</TabsTrigger>
+                <TabsTrigger value="script" className="text-xs sm:text-sm py-1.5 sm:py-2">Script</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="widget" className="space-y-4">
+              <TabsContent value="widget" className="space-y-3 sm:space-y-4">
                 <div className="space-y-2">
-                  <Label>วางโค้ดนี้ก่อน &lt;/body&gt; ในเว็บไซต์ของคุณ</Label>
+                  <Label className="text-xs sm:text-sm">วางโค้ดนี้ก่อน &lt;/body&gt;</Label>
                   <div className="relative">
-                    <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-all">
+                    <pre className="bg-muted p-3 sm:p-4 rounded-lg text-[10px] sm:text-sm overflow-x-auto whitespace-pre-wrap break-all max-h-[200px] sm:max-h-none">
                       {widgetIframeCode}
                     </pre>
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="absolute top-2 right-2"
+                      className="absolute top-2 right-2 h-7 w-7 sm:h-8 sm:w-auto sm:px-2"
                       onClick={() => copyToClipboard(widgetIframeCode, 'widget')}
                     >
-                      {copied === 'widget' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copied === 'widget' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     </Button>
                   </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="fullpage" className="space-y-4">
+              <TabsContent value="fullpage" className="space-y-3 sm:space-y-4">
                 <div className="space-y-2">
-                  <Label>สำหรับฝังแบบเต็มหน้า (เหมาะสำหรับหน้า Contact Us)</Label>
+                  <Label className="text-xs sm:text-sm">สำหรับฝังแบบเต็มหน้า</Label>
                   <div className="relative">
-                    <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-all">
+                    <pre className="bg-muted p-3 sm:p-4 rounded-lg text-[10px] sm:text-sm overflow-x-auto whitespace-pre-wrap break-all max-h-[200px] sm:max-h-none">
                       {fullPageIframeCode}
                     </pre>
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="absolute top-2 right-2"
+                      className="absolute top-2 right-2 h-7 w-7 sm:h-8 sm:w-auto sm:px-2"
                       onClick={() => copyToClipboard(fullPageIframeCode, 'fullpage')}
                     >
-                      {copied === 'fullpage' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copied === 'fullpage' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     </Button>
                   </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="script" className="space-y-4">
+              <TabsContent value="script" className="space-y-3 sm:space-y-4">
                 <div className="space-y-2">
-                  <Label>วิธีใช้ Script Tag (ง่ายกว่า iframe)</Label>
+                  <Label className="text-xs sm:text-sm">วิธีใช้ Script Tag</Label>
                   <div className="relative">
-                    <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-all">
+                    <pre className="bg-muted p-3 sm:p-4 rounded-lg text-[10px] sm:text-sm overflow-x-auto whitespace-pre-wrap break-all max-h-[200px] sm:max-h-none">
                       {scriptCode}
                     </pre>
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="absolute top-2 right-2"
+                      className="absolute top-2 right-2 h-7 w-7 sm:h-8 sm:w-auto sm:px-2"
                       onClick={() => copyToClipboard(scriptCode, 'script')}
                     >
-                      {copied === 'script' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copied === 'script' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     </Button>
                   </div>
                 </div>
@@ -559,13 +559,13 @@ export default function AdminEmbedCode() {
             </Tabs>
 
             {/* Installation Guide */}
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-              <h4 className="font-semibold mb-2">📋 วิธีติดตั้ง</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• <strong>WordPress:</strong> ไปที่ Appearance → Theme Editor → footer.php → วางโค้ดก่อน &lt;/body&gt;</li>
-                <li>• <strong>Wix:</strong> ไปที่ Settings → Custom Code → Add Code → Body End</li>
-                <li>• <strong>Shopify:</strong> ไปที่ Online Store → Themes → Edit Code → theme.liquid → วางก่อน &lt;/body&gt;</li>
-                <li>• <strong>HTML ทั่วไป:</strong> วางโค้ดก่อน &lt;/body&gt; ในไฟล์ HTML</li>
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-muted/50 rounded-lg">
+              <h4 className="font-semibold mb-2 text-sm sm:text-base">📋 วิธีติดตั้ง</h4>
+              <ul className="text-[10px] sm:text-sm text-muted-foreground space-y-1">
+                <li>• <strong>WordPress:</strong> Theme Editor → footer.php</li>
+                <li>• <strong>Wix:</strong> Settings → Custom Code</li>
+                <li>• <strong>Shopify:</strong> Themes → Edit Code → theme.liquid</li>
+                <li>• <strong>HTML:</strong> วางโค้ดก่อน &lt;/body&gt;</li>
               </ul>
             </div>
           </CardContent>
