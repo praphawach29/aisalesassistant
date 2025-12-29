@@ -2,6 +2,7 @@ import { useState, FormEvent, KeyboardEvent, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Paperclip, X, Image as ImageIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ChatInputProps {
   onSend: (message: string, imageFile?: File) => void;
@@ -22,6 +23,10 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
       setInput('');
       setSelectedImage(null);
       setImagePreview(null);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -32,27 +37,55 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-        return;
-      }
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('ไฟล์ใหญ่เกินไป (สูงสุด 5MB)');
-        return;
-      }
-      setSelectedImage(file);
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  const handleAttachClick = () => {
+    console.log('Attach button clicked');
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input changed', e.target.files);
+    const file = e.target.files?.[0];
+    if (!file) {
+      console.log('No file selected');
+      return;
+    }
+
+    console.log('File selected:', file.name, file.type, file.size);
+
+    // Validate file type - accept common image formats
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
+    const isValidType = validTypes.includes(file.type.toLowerCase()) || file.type.startsWith('image/');
+    
+    if (!isValidType) {
+      toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP)');
+      e.target.value = '';
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('ไฟล์ใหญ่เกินไป (สูงสุด 5MB)');
+      e.target.value = '';
+      return;
+    }
+
+    setSelectedImage(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      console.log('Preview created');
+      setImagePreview(reader.result as string);
+    };
+    reader.onerror = () => {
+      console.error('Error reading file');
+      toast.error('ไม่สามารถอ่านไฟล์ได้');
+    };
+    reader.readAsDataURL(file);
+    
+    toast.success('เลือกรูปภาพแล้ว');
   };
 
   const removeSelectedImage = () => {
@@ -87,13 +120,15 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
       )}
       
       <div className="flex gap-1.5 sm:gap-2 items-end">
-        {/* Hidden file input */}
+        {/* Hidden file input - moved outside button for better mobile support */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          capture="environment"
           onChange={handleFileSelect}
           className="hidden"
+          aria-label="แนบไฟล์รูปภาพ"
         />
         
         {/* Attach button */}
@@ -101,7 +136,7 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
           type="button"
           variant="outline"
           size="icon"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={handleAttachClick}
           disabled={isLoading}
           className="h-9 w-9 sm:h-11 sm:w-11 flex-shrink-0"
           title="แนบสลิปโอนเงิน"
