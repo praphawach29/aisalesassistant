@@ -4,6 +4,8 @@ import { ChatMessage } from '@/types';
 
 const CONVERSATION_STORAGE_KEY = 'chat_conversation_id';
 const WEB_USER_ID_KEY = 'chat_web_user_id';
+const LAST_ORDER_ID_KEY = 'chat_last_order_id';
+const LAST_ORDER_NUMBER_KEY = 'chat_last_order_number';
 
 interface UseChatOptions {
   conversationId?: string;
@@ -172,8 +174,12 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(options.conversationId || null);
   const [webUserId] = useState<string>(getOrCreateWebUserId);
-  const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null);
-  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(() => {
+    return localStorage.getItem(LAST_ORDER_NUMBER_KEY);
+  });
+  const [lastOrderId, setLastOrderId] = useState<string | null>(() => {
+    return localStorage.getItem(LAST_ORDER_ID_KEY);
+  });
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -408,6 +414,10 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
 
       setLastOrderNumber(orderNumber);
       setLastOrderId(createdOrderId);
+      
+      // Persist to localStorage
+      localStorage.setItem(LAST_ORDER_NUMBER_KEY, orderNumber);
+      localStorage.setItem(LAST_ORDER_ID_KEY, createdOrderId);
       
       return { orderNumber, orderId: createdOrderId };
     } catch (error) {
@@ -845,6 +855,8 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
     setLastOrderNumber(null);
     setLastOrderId(null);
     localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+    localStorage.removeItem(LAST_ORDER_ID_KEY);
+    localStorage.removeItem(LAST_ORDER_NUMBER_KEY);
   }, []);
 
   return {
