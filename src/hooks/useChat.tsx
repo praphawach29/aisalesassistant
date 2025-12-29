@@ -508,23 +508,40 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
         }
       } else if (imageFile && !lastOrderId) {
         // No order yet, prompt to create one
+        const userMsgContent = userMessage || 'ส่งสลิปโอนเงิน';
         const userMsg: ChatMessage = {
           id: crypto.randomUUID(),
           conversation_id: currentConversationId,
           role: 'user',
-          content: userMessage || 'ส่งสลิปโอนเงิน',
+          content: userMsgContent,
           created_at: new Date().toISOString()
         };
         setMessages(prev => [...prev, userMsg]);
 
+        // Save user message to database
+        await supabase.from('chat_messages').insert({
+          conversation_id: currentConversationId,
+          role: 'user',
+          content: userMsgContent
+        });
+
+        const promptContent = 'ขออภัยค่ะ ยังไม่มีออเดอร์ที่รอชำระเงินค่ะ 😅\n\nรบกวนสั่งซื้อสินค้าก่อนนะคะ แล้วค่อยส่งสลิปโอนเงินมาได้เลยค่ะ! มีสินค้าอะไรที่สนใจไหมคะ? ✨';
         const promptMsg: ChatMessage = {
           id: crypto.randomUUID(),
           conversation_id: currentConversationId,
           role: 'assistant',
-          content: 'ขออภัยค่ะ ยังไม่มีออเดอร์ที่รอชำระเงินค่ะ 😅\n\nรบกวนสั่งซื้อสินค้าก่อนนะคะ แล้วค่อยส่งสลิปโอนเงินมาได้เลยค่ะ! มีสินค้าอะไรที่สนใจไหมคะ? ✨',
+          content: promptContent,
           created_at: new Date().toISOString()
         };
         setMessages(prev => [...prev, promptMsg]);
+
+        // Save bot response to database
+        await supabase.from('chat_messages').insert({
+          conversation_id: currentConversationId,
+          role: 'assistant',
+          content: promptContent
+        });
+
         setIsLoading(false);
         return;
       }
