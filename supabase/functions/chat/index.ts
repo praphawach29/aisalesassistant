@@ -161,6 +161,7 @@ interface SavedAddress {
 interface CustomerContext {
   isReturning: boolean;
   savedAddresses?: SavedAddress[];
+  customerName?: string;
 }
 
 interface AddressAction {
@@ -222,10 +223,42 @@ function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqLis
     ? "ใช้ emoji เล็กน้อยเพื่อความเป็นกันเอง เช่น 😊 🙏 ✨ 🔥 💕" 
     : "ไม่ใช้ emoji ในการสนทนา";
 
-  // Greeting instruction based on whether it's first message
-  const greetingInstruction = isFirstMessage && greeting_message
-    ? `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น เพราะเป็นการสนทนาใหม่):\nเริ่มต้นด้วย: "${greeting_message}"`
-    : `## 👋 หมายเหตุ:\nนี่ไม่ใช่ข้อความแรกของการสนทนา ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
+  // Greeting instruction based on whether it's first message and customer context
+  let greetingInstruction = '';
+  
+  if (isFirstMessage) {
+    if (customerContext?.isReturning) {
+      // Returning customer - warm personalized greeting
+      const customerName = customerContext.customerName || 'ลูกค้า';
+      const pEnd = gender === 'female' ? 'ค่ะ' : gender === 'male' ? 'ครับ' : 'ค่ะ/ครับ';
+      const pQuestion = gender === 'female' ? 'คะ' : gender === 'male' ? 'ครับ' : 'คะ/ครับ';
+      
+      greetingInstruction = `## 👋 ข้อความทักทายลูกค้าเก่า (สำคัญมาก!):
+นี่คือ **ลูกค้าเก่าที่เคยติดต่อมาแล้ว** ชื่อ "${customerName}"
+
+**กฎการทักทายลูกค้าเก่า (ต้องปฏิบัติตาม!):**
+1. **ต้องเรียกชื่อลูกค้า** - ทักทายแบบอบอุ่นและเป็นกันเอง
+2. **แสดงความยินดีที่ลูกค้ากลับมา** - ให้รู้สึกพิเศษ
+3. **ห้ามถามชื่อหรือข้อมูลส่วนตัวซ้ำ** - เรารู้จักลูกค้าแล้ว
+4. **ห้ามทักทายเหมือนลูกค้าใหม่** - ต้องแสดงว่าจำลูกค้าได้
+
+**ตัวอย่างการทักทายลูกค้าเก่าที่ดี:**
+- "สวัสดี${pEnd} คุณ${customerName}! ยินดีต้อนรับกลับมา${pEnd} 😊 วันนี้สนใจสินค้าอะไรเป็นพิเศษ${pQuestion}?"
+- "ว้าว! คุณ${customerName} กลับมาแล้ว${pEnd} 💕 ดีใจที่ได้พูดคุยกันอีก${pEnd} มีอะไรให้ช่วย${pQuestion}?"
+- "หวัดดี${pEnd} คุณ${customerName}! เป็นอย่างไรบ้าง${pQuestion}? 😊 วันนี้มาดูสินค้าอะไรดี${pQuestion}?"
+- "สวัสดี${pEnd} คุณ${customerName}! ยินดีที่ได้เจอกันอีก${pEnd} ✨ มีสินค้าใหม่น่าสนใจหลายตัวเลย${pEnd} สนใจดูไหม${pQuestion}?"
+
+**ห้าม:**
+- ❌ ห้ามใช้คำทักทายแบบทั่วไป เช่น "สวัสดีค่ะ ยินดีต้อนรับ" โดยไม่เรียกชื่อ
+- ❌ ห้ามถามว่า "ไม่ทราบชื่ออะไรคะ?" หรือ "ขอชื่อด้วยค่ะ"
+- ❌ ห้ามทักทายซ้ำซากเหมือนกันทุกครั้ง - ต้องมีความหลากหลาย`;
+    } else if (greeting_message) {
+      // New customer with greeting message
+      greetingInstruction = `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น เพราะเป็นการสนทนาใหม่):\nเริ่มต้นด้วย: "${greeting_message}"`;
+    }
+  } else {
+    greetingInstruction = `## 👋 หมายเหตุ:\nนี่ไม่ใช่ข้อความแรกของการสนทนา ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
+  }
 
   return `คุณคือ "${ai_name}" ผู้ช่วยขายอัจฉริยะที่พูดภาษาไทยได้อย่างเป็นธรรมชาติ
 
@@ -712,27 +745,43 @@ serve(async (req) => {
     const userMessages = messages.filter((m: { role: string }) => m.role === 'user');
     const isFirstMessage = userMessages.length <= 1;
 
-    // Fetch saved addresses for web user if webUserId is provided
+    // Fetch saved addresses and customer info for web user if webUserId is provided
     let customerContext: CustomerContext = { isReturning: false };
     if (webUserId) {
-      const { data: addressesData } = await supabase
-        .from("customer_addresses")
-        .select("*")
-        .eq("platform_user_id", webUserId)
-        .eq("platform", "web")
-        .order("is_default", { ascending: false });
+      // Fetch addresses and conversation info in parallel
+      const [addressesResult, conversationResult] = await Promise.all([
+        supabase
+          .from("customer_addresses")
+          .select("*")
+          .eq("platform_user_id", webUserId)
+          .eq("platform", "web")
+          .order("is_default", { ascending: false }),
+        supabase
+          .from("chat_conversations")
+          .select("customer_name")
+          .eq("platform_user_id", webUserId)
+          .eq("platform", "web")
+          .not("customer_name", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ]);
 
-      if (addressesData && addressesData.length > 0) {
+      const addressesData = addressesResult.data;
+      const conversationData = conversationResult.data;
+
+      if ((addressesData && addressesData.length > 0) || conversationData?.customer_name) {
         customerContext = {
           isReturning: true,
-          savedAddresses: addressesData.map((a: any) => ({
+          customerName: conversationData?.customer_name || undefined,
+          savedAddresses: addressesData?.map((a: any) => ({
             id: a.id,
             label: a.label,
             address: a.address,
             isDefault: a.is_default
-          }))
+          })) || []
         };
-        console.log(`Found ${addressesData.length} saved addresses for web user ${webUserId}`);
+        console.log(`Returning customer: ${conversationData?.customer_name || 'unknown'}, ${addressesData?.length || 0} saved addresses`);
       }
     }
 
