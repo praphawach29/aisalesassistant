@@ -219,9 +219,9 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
       </div>
 
       {/* Messages */}
-      <div className="relative flex-1">
-        <ScrollArea ref={scrollRef} className="h-full p-3 sm:p-4">
-          <div className="space-y-3 sm:space-y-4">
+      <div className="relative flex-1 min-h-0 overflow-hidden">
+        <ScrollArea ref={scrollRef} className="h-full">
+          <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
             {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[300px] text-center px-2">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-3 sm:mb-4">
