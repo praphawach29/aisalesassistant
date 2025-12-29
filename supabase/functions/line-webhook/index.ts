@@ -518,13 +518,15 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
   - "เปลี่ยนไซส์เป็น L" → เปลี่ยนไซส์ แล้วถามยืนยันใหม่
 - **ห้ามถามข้อมูลจัดส่งจนกว่าลูกค้าจะตอบ "ใช่", "ถูกต้อง", "ครับ", "ค่ะ" หรือคำยืนยันอื่นๆ**
 
-## 📦 การตรวจสอบสต็อก (สำคัญมาก!):
-- **ตรวจสอบสต็อกก่อนยืนยัน**: ถ้าจำนวนสต็อกในข้อมูลสินค้า (stock) น้อยกว่าที่ลูกค้าสั่ง → แจ้งลูกค้าทันที
+## 📦 การตรวจสอบสต็อก (ภายใน - ห้ามบอกลูกค้า!):
+**⚠️ กฎสำคัญ: ห้ามแจ้งสถานะสต็อกให้ลูกค้าทราบเด็ดขาด เช่น "สินค้ามีสต็อกพร้อมจำหน่าย" หรือ "[หมายเหตุ: ...]"**
+- **ตรวจสอบสต็อกก่อนยืนยัน**: เช็คภายในว่าสินค้าพอหรือไม่
+- **ถ้าสินค้าพอ** → ดำเนินการปกติ ไม่ต้องบอกลูกค้าเรื่องสต็อก
 - **ถ้าสินค้าหมด (stock = 0)**: ตอบว่า "ขออภัย${particleEnd} สินค้า [ชื่อสินค้า] หมดชั่วคราว${particleEnd}" แล้ว **แนะนำสินค้าทดแทนในหมวดหมู่เดียวกัน** (ดูจากข้อมูลสินค้าที่มี category เดียวกันและ stock > 0)
   - ตัวอย่าง: "ขออภัย${particleEnd} สินค้าหมดชั่วคราว${particleEnd} แนะนำ [ชื่อสินค้าทดแทน] ในหมวดเดียวกัน ราคา ฿[ราคา] สนใจไหม${particleQuestion}?"
   - **ถ้าไม่มีสินค้าทดแทน** → ตอบว่า "ขออภัย${particleEnd} สินค้าหมดชั่วคราว ยังไม่มีสินค้าทดแทนในขณะนี้${particleEnd} สนใจสินค้าอื่นไหม${particleQuestion}?"
-- **ถ้าสินค้าไม่พอ**: ตอบว่า "ขออภัย${particleEnd} สินค้า [ชื่อสินค้า] เหลือ [จำนวน] ชิ้นสุดท้าย${particleEnd} ต้องการสั่ง [จำนวนที่มี] ชิ้นไหม${particleQuestion}?" พร้อม **แนะนำสินค้าทดแทน** ถ้ามี
-- **อย่าแจ้งจำนวนสต็อกถ้าลูกค้าไม่ได้สั่งเกิน** → ตอบแค่ "สินค้ามีพร้อมจำหน่าย${particleEnd}"
+- **ถ้าสินค้าไม่พอ**: ตอบว่า "ขออภัย${particleEnd} สินค้า [ชื่อสินค้า] เหลือ [จำนวน] ชิ้นสุดท้าย${particleEnd} ต้องการสั่ง [จำนวนที่มี] ชิ้นไหม${particleQuestion}?"
+- **ห้ามใส่ข้อความหมายเหตุ เช่น "[หมายเหตุ: สินค้ามีสต็อก...]"** → ไม่ต้องบอกลูกค้าเรื่องสต็อกเลย ถ้าสินค้าพอ
 
 ## 🔔 การแจ้งเตือน Admin เมื่อสินค้าหมด:
 - **เมื่อลูกค้าสั่งสินค้าหมดสต็อก/ไม่พอ** → ใส่ [NOTIFY_OUT_OF_STOCK:ชื่อสินค้า|จำนวนที่ลูกค้าสั่ง|จำนวนคงเหลือ] ในข้อความตอบกลับ
@@ -1293,8 +1295,82 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
       type: "box",
       layout: "vertical",
       contents: [
-        // Bank account info section
-        ...(data.bankInfo ? [
+        // PromptPay QR Code section with image (primary payment method)
+        ...(data.promptpayId ? [
+          {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "📱 ชำระเงินผ่าน PromptPay",
+                weight: "bold",
+                size: "md",
+                color: "#1F2937",
+                margin: "none",
+                align: "center"
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                  {
+                    type: "image",
+                    url: `https://promptpay.io/${data.promptpayId}/${(data.totalAmount - data.discountAmount)}.png`,
+                    size: "lg",
+                    aspectMode: "fit",
+                    aspectRatio: "1:1"
+                  },
+                  {
+                    type: "text",
+                    text: `฿${(data.totalAmount - data.discountAmount).toLocaleString()}`,
+                    size: "xl",
+                    weight: "bold",
+                    color: "#1E88E5",
+                    align: "center",
+                    margin: "sm"
+                  }
+                ],
+                margin: "sm",
+                backgroundColor: "#FFFFFF",
+                cornerRadius: "md",
+                paddingAll: "md",
+                borderWidth: "1px",
+                borderColor: "#E5E7EB"
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  { type: "text", text: "เลขพร้อมเพย์:", size: "sm", color: "#666666", flex: 2 },
+                  { type: "text", text: data.promptpayId, size: "sm", color: "#1F2937", flex: 3, weight: "bold" }
+                ],
+                margin: "md"
+              },
+              {
+                type: "button",
+                action: {
+                  type: "clipboard",
+                  label: "📋 คัดลอกเลขพร้อมเพย์",
+                  clipboardText: data.promptpayId
+                },
+                style: "secondary",
+                height: "sm",
+                margin: "sm"
+              }
+            ],
+            margin: "none",
+            paddingBottom: "md",
+            backgroundColor: "#F0FDF4",
+            cornerRadius: "lg",
+            paddingAll: "md"
+          },
+          {
+            type: "separator",
+            margin: "md"
+          }
+        ] : (data.bankInfo ? [
+          // Fallback to bank info only if no PromptPay
           {
             type: "box",
             layout: "vertical",
@@ -1303,7 +1379,7 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
                 type: "text",
                 text: "🏦 ข้อมูลบัญชีโอนเงิน",
                 weight: "bold",
-                size: "sm",
+                size: "md",
                 color: "#1F2937",
                 margin: "none"
               },
@@ -1346,9 +1422,9 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
               {
                 type: "button",
                 action: {
-                  type: "message",
+                  type: "clipboard",
                   label: "📋 คัดลอกเลขบัญชี",
-                  text: `เลขบัญชีโอนเงิน: ${data.bankInfo.accountNumber} (${data.bankInfo.bankName} - ${data.bankInfo.accountName})`
+                  clipboardText: data.bankInfo.accountNumber
                 },
                 style: "secondary",
                 height: "sm",
@@ -1362,82 +1438,7 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
             type: "separator",
             margin: "md"
           }
-        ] : []),
-        // PromptPay QR Code section with image
-        ...(data.promptpayId ? [
-          {
-            type: "box",
-            layout: "vertical",
-            contents: [
-              {
-                type: "text",
-                text: "📱 สแกน QR พร้อมเพย์",
-                weight: "bold",
-                size: "sm",
-                color: "#1F2937",
-                margin: "none",
-                align: "center"
-              },
-              {
-                type: "box",
-                layout: "vertical",
-                contents: [
-                  {
-                    type: "image",
-                    url: `https://promptpay.io/${data.promptpayId}/${(data.totalAmount - data.discountAmount)}.png`,
-                    size: "lg",
-                    aspectMode: "fit",
-                    aspectRatio: "1:1"
-                  },
-                  {
-                    type: "text",
-                    text: `฿${(data.totalAmount - data.discountAmount).toLocaleString()}`,
-                    size: "lg",
-                    weight: "bold",
-                    color: "#1E88E5",
-                    align: "center",
-                    margin: "sm"
-                  }
-                ],
-                margin: "sm",
-                backgroundColor: "#FFFFFF",
-                cornerRadius: "md",
-                paddingAll: "md",
-                borderWidth: "1px",
-                borderColor: "#E5E7EB"
-              },
-              {
-                type: "box",
-                layout: "horizontal",
-                contents: [
-                  { type: "text", text: "เลขพร้อมเพย์:", size: "xs", color: "#666666", flex: 2 },
-                  { type: "text", text: data.promptpayId, size: "xs", color: "#1F2937", flex: 3, weight: "bold" }
-                ],
-                margin: "sm"
-              },
-              {
-                type: "button",
-                action: {
-                  type: "message",
-                  label: "📋 คัดลอกเลขพร้อมเพย์",
-                  text: `เลขพร้อมเพย์: ${data.promptpayId}`
-                },
-                style: "secondary",
-                height: "sm",
-                margin: "sm"
-              }
-            ],
-            margin: data.bankInfo ? "md" : "none",
-            paddingBottom: "md",
-            backgroundColor: "#F0FDF4",
-            cornerRadius: "lg",
-            paddingAll: "md"
-          },
-          {
-            type: "separator",
-            margin: "md"
-          }
-        ] : []),
+        ] : [])),
         {
           type: "text",
           text: "💳 กรุณาชำระเงินและแจ้งสลิปโอนเงิน",
