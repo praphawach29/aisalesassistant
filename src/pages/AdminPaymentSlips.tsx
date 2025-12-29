@@ -155,10 +155,10 @@ export default function AdminPaymentSlips() {
 
       if (slipError) throw slipError;
 
-      // Update order status to confirmed
+      // Update order status to payment_confirmed
       const { error: orderError } = await supabase
         .from('orders')
-        .update({ status: 'confirmed' })
+        .update({ status: 'payment_confirmed' })
         .eq('id', slip.order_id);
 
       if (orderError) throw orderError;
