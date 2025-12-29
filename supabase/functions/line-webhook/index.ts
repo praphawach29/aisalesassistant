@@ -2577,15 +2577,53 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
         console.log(`[LINE] Context reminder: Currently discussing "${lastDiscussedProduct.name}"`);
       }
       
-      // For greetings, add instruction to NOT repeat greetings
+      // For greetings, add instruction with personalized message for returning customers
       if (isGreeting) {
-        aiMessages.push({ role: "system", content: `[INSTRUCTION: ลูกค้าทักทายเข้ามา
+        const isReturningWithName = customerContext.isReturning && customerContext.customerName;
+        
+        // Determine particles based on AI gender setting
+        const gender = aiSettings.gender;
+        let pEnd = "ครับ/ค่ะ";
+        let pQuestion = "ครับ/คะ";
+        if (gender === "female") {
+          pEnd = "ค่ะ";
+          pQuestion = "คะ";
+        } else if (gender === "male") {
+          pEnd = "ครับ";
+          pQuestion = "ครับ";
+        }
+        
+        const customerName = customerContext.customerName || '';
+        const greetingInstruction = isReturningWithName 
+          ? `[INSTRUCTION: ลูกค้าเก่าทักทายเข้ามา - ชื่อ: "${customerName}"
+
+🎉 กฎทักทายลูกค้าเก่า (สำคัญมาก!):
+- ต้องทักทายด้วยชื่อลูกค้าให้รู้สึกพิเศษและเป็นกันเอง!
+- ใช้ภาษาสบายๆ เหมือนเพื่อนคุยกัน ไม่เป็นทางการเกินไป
+- สร้างความรู้สึกอบอุ่น ต้อนรับ และดีใจที่ลูกค้ากลับมา
+
+✅ ตัวอย่างคำทักทายที่ดี (เลือกใช้หรือดัดแปลงตามความเหมาะสม):
+- "สวัสดี${pEnd} คุณ${customerName}! 😊 ดีใจที่กลับมาอีกครั้ง${pEnd} วันนี้มองหาอะไรอยู่${pQuestion}?"
+- "โอ้! คุณ${customerName} มาแล้ว${pEnd} 🎉 คิดถึงจัง${pEnd} วันนี้มีอะไรให้ช่วยไหม${pQuestion}?"
+- "ว้าว คุณ${customerName}! 😊 กลับมาช้อปอีกแล้ว${pEnd} มีสินค้าใหม่น่าสนใจเลยนะ${pQuestion}!"
+- "หวัดดี${pEnd} คุณ${customerName}! 💕 ยินดีต้อนรับเหมือนเดิม${pEnd} สนใจอะไรเป็นพิเศษไหม${pQuestion}?"
+- "เฮ้ย คุณ${customerName}! 🙌 นานไม่เจอเลย${pEnd} วันนี้มาดูอะไรกัน${pQuestion}?"
+
+⚠️ กฎสำคัญ:
+- ห้ามทักทายซ้ำซ้อน หรือแนะนำตัวซ้ำ
+- ห้ามถามรายละเอียดที่อยู่/เบอร์
+- ข้อความทักทายต้องไม่เกิน 2 ประโยค
+- ให้บรรยากาศอบอุ่น เป็นมิตร เหมือนเพื่อนเจอกัน]`
+          : `[INSTRUCTION: ลูกค้าใหม่ทักทายเข้ามา
 ⚠️ กฎสำคัญ - ห้ามทักทายซ้ำซ้อน!
-- ตอบทักทายแค่ครั้งเดียว สั้นๆ เช่น "สวัสดีค่ะ 😊 สนใจสินค้าอะไรเป็นพิเศษคะ?"
+- ตอบทักทายแค่ครั้งเดียว สั้นๆ เช่น "สวัสดี${pEnd}! 😊 สนใจสินค้าอะไรเป็นพิเศษ${pQuestion}?"
 - ห้ามพูดว่า "ยินดีต้อนรับ" หรือ "ขอต้อนรับ" ซ้ำ 2 ครั้งในข้อความเดียว
 - ห้ามแนะนำตัวซ้ำ 2 ครั้ง
 - ห้ามพูดถึงสินค้าเก่าหรือถามรายละเอียดที่อยู่/ชื่อ/เบอร์
-- ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
+- ข้อความทักทายต้องไม่เกิน 2 ประโยค]`;
+        
+        aiMessages.push({ role: "system", content: greetingInstruction });
+        console.log(`[LINE] Greeting instruction added. Returning customer: ${isReturningWithName}, Name: ${customerContext.customerName || 'none'}`);
       }
       
       // Add saved addresses context for returning customers - MUST be prominent
