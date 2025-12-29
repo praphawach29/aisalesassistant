@@ -287,16 +287,16 @@ export function PaymentSlipSection({ orderId, expectedAmount }: PaymentSlipSecti
               key={slip.id}
               className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30"
             >
-              <div className="flex items-start gap-3">
-                {/* Thumbnail */}
+              <div className="flex items-start gap-4">
+                {/* Thumbnail - larger and clearer */}
                 <div 
-                  className="w-16 h-16 rounded-md overflow-hidden cursor-pointer bg-muted flex-shrink-0"
+                  className="w-24 h-24 rounded-lg overflow-hidden cursor-pointer bg-muted flex-shrink-0 border-2 border-border shadow-sm hover:shadow-md hover:border-primary/50 transition-all group"
                   onClick={() => { setSelectedSlip(slip); setIsPreviewOpen(true); }}
                 >
                   <img 
                     src={slip.image_url} 
                     alt="Payment slip" 
-                    className="w-full h-full object-cover hover:scale-110 transition-transform"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
                 </div>
 
