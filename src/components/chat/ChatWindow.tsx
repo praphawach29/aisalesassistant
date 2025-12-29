@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { ChatBubble } from './ChatBubble';
 import { ChatInput } from './ChatInput';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw, ClipboardList } from 'lucide-react';
+import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw, ClipboardList, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from './ProductCarousel';
 import { VariantSelectDialog } from './VariantSelectDialog';
@@ -40,6 +40,29 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  // Scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+      }
+    }
+  }, []);
+
+  // Check if scrolled to bottom
+  const handleScroll = useCallback(() => {
+    if (scrollRef.current) {
+      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+        setShowScrollButton(!isAtBottom);
+      }
+    }
+  }, []);
 
   // Fetch AI settings
   useEffect(() => {
@@ -85,11 +108,19 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
     fetchProducts();
   }, []);
 
+  // Auto-scroll when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // Add scroll event listener
+  useEffect(() => {
+    const scrollContainer = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
     }
-  }, [messages]);
+  }, [handleScroll]);
 
   const handleSelectProduct = (product: Product) => {
     // If product has variants, show selection dialog
@@ -188,55 +219,69 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-3 sm:p-4">
-        <div className="space-y-3 sm:space-y-4">
-          {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[300px] text-center px-2">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-3 sm:mb-4">
-                <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+      <div className="relative flex-1">
+        <ScrollArea ref={scrollRef} className="h-full p-3 sm:p-4">
+          <div className="space-y-3 sm:space-y-4">
+            {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[300px] text-center px-2">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-3 sm:mb-4">
+                  <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                </div>
+                <h3 className="font-medium text-foreground mb-1.5 sm:mb-2 text-sm sm:text-base">ยินดีต้อนรับ!</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 max-w-sm">
+                  {welcomeMessage || aiSettings?.greeting_message || getDefaultGreeting(aiSettings?.gender)}
+                </p>
+                
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
+                  {displayQuickActions.map((action) => (
+                    <Button
+                      key={action.label}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => sendMessage(action.message)}
+                      className="gap-1.5 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3"
+                    >
+                      {'icon' in action && action.icon && <action.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
-              <h3 className="font-medium text-foreground mb-1.5 sm:mb-2 text-sm sm:text-base">ยินดีต้อนรับ!</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 max-w-sm">
-                {welcomeMessage || aiSettings?.greeting_message || getDefaultGreeting(aiSettings?.gender)}
-              </p>
-              
-              <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
-                {displayQuickActions.map((action) => (
-                  <Button
-                    key={action.label}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => sendMessage(action.message)}
-                    className="gap-1.5 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3"
-                  >
-                    {'icon' in action && action.icon && <action.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                    {action.label}
-                  </Button>
+            ) : (
+              <>
+                {/* Show conversation history notice */}
+                <div className="text-center mb-4">
+                  <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                    ประวัติการสนทนา
+                  </span>
+                </div>
+                {messages.map((message) => (
+                  <ChatBubble 
+                    key={message.id} 
+                    message={message}
+                    products={products}
+                    onSelectProduct={handleSelectProduct}
+                    botAvatarUrl={aiSettings?.avatar_url}
+                  />
                 ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Show conversation history notice */}
-              <div className="text-center mb-4">
-                <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                  ประวัติการสนทนา
-                </span>
-              </div>
-              {messages.map((message) => (
-                <ChatBubble 
-                  key={message.id} 
-                  message={message}
-                  products={products}
-                  onSelectProduct={handleSelectProduct}
-                  botAvatarUrl={aiSettings?.avatar_url}
-                />
-              ))}
-              {isLoading && <ThinkingIndicator />}
-            </>
-          )}
-        </div>
-      </ScrollArea>
+                {isLoading && <ThinkingIndicator />}
+              </>
+            )}
+          </div>
+        </ScrollArea>
+        
+        {/* Scroll to bottom button */}
+        {showScrollButton && messages.length > 0 && (
+          <Button
+            onClick={scrollToBottom}
+            size="icon"
+            className="absolute bottom-4 right-4 h-10 w-10 rounded-full shadow-lg bg-primary hover:bg-primary/90 z-10"
+            title="เลื่อนลงไปล่างสุด"
+          >
+            <ChevronDown className="h-5 w-5" />
+          </Button>
+        )}
+      </div>
 
       {/* Input */}
       <div className="p-3 sm:p-4 border-t bg-card">
