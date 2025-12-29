@@ -138,6 +138,7 @@ function parseOrderCommand(text: string): { cleanText: string; orderData?: Order
 const ORDER_STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   pending: { label: 'รอยืนยัน', emoji: '⏳' },
   confirmed: { label: 'ยืนยันแล้ว', emoji: '✅' },
+  payment_confirmed: { label: 'ชำระเงินแล้ว', emoji: '💳' },
   shipped: { label: 'จัดส่งแล้ว', emoji: '🚚' },
   delivered: { label: 'จัดส่งสำเร็จ', emoji: '📦' },
   cancelled: { label: 'ยกเลิก', emoji: '❌' }
@@ -860,14 +861,95 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
     localStorage.removeItem(LAST_ORDER_NUMBER_KEY);
   }, []);
 
+  // Check last order status
+  const checkLastOrder = useCallback(async () => {
+    if (!lastOrderId) {
+      return null;
+    }
+
+    try {
+      const { data: order, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(product_name, quantity, price)
+        `)
+        .eq('id', lastOrderId)
+        .single();
+
+      if (error || !order) {
+        console.error('Error fetching order:', error);
+        return null;
+      }
+
+      // Build order status message
+      const statusInfo = ORDER_STATUS_LABELS[order.status] || { label: order.status, emoji: '📋' };
+      
+      let orderMessage = `📋 **สถานะออเดอร์ล่าสุด**\n`;
+      orderMessage += `━━━━━━━━━━━━━━━━━━\n`;
+      orderMessage += `🔢 เลขที่: **${order.order_number}**\n`;
+      orderMessage += `${statusInfo.emoji} สถานะ: **${statusInfo.label}**\n`;
+      orderMessage += `━━━━━━━━━━━━━━━━━━\n`;
+      orderMessage += `👤 ชื่อ: ${order.customer_name}\n`;
+      orderMessage += `📞 เบอร์: ${order.customer_phone}\n`;
+      orderMessage += `📍 ที่อยู่: ${order.customer_address}\n`;
+      orderMessage += `━━━━━━━━━━━━━━━━━━\n`;
+      orderMessage += `📦 **รายการสินค้า:**\n`;
+      
+      const items = order.order_items as { product_name: string; quantity: number; price: number }[] || [];
+      items.forEach(item => {
+        orderMessage += `   • ${item.product_name} x${item.quantity} = ฿${(Number(item.price) * item.quantity).toLocaleString()}\n`;
+      });
+      
+      orderMessage += `━━━━━━━━━━━━━━━━━━\n`;
+      orderMessage += `💰 **ยอดรวม: ฿${Number(order.total_amount).toLocaleString()}**\n`;
+
+      if (order.tracking_number) {
+        orderMessage += `━━━━━━━━━━━━━━━━━━\n`;
+        orderMessage += `🚚 เลขพัสดุ: [COPY:${order.tracking_number}]\n`;
+      }
+
+      // Add the order status message to chat
+      let currentConversationId = conversationId;
+      if (!currentConversationId) {
+        currentConversationId = await createConversation();
+      }
+
+      if (currentConversationId) {
+        const statusMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          conversation_id: currentConversationId,
+          role: 'assistant',
+          content: orderMessage,
+          created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, statusMsg]);
+
+        // Save to database
+        await supabase.from('chat_messages').insert({
+          conversation_id: currentConversationId,
+          role: 'assistant',
+          content: orderMessage
+        });
+      }
+
+      return order;
+    } catch (error) {
+      console.error('Error in checkLastOrder:', error);
+      return null;
+    }
+  }, [lastOrderId, conversationId, createConversation]);
+
   return {
     messages,
     isLoading,
     isLoadingHistory,
     conversationId,
     lastOrderNumber,
+    lastOrderId,
     sendMessage,
     loadMessages,
-    clearChat
+    clearChat,
+    checkLastOrder
   };
 }
