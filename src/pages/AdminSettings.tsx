@@ -73,6 +73,7 @@ const AdminSettings = () => {
   const [autoNotifyCustomers, setAutoNotifyCustomers] = useState(true);
   
   // Payment settings (for Flex Message)
+  const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState<"promptpay" | "bank">("promptpay");
   const [bankName, setBankName] = useState("");
   const [customBankName, setCustomBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
@@ -157,11 +158,15 @@ const AdminSettings = () => {
       if (autoNotify) setAutoNotifyCustomers(autoNotify.value === 'true');
       
       // Load payment settings for Flex Message
+      const primaryPaymentSetting = data?.find(s => s.key === 'primary_payment_method');
       const bankNameSetting = data?.find(s => s.key === 'bank_name');
       const bankAccNumSetting = data?.find(s => s.key === 'bank_account_number');
       const bankAccNameSetting = data?.find(s => s.key === 'bank_account_name');
       const promptpaySetting = data?.find(s => s.key === 'promptpay_id');
       
+      if (primaryPaymentSetting) {
+        setPrimaryPaymentMethod(primaryPaymentSetting.value === 'bank' ? 'bank' : 'promptpay');
+      }
       if (bankNameSetting) {
         const savedBankName = bankNameSetting.value || '';
         // Check if it's a predefined bank or custom
@@ -211,28 +216,29 @@ const AdminSettings = () => {
   };
 
   const handleSave = async () => {
-    // Validate bank account before saving
-    const bankError = validateBankAccountNumber(bankAccountNumber);
-    if (bankError) {
-      setBankAccountError(bankError);
-      toast({
-        title: "ข้อมูลไม่ถูกต้อง",
-        description: bankError,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Validate promptpay before saving
-    const ppError = validatePromptpayId(promptpayId);
-    if (ppError) {
-      setPromptpayError(ppError);
-      toast({
-        title: "ข้อมูลไม่ถูกต้อง",
-        description: ppError,
-        variant: "destructive",
-      });
-      return;
+    // Validate based on selected payment method
+    if (primaryPaymentMethod === 'bank') {
+      const bankError = validateBankAccountNumber(bankAccountNumber);
+      if (bankError) {
+        setBankAccountError(bankError);
+        toast({
+          title: "ข้อมูลไม่ถูกต้อง",
+          description: bankError,
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      const ppError = validatePromptpayId(promptpayId);
+      if (ppError) {
+        setPromptpayError(ppError);
+        toast({
+          title: "ข้อมูลไม่ถูกต้อง",
+          description: ppError,
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     setIsSaving(true);
@@ -249,11 +255,22 @@ const AdminSettings = () => {
       await saveSetting('AUTO_NOTIFY_CUSTOMERS', String(autoNotifyCustomers), 'แจ้งเตือนลูกค้าอัตโนมัติเมื่อสถานะออเดอร์เปลี่ยน');
 
       // Save payment settings for Flex Message
-      const finalBankName = bankName === 'other' ? customBankName : bankName;
-      await saveSetting('bank_name', finalBankName, 'ชื่อธนาคารสำหรับ Flex Message');
-      await saveSetting('bank_account_number', bankAccountNumber, 'เลขบัญชีธนาคารสำหรับ Flex Message');
-      await saveSetting('bank_account_name', bankAccountName, 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
-      await saveSetting('promptpay_id', promptpayId, 'เลขพร้อมเพย์สำหรับ Flex Message');
+      await saveSetting('primary_payment_method', primaryPaymentMethod, 'วิธีชำระเงินหลัก (promptpay/bank)');
+      
+      if (primaryPaymentMethod === 'bank') {
+        const finalBankName = bankName === 'other' ? customBankName : bankName;
+        await saveSetting('bank_name', finalBankName, 'ชื่อธนาคารสำหรับ Flex Message');
+        await saveSetting('bank_account_number', bankAccountNumber, 'เลขบัญชีธนาคารสำหรับ Flex Message');
+        await saveSetting('bank_account_name', bankAccountName, 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
+        // Clear promptpay when using bank
+        await saveSetting('promptpay_id', '', 'เลขพร้อมเพย์สำหรับ Flex Message');
+      } else {
+        await saveSetting('promptpay_id', promptpayId, 'เลขพร้อมเพย์สำหรับ Flex Message');
+        // Clear bank info when using promptpay
+        await saveSetting('bank_name', '', 'ชื่อธนาคารสำหรับ Flex Message');
+        await saveSetting('bank_account_number', '', 'เลขบัญชีธนาคารสำหรับ Flex Message');
+        await saveSetting('bank_account_name', '', 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
+      }
 
       // Invalidate edge function cache
       await invalidateCache(['settings']);
@@ -436,125 +453,181 @@ const AdminSettings = () => {
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-green-600 text-base sm:text-lg">
               <CreditCard className="h-5 w-5 flex-shrink-0" />
-              <span>ข้อมูลชำระเงินสำหรับ LINE Flex Message</span>
+              <span>วิธีชำระเงินหลักสำหรับ LINE Flex Message</span>
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              ข้อมูลนี้จะแสดงใน Flex Message เมื่อลูกค้าสั่งซื้อสำเร็จผ่าน LINE
+              เลือกวิธีชำระเงินหลักที่จะแสดงในการ์ดยืนยันออเดอร์ (แสดงเพียงวิธีเดียว)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Bank Info */}
-            <div>
-              <Label className="text-base font-medium">ข้อมูลบัญชีธนาคาร</Label>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-3">
-                แสดงในการ์ดยืนยันออเดอร์พร้อมปุ่มคัดลอกเลขบัญชี
-              </p>
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">ชื่อธนาคาร</Label>
-                  <Select value={bankName} onValueChange={setBankName}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="เลือกธนาคาร" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      {THAI_BANKS.map((bank) => (
-                        <SelectItem key={bank.value} value={bank.value}>
-                          {bank.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {bankName === 'other' && (
-                    <Input
-                      value={customBankName}
-                      onChange={(e) => setCustomBankName(e.target.value)}
-                      placeholder="พิมพ์ชื่อธนาคาร..."
-                      className="mt-2"
-                    />
-                  )}
+            {/* Payment Method Selection */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">เลือกวิธีชำระเงินหลัก</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div
+                  onClick={() => setPrimaryPaymentMethod("promptpay")}
+                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
+                    primaryPaymentMethod === "promptpay"
+                      ? "border-green-500 bg-green-50 dark:bg-green-950/30"
+                      : "border-muted hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      primaryPaymentMethod === "promptpay" ? "border-green-500" : "border-muted-foreground"
+                    }`}>
+                      {primaryPaymentMethod === "promptpay" && (
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">📱 PromptPay (แนะนำ)</p>
+                      <p className="text-xs text-muted-foreground">แสดง QR Code พร้อมยอดเงิน ลูกค้าสแกนจ่ายได้ทันที</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">เลขบัญชี</Label>
-                  <Input
-                    value={bankAccountNumber}
-                    onChange={(e) => handleBankAccountChange(e.target.value)}
-                    placeholder="เช่น: 123-4-56789-0"
-                    className={bankAccountError ? "border-destructive" : ""}
-                  />
-                  {bankAccountError && (
-                    <p className="text-xs text-destructive">{bankAccountError}</p>
-                  )}
-                </div>
-                <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                  <Label className="text-sm text-muted-foreground">ชื่อบัญชี</Label>
-                  <Input
-                    value={bankAccountName}
-                    onChange={(e) => setBankAccountName(e.target.value)}
-                    placeholder="เช่น: นาย ใจดี มีเงิน"
-                  />
+                
+                <div
+                  onClick={() => setPrimaryPaymentMethod("bank")}
+                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
+                    primaryPaymentMethod === "bank"
+                      ? "border-green-500 bg-green-50 dark:bg-green-950/30"
+                      : "border-muted hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      primaryPaymentMethod === "bank" ? "border-green-500" : "border-muted-foreground"
+                    }`}>
+                      {primaryPaymentMethod === "bank" && (
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">🏦 โอนผ่านบัญชีธนาคาร</p>
+                      <p className="text-xs text-muted-foreground">แสดงเลขบัญชีธนาคารพร้อมปุ่มคัดลอก</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* PromptPay */}
-            <div className="border-t pt-6">
-              <Label className="text-base font-medium">พร้อมเพย์</Label>
-              <p className="text-xs sm:text-sm text-muted-foreground mb-3">
-                แสดง QR Code พร้อมเพย์พร้อมยอดเงินในการ์ดยืนยันออเดอร์
-              </p>
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">เลขพร้อมเพย์</Label>
-                <Input
-                  value={promptpayId}
-                  onChange={(e) => handlePromptpayChange(e.target.value)}
-                  placeholder="เบอร์โทรหรือเลขบัตรประชาชน เช่น: 0812345678"
-                  className={`max-w-full sm:max-w-sm ${promptpayError ? "border-destructive" : ""}`}
-                />
-                {promptpayError ? (
-                  <p className="text-xs text-destructive">{promptpayError}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    ใส่เบอร์โทรศัพท์ (10 หลัก) หรือเลขบัตรประชาชน (13 หลัก)
-                  </p>
+            {/* PromptPay Form */}
+            {primaryPaymentMethod === "promptpay" && (
+              <div className="border-t pt-6">
+                <Label className="text-base font-medium">ข้อมูลพร้อมเพย์</Label>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+                  แสดง QR Code พร้อมเพย์พร้อมยอดเงินในการ์ดยืนยันออเดอร์
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">เลขพร้อมเพย์</Label>
+                  <Input
+                    value={promptpayId}
+                    onChange={(e) => handlePromptpayChange(e.target.value)}
+                    placeholder="เบอร์โทรหรือเลขบัตรประชาชน เช่น: 0812345678"
+                    className={`max-w-full sm:max-w-sm ${promptpayError ? "border-destructive" : ""}`}
+                  />
+                  {promptpayError ? (
+                    <p className="text-xs text-destructive">{promptpayError}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      ใส่เบอร์โทรศัพท์ (10 หลัก) หรือเลขบัตรประชาชน (13 หลัก)
+                    </p>
+                  )}
+                </div>
+                
+                {promptpayId && !promptpayError && (
+                  <div className="mt-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm font-medium mb-3 text-center sm:text-left">ตัวอย่าง QR Code (ยอด 100 บาท)</p>
+                    <div className="flex flex-col items-center sm:items-start gap-2">
+                      <div className="relative">
+                        <img 
+                          src={`https://promptpay.io/${promptpayId.replace(/-/g, '')}/100.png`}
+                          alt="PromptPay QR Code"
+                          className="w-36 h-36 sm:w-32 sm:h-32 border rounded bg-white"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const errorDiv = target.nextElementSibling as HTMLElement;
+                            if (errorDiv) errorDiv.style.display = 'flex';
+                          }}
+                          onLoad={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'block';
+                            const errorDiv = target.nextElementSibling as HTMLElement;
+                            if (errorDiv) errorDiv.style.display = 'none';
+                          }}
+                        />
+                        <div 
+                          className="w-36 h-36 sm:w-32 sm:h-32 border rounded bg-muted items-center justify-center text-xs text-muted-foreground text-center p-2"
+                          style={{ display: 'none' }}
+                        >
+                          ไม่สามารถโหลด QR Code ได้ กรุณาตรวจสอบเลขพร้อมเพย์
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center sm:text-left break-all">
+                        URL: promptpay.io/{promptpayId.replace(/-/g, '')}/100.png
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
-              
-              {promptpayId && !promptpayError && (
-                <div className="mt-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium mb-3 text-center sm:text-left">ตัวอย่าง QR Code (ยอด 100 บาท)</p>
-                  <div className="flex flex-col items-center sm:items-start gap-2">
-                    <div className="relative">
-                      <img 
-                        src={`https://promptpay.io/${promptpayId.replace(/-/g, '')}/100.png`}
-                        alt="PromptPay QR Code"
-                        className="w-36 h-36 sm:w-32 sm:h-32 border rounded bg-white"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const errorDiv = target.nextElementSibling as HTMLElement;
-                          if (errorDiv) errorDiv.style.display = 'flex';
-                        }}
-                        onLoad={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'block';
-                          const errorDiv = target.nextElementSibling as HTMLElement;
-                          if (errorDiv) errorDiv.style.display = 'none';
-                        }}
+            )}
+
+            {/* Bank Account Form */}
+            {primaryPaymentMethod === "bank" && (
+              <div className="border-t pt-6">
+                <Label className="text-base font-medium">ข้อมูลบัญชีธนาคาร</Label>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+                  แสดงในการ์ดยืนยันออเดอร์พร้อมปุ่มคัดลอกเลขบัญชี
+                </p>
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">ชื่อธนาคาร</Label>
+                    <Select value={bankName} onValueChange={setBankName}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="เลือกธนาคาร" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {THAI_BANKS.map((bank) => (
+                          <SelectItem key={bank.value} value={bank.value}>
+                            {bank.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {bankName === 'other' && (
+                      <Input
+                        value={customBankName}
+                        onChange={(e) => setCustomBankName(e.target.value)}
+                        placeholder="พิมพ์ชื่อธนาคาร..."
+                        className="mt-2"
                       />
-                      <div 
-                        className="w-36 h-36 sm:w-32 sm:h-32 border rounded bg-muted items-center justify-center text-xs text-muted-foreground text-center p-2"
-                        style={{ display: 'none' }}
-                      >
-                        ไม่สามารถโหลด QR Code ได้ กรุณาตรวจสอบเลขพร้อมเพย์
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center sm:text-left break-all">
-                      URL: promptpay.io/{promptpayId.replace(/-/g, '')}/100.png
-                    </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">เลขบัญชี</Label>
+                    <Input
+                      value={bankAccountNumber}
+                      onChange={(e) => handleBankAccountChange(e.target.value)}
+                      placeholder="เช่น: 123-4-56789-0"
+                      className={bankAccountError ? "border-destructive" : ""}
+                    />
+                    {bankAccountError && (
+                      <p className="text-xs text-destructive">{bankAccountError}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+                    <Label className="text-sm text-muted-foreground">ชื่อบัญชี</Label>
+                    <Input
+                      value={bankAccountName}
+                      onChange={(e) => setBankAccountName(e.target.value)}
+                      placeholder="เช่น: นาย ใจดี มีเงิน"
+                    />
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
