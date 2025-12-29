@@ -331,12 +331,13 @@ export default function AdminDashboard() {
     const variants: Record<Order['status'], { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string }> = {
       pending: { variant: 'secondary', label: 'รอดำเนินการ' },
       confirmed: { variant: 'default', label: 'ยืนยันแล้ว' },
+      payment_confirmed: { variant: 'default', label: 'ชำระเงินแล้ว' },
       shipped: { variant: 'outline', label: 'จัดส่งแล้ว' },
       delivered: { variant: 'default', label: 'ส่งสำเร็จ' },
       cancelled: { variant: 'destructive', label: 'ยกเลิก' }
     };
-    const { variant, label } = variants[status];
-    return <Badge variant={variant}>{label}</Badge>;
+    const statusData = variants[status] || { variant: 'secondary', label: status };
+    return <Badge variant={statusData.variant}>{statusData.label}</Badge>;
   };
 
   const getPlatformIcon = (platform: Order['platform']) => {

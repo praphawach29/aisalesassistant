@@ -21,7 +21,7 @@ export interface Order {
   customer_line_id: string | null;
   customer_facebook_id: string | null;
   platform: 'web' | 'line' | 'facebook';
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'payment_confirmed' | 'shipped' | 'delivered' | 'cancelled';
   tracking_number: string | null;
   total_amount: number;
   notes: string | null;

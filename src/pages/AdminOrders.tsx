@@ -277,8 +277,13 @@ export default function AdminOrders() {
       
       toast.success('อัพเดทออเดอร์สำเร็จ');
       
+      // Send receipt if payment_confirmed and checkbox is checked
+      if (editData.status === 'payment_confirmed' && sendReceiptOnPaymentConfirm && selectedOrder.platform !== 'web') {
+        await sendNotification(selectedOrder.id, 'order_receipt');
+        toast.success('ส่งใบเสร็จให้ลูกค้าแล้ว');
+      }
       // Send notification based on what changed (only if enabled)
-      if (sendNotificationOnSave && selectedOrder.platform !== 'web') {
+      else if (sendNotificationOnSave && selectedOrder.platform !== 'web') {
         if (trackingChanged && editData.tracking_number.trim()) {
           await sendNotification(selectedOrder.id, 'tracking_update');
         } else if (statusChanged) {
@@ -924,6 +929,34 @@ export default function AdminOrders() {
                     ) : (
                       `ส่งแจ้งเตือนไปยัง Facebook`
                     )}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Send Receipt Checkbox - Only show when payment_confirmed is selected */}
+            {selectedOrder && editData.status === 'payment_confirmed' && selectedOrder.platform !== 'web' && (
+              <div className={`flex items-start gap-3 p-3 rounded-lg border ${
+                sendReceiptOnPaymentConfirm 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' 
+                  : 'bg-muted/50 border-muted'
+              }`}>
+                <Checkbox
+                  id="sendReceipt"
+                  checked={sendReceiptOnPaymentConfirm}
+                  onCheckedChange={(checked) => setSendReceiptOnPaymentConfirm(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="flex-1 min-w-0">
+                  <label 
+                    htmlFor="sendReceipt" 
+                    className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                  >
+                    <Package className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="truncate">ส่งใบเสร็จให้ลูกค้า</span>
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ส่งใบเสร็จอัตโนมัติเมื่อยืนยันชำระเงินแล้ว
                   </p>
                 </div>
               </div>
