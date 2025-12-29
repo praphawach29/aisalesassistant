@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { ChatMessage } from '@/types';
-import { User, Copy, Check } from 'lucide-react';
+import { User, Copy, Check, ZoomIn } from 'lucide-react';
 import { ProductCarousel, Product } from './ProductCarousel';
 import { SingleProductCard } from './SingleProductCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -173,6 +178,34 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
       )}
       
       <div className="flex flex-col gap-2 max-w-[80%]">
+        {/* Image Preview for payment slips */}
+        {message.image_url && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <div className={cn(
+                "relative cursor-pointer group rounded-lg overflow-hidden",
+                isUser ? "self-end" : "self-start"
+              )}>
+                <img 
+                  src={message.image_url} 
+                  alt="สลิปโอนเงิน" 
+                  className="max-w-[200px] max-h-[200px] object-cover rounded-lg border border-border"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <ZoomIn className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl p-2">
+              <img 
+                src={message.image_url} 
+                alt="สลิปโอนเงิน" 
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
         <div className={cn(
           'rounded-2xl px-4 py-3',
           isUser

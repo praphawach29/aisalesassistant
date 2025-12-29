@@ -45,6 +45,7 @@ export interface ChatMessage {
   conversation_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  image_url?: string | null;
   created_at: string;
 }
 
