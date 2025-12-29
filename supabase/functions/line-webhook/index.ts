@@ -2766,22 +2766,30 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       // Build LINE messages
       const lineMessages: any[] = [];
       
-      // Fetch bank account info and promptpay for order confirmation
+      // Fetch payment settings for order confirmation (only use primary payment method)
       let bankInfo: { bankName: string; accountNumber: string; accountName: string } | undefined;
       let promptpayId: string | undefined;
       const { data: paymentSettings } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['bank_name', 'bank_account_number', 'bank_account_name', 'promptpay_id']);
+        .in('key', ['primary_payment_method', 'bank_name', 'bank_account_number', 'bank_account_name', 'promptpay_id']);
       
       if (paymentSettings && paymentSettings.length > 0) {
-        const bankName = paymentSettings.find(s => s.key === 'bank_name')?.value;
-        const accountNumber = paymentSettings.find(s => s.key === 'bank_account_number')?.value;
-        const accountName = paymentSettings.find(s => s.key === 'bank_account_name')?.value;
-        promptpayId = paymentSettings.find(s => s.key === 'promptpay_id')?.value;
+        const primaryPaymentMethod = paymentSettings.find(s => s.key === 'primary_payment_method')?.value || 'promptpay';
         
-        if (bankName && accountNumber && accountName) {
-          bankInfo = { bankName, accountNumber, accountName };
+        if (primaryPaymentMethod === 'bank') {
+          const bankName = paymentSettings.find(s => s.key === 'bank_name')?.value;
+          const accountNumber = paymentSettings.find(s => s.key === 'bank_account_number')?.value;
+          const accountName = paymentSettings.find(s => s.key === 'bank_account_name')?.value;
+          
+          if (bankName && accountNumber && accountName) {
+            bankInfo = { bankName, accountNumber, accountName };
+          }
+          // Don't set promptpayId when using bank
+        } else {
+          // Default to PromptPay
+          promptpayId = paymentSettings.find(s => s.key === 'promptpay_id')?.value;
+          // Don't set bankInfo when using promptpay
         }
       }
 
