@@ -1090,6 +1090,7 @@ interface OrderConfirmationData {
     accountName: string;
   };
   promptpayId?: string;
+  isCOD?: boolean;
 }
 
 function buildOrderConfirmationFlex(data: OrderConfirmationData) {
@@ -1295,8 +1296,63 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
       type: "box",
       layout: "vertical",
       contents: [
+        // COD Payment section
+        ...(data.isCOD ? [
+          {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "📦 เก็บเงินปลายทาง (COD)",
+                weight: "bold",
+                size: "md",
+                color: "#1F2937",
+                margin: "none",
+                align: "center"
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                  {
+                    type: "text",
+                    text: `฿${(data.totalAmount - data.discountAmount).toLocaleString()}`,
+                    size: "xl",
+                    weight: "bold",
+                    color: "#10B981",
+                    align: "center"
+                  },
+                  {
+                    type: "text",
+                    text: "ชำระเงินเมื่อรับสินค้า",
+                    size: "sm",
+                    color: "#666666",
+                    align: "center",
+                    margin: "sm"
+                  }
+                ],
+                margin: "sm",
+                backgroundColor: "#FFFFFF",
+                cornerRadius: "md",
+                paddingAll: "md",
+                borderWidth: "1px",
+                borderColor: "#E5E7EB"
+              }
+            ],
+            margin: "none",
+            paddingBottom: "md",
+            backgroundColor: "#FEF3C7",
+            cornerRadius: "lg",
+            paddingAll: "md"
+          },
+          {
+            type: "separator",
+            margin: "md"
+          }
+        ] : []),
         // PromptPay QR Code section with image (primary payment method)
-        ...(data.promptpayId ? [
+        ...(!data.isCOD && data.promptpayId ? [
           {
             type: "box",
             layout: "vertical",
@@ -1369,8 +1425,8 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
             type: "separator",
             margin: "md"
           }
-        ] : (data.bankInfo ? [
-          // Fallback to bank info only if no PromptPay
+        ] : (!data.isCOD && data.bankInfo ? [
+          // Fallback to bank info only if no PromptPay and not COD
           {
             type: "box",
             layout: "vertical",
@@ -1439,27 +1495,31 @@ function buildOrderConfirmationFlex(data: OrderConfirmationData) {
             margin: "md"
           }
         ] : [])),
+        // Payment instruction text - different for COD
         {
           type: "text",
-          text: "💳 กรุณาชำระเงินและแจ้งสลิปโอนเงิน",
+          text: data.isCOD ? "📦 กรุณาเตรียมเงินสดให้พร้อมเมื่อรับสินค้า" : "💳 กรุณาชำระเงินและแจ้งสลิปโอนเงิน",
           size: "sm",
           color: "#666666",
           align: "center",
           wrap: true,
-          margin: (data.bankInfo || data.promptpayId) ? "md" : "none"
+          margin: (data.bankInfo || data.promptpayId || data.isCOD) ? "md" : "none"
         },
-        {
-          type: "button",
-          action: {
-            type: "message",
-            label: "💳 แจ้งชำระเงิน",
-            text: `แจ้งชำระเงินออเดอร์ ${data.orderNumber}`
-          },
-          style: "primary",
-          height: "sm",
-          margin: "md",
-          color: "#10B981"
-        },
+        // Show payment notification button only for non-COD
+        ...(data.isCOD ? [] : [
+          {
+            type: "button",
+            action: {
+              type: "message",
+              label: "💳 แจ้งชำระเงิน",
+              text: `แจ้งชำระเงินออเดอร์ ${data.orderNumber}`
+            },
+            style: "primary",
+            height: "sm",
+            margin: "md",
+            color: "#10B981"
+          }
+        ]),
         {
           type: "box",
           layout: "horizontal",
@@ -2769,6 +2829,7 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       // Fetch payment settings for order confirmation (only use primary payment method)
       let bankInfo: { bankName: string; accountNumber: string; accountName: string } | undefined;
       let promptpayId: string | undefined;
+      let isCOD = false;
       const { data: paymentSettings } = await supabase
         .from('settings')
         .select('key, value')
@@ -2777,7 +2838,10 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       if (paymentSettings && paymentSettings.length > 0) {
         const primaryPaymentMethod = paymentSettings.find(s => s.key === 'primary_payment_method')?.value || 'promptpay';
         
-        if (primaryPaymentMethod === 'bank') {
+        if (primaryPaymentMethod === 'cod') {
+          isCOD = true;
+          // Don't set bankInfo or promptpayId for COD
+        } else if (primaryPaymentMethod === 'bank') {
           const bankName = paymentSettings.find(s => s.key === 'bank_name')?.value;
           const accountNumber = paymentSettings.find(s => s.key === 'bank_account_number')?.value;
           const accountName = paymentSettings.find(s => s.key === 'bank_account_name')?.value;
@@ -3177,7 +3241,8 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
                     })),
                     couponCode: cartAction.couponCode || undefined,
                     bankInfo,
-                    promptpayId
+                    promptpayId,
+                    isCOD
                   })
                 });
               }
@@ -3306,7 +3371,8 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
                   }],
                   couponCode: createOrder.couponCode || undefined,
                   bankInfo,
-                  promptpayId
+                  promptpayId,
+                  isCOD
                 })
               });
             } else {
@@ -3479,7 +3545,8 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
                 })),
                 couponCode: createMultiOrder.couponCode || undefined,
                 bankInfo,
-                promptpayId
+                promptpayId,
+                isCOD
               })
             });
           } else {
