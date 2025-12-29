@@ -268,7 +268,8 @@ function buildSystemPrompt(
   productCatalog: string,
   faqList: string,
   storeSettings: StoreSettings,
-  isFirstMessage: boolean
+  isFirstMessage: boolean,
+  customerContext?: CustomerContext
 ): string {
   const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
 
@@ -308,8 +309,34 @@ function buildSystemPrompt(
     ? `การจัดส่ง: ${storeSettings.shippingInfo}` 
     : 'มีบริการจัดส่งทั่วประเทศ';
   
-  const greetingInstruction = isFirstMessage && greeting_message
-    ? `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น):
+  // Greeting instruction based on whether it's first message and customer context
+  let greetingInstruction = '';
+  
+  if (isFirstMessage) {
+    if (customerContext?.isReturning) {
+      // Returning customer - warm personalized greeting
+      const customerName = customerContext.customerName || 'ลูกค้า';
+      const pEnd = gender === 'female' ? 'ค่ะ' : gender === 'male' ? 'ครับ' : 'ค่ะ/ครับ';
+      const pQuestion = gender === 'female' ? 'คะ' : gender === 'male' ? 'ครับ' : 'คะ/ครับ';
+      
+      greetingInstruction = `## 👋 ข้อความทักทายลูกค้าเก่า (สำคัญมาก!):
+นี่คือ **ลูกค้าเก่าที่เคยติดต่อมาแล้ว** ชื่อ "${customerName}"
+
+**กฎการทักทายลูกค้าเก่า (ต้องปฏิบัติตาม!):**
+1. **ต้องเรียกชื่อลูกค้า** - ทักทายแบบอบอุ่นและเป็นกันเอง
+2. **แสดงความยินดีที่ลูกค้ากลับมา** - ให้รู้สึกพิเศษ
+3. **ห้ามถามชื่อหรือข้อมูลส่วนตัวซ้ำ** - เรารู้จักลูกค้าแล้ว
+4. **ห้ามทักทายเหมือนลูกค้าใหม่** - ต้องแสดงว่าจำลูกค้าได้
+
+**ตัวอย่างการทักทายลูกค้าเก่าที่ดี:**
+- "สวัสดี${pEnd} คุณ${customerName}! ยินดีต้อนรับกลับมา${pEnd} 😊 วันนี้สนใจสินค้าอะไรเป็นพิเศษ${pQuestion}?"
+- "ว้าว! คุณ${customerName} กลับมาแล้ว${pEnd} 💕 ดีใจที่ได้พูดคุยกันอีก${pEnd} มีอะไรให้ช่วย${pQuestion}?"
+
+**ห้าม:**
+- ❌ ห้ามใช้คำทักทายแบบทั่วไป เช่น "สวัสดีค่ะ ยินดีต้อนรับ" โดยไม่เรียกชื่อ
+- ❌ ห้ามถามว่า "ไม่ทราบชื่ออะไรคะ?" หรือ "ขอชื่อด้วยค่ะ"`;
+    } else if (greeting_message) {
+      greetingInstruction = `## 👋 ข้อความทักทาย (ใช้ในคำตอบนี้เท่านั้น):
 เริ่มต้นด้วย: "${greeting_message}"
 
 🏪 **กรุณาแนะนำตัวและร้านด้วย!**
@@ -319,8 +346,11 @@ function buildSystemPrompt(
 - ถามว่าสนใจสินค้าอะไรเป็นพิเศษ
 
 ตัวอย่างการทักทายที่ดี:
-"สวัสดีค่ะ! 😊 ดิฉัน${ai_name} จาก${storeIntro}ค่ะ เรามีสินค้าคุณภาพพร้อม${shippingIntro} สนใจสินค้าอะไรเป็นพิเศษคะ?"`
-    : `## 👋 หมายเหตุ:\nนี่ไม่ใช่ข้อความแรกของการสนทนา ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
+"สวัสดีค่ะ! 😊 ดิฉัน${ai_name} จาก${storeIntro}ค่ะ เรามีสินค้าคุณภาพพร้อม${shippingIntro} สนใจสินค้าอะไรเป็นพิเศษคะ?"`;
+    }
+  } else {
+    greetingInstruction = `## 👋 หมายเหตุ:\nนี่ไม่ใช่ข้อความแรกของการสนทนา ห้ามทักทายซ้ำ ตอบคำถามโดยตรงเลย`;
+  }
 
   return `คุณคือ "${ai_name}" ผู้ช่วยขายอัจฉริยะที่พูดภาษาไทยได้อย่างเป็นธรรมชาติ
 
