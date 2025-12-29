@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Sheet,
@@ -42,7 +43,8 @@ import {
   Building2,
   CircleDollarSign,
   Package,
-  Percent
+  Percent,
+  ZoomIn
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -385,14 +387,28 @@ export default function AdminPaymentSlips() {
                       setIsDetailOpen(true);
                     }}
                   >
-                    {/* Thumbnail */}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                      <img 
-                        src={slip.image_url} 
-                        alt="Payment slip" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    {/* Thumbnail with zoom */}
+                    <Dialog>
+                      <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <div className="relative w-16 h-16 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 cursor-pointer group">
+                          <img 
+                            src={slip.image_url} 
+                            alt="Payment slip" 
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <ZoomIn className="w-5 h-5 text-white" />
+                          </div>
+                        </div>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-3xl p-2">
+                        <img 
+                          src={slip.image_url} 
+                          alt="Payment slip full" 
+                          className="w-full h-auto max-h-[80vh] object-contain"
+                        />
+                      </DialogContent>
+                    </Dialog>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
