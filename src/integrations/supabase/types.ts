@@ -992,6 +992,7 @@ export type Database = {
       order_status:
         | "pending"
         | "confirmed"
+        | "payment_confirmed"
         | "shipped"
         | "delivered"
         | "cancelled"
@@ -1126,6 +1127,7 @@ export const Constants = {
       order_status: [
         "pending",
         "confirmed",
+        "payment_confirmed",
         "shipped",
         "delivered",
         "cancelled",
