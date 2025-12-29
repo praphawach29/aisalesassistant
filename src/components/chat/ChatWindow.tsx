@@ -5,7 +5,7 @@ import { ChatInput } from './ChatInput';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw } from 'lucide-react';
+import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw, ClipboardList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from './ProductCarousel';
 import { VariantSelectDialog } from './VariantSelectDialog';
@@ -34,7 +34,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindowProps) {
-  const { messages, isLoading, isLoadingHistory, sendMessage, clearChat } = useChat();
+  const { messages, isLoading, isLoadingHistory, sendMessage, clearChat, lastOrderId, checkLastOrder } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -159,16 +159,32 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
             </p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={clearChat}
-          title="เริ่มสนทนาใหม่"
-          className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground h-8 sm:h-9 px-2 sm:px-3"
-        >
-          <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="hidden sm:inline text-xs sm:text-sm">เริ่มใหม่</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Check Order Button - show only when there's a last order */}
+          {lastOrderId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={checkLastOrder}
+              disabled={isLoading}
+              title="ดูออเดอร์ล่าสุด"
+              className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground h-8 sm:h-9 px-2 sm:px-3"
+            >
+              <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline text-xs sm:text-sm">ออเดอร์</span>
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearChat}
+            title="เริ่มสนทนาใหม่"
+            className="gap-1 sm:gap-2 text-muted-foreground hover:text-foreground h-8 sm:h-9 px-2 sm:px-3"
+          >
+            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline text-xs sm:text-sm">เริ่มใหม่</span>
+          </Button>
+        </div>
       </div>
 
       {/* Messages */}
