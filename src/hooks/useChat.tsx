@@ -449,6 +449,7 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
             conversation_id: currentConversationId,
             role: 'user',
             content: slipMessage,
+            image_url: slipUrl,
             created_at: new Date().toISOString()
           };
           setMessages(prev => [...prev, userMsg]);
