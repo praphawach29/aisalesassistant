@@ -73,7 +73,7 @@ const AdminSettings = () => {
   const [autoNotifyCustomers, setAutoNotifyCustomers] = useState(true);
   
   // Payment settings (for Flex Message)
-  const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState<"promptpay" | "bank">("promptpay");
+  const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState<"promptpay" | "bank" | "cod">("promptpay");
   const [bankName, setBankName] = useState("");
   const [customBankName, setCustomBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
@@ -165,7 +165,8 @@ const AdminSettings = () => {
       const promptpaySetting = data?.find(s => s.key === 'promptpay_id');
       
       if (primaryPaymentSetting) {
-        setPrimaryPaymentMethod(primaryPaymentSetting.value === 'bank' ? 'bank' : 'promptpay');
+        const val = primaryPaymentSetting.value;
+        setPrimaryPaymentMethod(val === 'bank' ? 'bank' : val === 'cod' ? 'cod' : 'promptpay');
       }
       if (bankNameSetting) {
         const savedBankName = bankNameSetting.value || '';
@@ -228,7 +229,7 @@ const AdminSettings = () => {
         });
         return;
       }
-    } else {
+    } else if (primaryPaymentMethod === 'promptpay') {
       const ppError = validatePromptpayId(promptpayId);
       if (ppError) {
         setPromptpayError(ppError);
@@ -240,6 +241,7 @@ const AdminSettings = () => {
         return;
       }
     }
+    // COD doesn't need validation
     
     setIsSaving(true);
     try {
@@ -262,11 +264,15 @@ const AdminSettings = () => {
         await saveSetting('bank_name', finalBankName, 'ชื่อธนาคารสำหรับ Flex Message');
         await saveSetting('bank_account_number', bankAccountNumber, 'เลขบัญชีธนาคารสำหรับ Flex Message');
         await saveSetting('bank_account_name', bankAccountName, 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
-        // Clear promptpay when using bank
         await saveSetting('promptpay_id', '', 'เลขพร้อมเพย์สำหรับ Flex Message');
-      } else {
+      } else if (primaryPaymentMethod === 'promptpay') {
         await saveSetting('promptpay_id', promptpayId, 'เลขพร้อมเพย์สำหรับ Flex Message');
-        // Clear bank info when using promptpay
+        await saveSetting('bank_name', '', 'ชื่อธนาคารสำหรับ Flex Message');
+        await saveSetting('bank_account_number', '', 'เลขบัญชีธนาคารสำหรับ Flex Message');
+        await saveSetting('bank_account_name', '', 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
+      } else {
+        // COD - Clear all payment info
+        await saveSetting('promptpay_id', '', 'เลขพร้อมเพย์สำหรับ Flex Message');
         await saveSetting('bank_name', '', 'ชื่อธนาคารสำหรับ Flex Message');
         await saveSetting('bank_account_number', '', 'เลขบัญชีธนาคารสำหรับ Flex Message');
         await saveSetting('bank_account_name', '', 'ชื่อบัญชีธนาคารสำหรับ Flex Message');
@@ -463,7 +469,7 @@ const AdminSettings = () => {
             {/* Payment Method Selection */}
             <div className="space-y-4">
               <Label className="text-base font-medium">เลือกวิธีชำระเงินหลัก</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div
                   onClick={() => setPrimaryPaymentMethod("promptpay")}
                   className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
@@ -481,8 +487,8 @@ const AdminSettings = () => {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">📱 PromptPay (แนะนำ)</p>
-                      <p className="text-xs text-muted-foreground">แสดง QR Code พร้อมยอดเงิน ลูกค้าสแกนจ่ายได้ทันที</p>
+                      <p className="font-medium">📱 PromptPay</p>
+                      <p className="text-xs text-muted-foreground">แสดง QR Code พร้อมยอดเงิน</p>
                     </div>
                   </div>
                 </div>
@@ -504,8 +510,31 @@ const AdminSettings = () => {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">🏦 โอนผ่านบัญชีธนาคาร</p>
-                      <p className="text-xs text-muted-foreground">แสดงเลขบัญชีธนาคารพร้อมปุ่มคัดลอก</p>
+                      <p className="font-medium">🏦 โอนบัญชี</p>
+                      <p className="text-xs text-muted-foreground">แสดงเลขบัญชีธนาคาร</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setPrimaryPaymentMethod("cod")}
+                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
+                    primaryPaymentMethod === "cod"
+                      ? "border-green-500 bg-green-50 dark:bg-green-950/30"
+                      : "border-muted hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      primaryPaymentMethod === "cod" ? "border-green-500" : "border-muted-foreground"
+                    }`}>
+                      {primaryPaymentMethod === "cod" && (
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium">📦 เก็บเงินปลายทาง (COD)</p>
+                      <p className="text-xs text-muted-foreground">ลูกค้าจ่ายเงินตอนรับสินค้า</p>
                     </div>
                   </div>
                 </div>
