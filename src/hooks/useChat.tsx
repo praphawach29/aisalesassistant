@@ -455,11 +455,12 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
           };
           setMessages(prev => [...prev, userMsg]);
 
-          // Save to database
+          // Save to database with image_url
           await supabase.from('chat_messages').insert({
             conversation_id: currentConversationId,
             role: 'user',
-            content: slipMessage
+            content: slipMessage,
+            image_url: slipUrl
           });
 
           // Build confirmation message based on AI analysis
@@ -544,7 +545,8 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
             await supabase.from('chat_messages').insert({
               conversation_id: currentConversationId,
               role: 'user',
-              content: slipMessage
+              content: slipMessage,
+              image_url: slipUrl
             });
 
             let confirmContent = `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${pendingOrder.order_number}\n\n`;
