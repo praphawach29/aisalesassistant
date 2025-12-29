@@ -279,8 +279,11 @@ export default function AdminOrders() {
       
       // Send receipt if payment_confirmed and checkbox is checked
       if (editData.status === 'payment_confirmed' && sendReceiptOnPaymentConfirm && selectedOrder.platform !== 'web') {
+        // Send payment confirmed notification first (same as AdminPaymentSlips)
+        await sendNotification(selectedOrder.id, 'payment_confirmed');
+        // Then send order receipt
         await sendNotification(selectedOrder.id, 'order_receipt');
-        toast.success('ส่งใบเสร็จให้ลูกค้าแล้ว');
+        toast.success('ส่งการแจ้งเตือนและใบเสร็จให้ลูกค้าแล้ว');
       }
       // Send notification based on what changed (only if enabled)
       else if (sendNotificationOnSave && selectedOrder.platform !== 'web') {
