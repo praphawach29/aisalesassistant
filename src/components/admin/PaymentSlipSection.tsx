@@ -297,6 +297,9 @@ export function PaymentSlipSection({ orderId, expectedAmount }: PaymentSlipSecti
                     src={slip.image_url} 
                     alt="Payment slip" 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
                   />
                 </div>
 
@@ -369,11 +372,33 @@ export function PaymentSlipSection({ orderId, expectedAmount }: PaymentSlipSecti
           </DialogHeader>
           {selectedSlip && (
             <div className="space-y-4">
-              <img 
-                src={selectedSlip.image_url} 
-                alt="Payment slip" 
-                className="w-full rounded-lg max-h-[70vh] object-contain"
-              />
+              <div className="relative w-full min-h-[200px] flex items-center justify-center bg-muted rounded-lg">
+                <img 
+                  src={selectedSlip.image_url} 
+                  alt="Payment slip" 
+                  className="w-full rounded-lg max-h-[70vh] object-contain"
+                  onError={(e) => {
+                    console.error('Image load error:', selectedSlip.image_url);
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                  onLoad={(e) => {
+                    e.currentTarget.style.display = 'block';
+                  }}
+                />
+                <div className="hidden absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                  <AlertTriangle className="w-8 h-8 mb-2" />
+                  <span className="text-sm">ไม่สามารถโหลดรูปได้</span>
+                  <a 
+                    href={selectedSlip.image_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline mt-2"
+                  >
+                    เปิดในแท็บใหม่
+                  </a>
+                </div>
+              </div>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 {getStatusBadge(selectedSlip)}
                 <span className="text-sm text-muted-foreground">
@@ -418,12 +443,28 @@ export function PaymentSlipSection({ orderId, expectedAmount }: PaymentSlipSecti
           </DialogHeader>
           {selectedSlip && (
             <div className="space-y-4 pt-4">
-              <div className="w-full h-48 rounded-lg overflow-hidden bg-muted">
+              <div className="relative w-full h-48 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
                 <img 
                   src={selectedSlip.image_url} 
                   alt="Payment slip" 
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
                 />
+                <div className="hidden absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                  <AlertTriangle className="w-6 h-6 mb-1" />
+                  <span className="text-xs">ไม่สามารถโหลดรูปได้</span>
+                  <a 
+                    href={selectedSlip.image_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline mt-1"
+                  >
+                    เปิดในแท็บใหม่
+                  </a>
+                </div>
               </div>
 
               {/* AI Analysis in action dialog */}
