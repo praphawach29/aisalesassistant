@@ -22,7 +22,8 @@ import {
   BoxIcon,
   CheckCircle2,
   Truck,
-  XCircle
+  XCircle,
+  CreditCard
 } from 'lucide-react';
 import { Order } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
@@ -31,6 +32,7 @@ interface DashboardStats {
   totalOrders: number;
   pendingOrders: number;
   confirmedOrders: number;
+  paymentConfirmedOrders: number;
   shippedOrders: number;
   deliveredOrders: number;
   cancelledOrders: number;
@@ -96,6 +98,7 @@ export default function AdminDashboard() {
     totalOrders: 0,
     pendingOrders: 0,
     confirmedOrders: 0,
+    paymentConfirmedOrders: 0,
     shippedOrders: 0,
     deliveredOrders: 0,
     cancelledOrders: 0,
@@ -167,7 +170,7 @@ export default function AdminDashboard() {
     const typedOrders = (allOrders || []).map(order => ({
       ...order,
       platform: order.platform as 'web' | 'line' | 'facebook',
-      status: order.status as 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+      status: order.status as 'pending' | 'confirmed' | 'payment_confirmed' | 'shipped' | 'delivered' | 'cancelled'
     }));
 
     // Fetch products
@@ -186,6 +189,7 @@ export default function AdminDashboard() {
     
     const pendingOrders = typedOrders.filter(o => o.status === 'pending');
     const confirmedOrders = typedOrders.filter(o => o.status === 'confirmed');
+    const paymentConfirmedOrders = typedOrders.filter(o => o.status === 'payment_confirmed');
     const shippedOrders = typedOrders.filter(o => o.status === 'shipped');
     const deliveredOrders = typedOrders.filter(o => o.status === 'delivered');
     const cancelledOrders = typedOrders.filter(o => o.status === 'cancelled');
@@ -204,6 +208,7 @@ export default function AdminDashboard() {
       totalOrders: typedOrders.length,
       pendingOrders: pendingOrders.length,
       confirmedOrders: confirmedOrders.length,
+      paymentConfirmedOrders: paymentConfirmedOrders.length,
       shippedOrders: shippedOrders.length,
       deliveredOrders: deliveredOrders.length,
       cancelledOrders: cancelledOrders.length,
@@ -457,7 +462,7 @@ export default function AdminDashboard() {
 
       {/* Order Status Cards - Horizontal scroll on mobile */}
       <div className="mb-6 -mx-4 px-4 lg:mx-0 lg:px-0">
-        <div className="flex lg:grid lg:grid-cols-5 gap-2 lg:gap-4 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+        <div className="flex lg:grid lg:grid-cols-6 gap-2 lg:gap-4 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
           <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
             <Clock className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-yellow-500 mb-0.5 lg:mb-1" />
             <p className="text-base lg:text-xl font-bold">{stats.pendingOrders}</p>
@@ -467,6 +472,11 @@ export default function AdminDashboard() {
             <CheckCircle2 className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-blue-500 mb-0.5 lg:mb-1" />
             <p className="text-base lg:text-xl font-bold">{stats.confirmedOrders}</p>
             <p className="text-[9px] lg:text-xs text-muted-foreground leading-tight">ยืนยันแล้ว</p>
+          </Card>
+          <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
+            <CreditCard className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-emerald-500 mb-0.5 lg:mb-1" />
+            <p className="text-base lg:text-xl font-bold">{stats.paymentConfirmedOrders}</p>
+            <p className="text-[9px] lg:text-xs text-muted-foreground leading-tight">ชำระเงินแล้ว</p>
           </Card>
           <Card className="p-2 lg:p-4 text-center flex-shrink-0 w-[72px] lg:w-auto">
             <Truck className="w-4 h-4 lg:w-6 lg:h-6 mx-auto text-purple-500 mb-0.5 lg:mb-1" />
