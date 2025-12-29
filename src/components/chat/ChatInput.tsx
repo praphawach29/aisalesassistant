@@ -21,6 +21,10 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
     if ((input.trim() || selectedImage) && !isLoading) {
       onSend(input.trim(), selectedImage || undefined);
       setInput('');
+      // Cleanup object URL when submitting
+      if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
       setSelectedImage(null);
       setImagePreview(null);
       // Reset file input
@@ -54,9 +58,9 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
 
     console.log('File selected:', file.name, file.type, file.size);
 
-    // Validate file type - accept common image formats
+    // Validate file type - accept common image formats (allow empty type for some mobile browsers)
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
-    const isValidType = validTypes.includes(file.type.toLowerCase()) || file.type.startsWith('image/');
+    const isValidType = !file.type || validTypes.includes(file.type.toLowerCase()) || file.type.startsWith('image/');
     
     if (!isValidType) {
       toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WEBP)');
@@ -71,24 +75,26 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
       return;
     }
 
+    // Set file first, then create preview
     setSelectedImage(file);
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      console.log('Preview created');
-      setImagePreview(reader.result as string);
-    };
-    reader.onerror = () => {
-      console.error('Error reading file');
-      toast.error('ไม่สามารถอ่านไฟล์ได้');
-    };
-    reader.readAsDataURL(file);
-    
     toast.success('เลือกรูปภาพแล้ว');
+    
+    // Create preview using URL.createObjectURL (more reliable than FileReader)
+    try {
+      const previewUrl = URL.createObjectURL(file);
+      console.log('Preview created:', previewUrl);
+      setImagePreview(previewUrl);
+    } catch (err) {
+      console.error('Error creating preview:', err);
+      // Still allow sending even if preview fails
+    }
   };
 
   const removeSelectedImage = () => {
+    // Cleanup object URL to prevent memory leaks
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setSelectedImage(null);
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -125,7 +131,6 @@ export function ChatInput({ onSend, isLoading, placeholder = 'พิมพ์ข
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={handleFileSelect}
           className="hidden"
           aria-label="แนบไฟล์รูปภาพ"
