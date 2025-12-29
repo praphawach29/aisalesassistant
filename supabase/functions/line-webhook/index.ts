@@ -385,21 +385,44 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 ## 📈 เทคนิคการขาย:
 - ถามความต้องการก่อนแนะนำ เช่น "ไม่ทราบว่าสนใจสินค้าประเภทไหนเป็นพิเศษ${particleQuestion}?"
 - **Upsell**: หากสนใจสินค้าราคาถูก → แนะนำรุ่นที่ดีกว่าเล็กน้อย
-- **Cross-sell**: แนะนำสินค้าที่เข้าคู่กัน
 - **สร้าง Urgency**: "ตอนนี้โปรโมชั่นลดราคาอยู่${particleEnd}" หรือ "สินค้าตัวนี้ขายดีมาก${particleEnd}"
 
+## 🔄 Cross-sell (สำคัญมาก! ต้องทำทุกครั้งที่มีโอกาส!):
+
+**กฎสำคัญที่สุด - ต้องใช้ข้อมูล "🔗สินค้าที่เกี่ยวข้อง" จากรายการสินค้า:**
+1. **ทุกครั้งที่ลูกค้ายืนยันจะซื้อสินค้า** → ดูในรายการสินค้าว่ามี "🔗สินค้าที่เกี่ยวข้อง" ไหม
+2. **ถ้ามี** → ต้องแนะนำสินค้าเหล่านั้นทันที ก่อนถามข้อมูลจัดส่ง!
+3. **ถ้าไม่มี** → แนะนำสินค้าใน category เดียวกันหรือคล้ายกัน
+
+**จังหวะการแนะนำ Cross-sell (ต้องทำเสมอ!):**
+- ✅ **ทันทีที่ลูกค้ายืนยันจะซื้อ** (ก่อนถามข้อมูลจัดส่ง) → ต้องแนะนำสินค้าที่เกี่ยวข้องก่อน!
+  ตัวอย่าง: "รับทราบ${particleEnd} ต้องการ [สินค้า] นะ${particleQuestion}?
+  
+  สินค้าที่ลูกค้าอาจสนใจ: [ชื่อสินค้าที่เกี่ยวข้อง] [PRODUCT:ชื่อสินค้าที่เกี่ยวข้อง]
+  
+  สนใจเพิ่มไหม${particleQuestion}? ถ้าไม่ รบกวนขอข้อมูลจัดส่ง${particleEnd}"
+
+**ข้อห้าม Cross-sell:**
+- ❌ ห้ามแนะนำสินค้าซ้ำกับที่ลูกค้าสั่งไปแล้ว
+- ❌ ห้ามแนะนำเกิน 2 รายการต่อครั้ง
+- ❌ ห้ามแนะนำถ้าลูกค้าปฏิเสธแล้ว 1 ครั้ง
+- ❌ ห้ามแนะนำตอนลูกค้ากำลังให้ข้อมูล (ชื่อ/ที่อยู่/เบอร์)
+- ❌ ห้ามแสดงการ์ดสินค้าสำหรับสินค้าที่ลูกค้ากำลังสั่ง (แค่ยืนยันรายการเท่านั้น)
+
 ## 🛍️ การแสดงสินค้า (สำคัญมาก!):
-**ทุกครั้งที่พูดถึง/แนะนำ/อธิบายสินค้าเฉพาะตัว → ต้องใส่ [PRODUCT:ชื่อสินค้าเต็ม] เสมอ** เพื่อแสดงการ์ดสินค้าให้ลูกค้าเห็นภาพ
+**ทุกครั้งที่แนะนำสินค้าใหม่/Cross-sell → ต้องใส่ [PRODUCT:ชื่อสินค้าเต็ม] เพื่อแสดงการ์ด**
 
-### กฎการใส่ marker:
-- **แนะนำสินค้าเฉพาะตัว** → ใส่ [PRODUCT:ชื่อสินค้าเต็ม] ต่อท้ายเสมอ (ไม่ต้องรอลูกค้าขอดู)
-- **ลูกค้าถามสินค้าหลายตัว/ทั้งหมด** → ใส่ [SHOW_PRODUCTS] ต่อท้าย
-- **ลูกค้าถามโปรโมชั่น/ลดราคา** → ใส่ [SHOW_PROMOTIONS] ต่อท้าย
+### ✅ กรณีที่ต้องใส่ marker:
+- **แนะนำสินค้าใหม่** → ใส่ [PRODUCT:ชื่อสินค้าเต็ม]
+- **Cross-sell สินค้าที่เกี่ยวข้อง** → ใส่ [PRODUCT:ชื่อสินค้าเต็ม]
+- **ลูกค้าถามสินค้าหลายตัว/ทั้งหมด** → ใส่ [SHOW_PRODUCTS]
+- **ลูกค้าถามโปรโมชั่น/ลดราคา** → ใส่ [SHOW_PROMOTIONS]
 
-### ตัวอย่าง:
-- ลูกค้า: "อยากได้นาฬิกา" → "ร้านมีนาฬิกาข้อมือแฟชั่นสวยมาก${particleEnd} ราคา 999 บาท สนใจไหม${particleQuestion}? [PRODUCT:นาฬิกาข้อมือแฟชั่น]"
-- ลูกค้า: "มีกระเป๋าไหม" → "มี${particleEnd} กระเป๋าเป้สะพายหลังราคา 799 บาท ดีไซน์ทันสมัย${particleEnd} [PRODUCT:กระเป๋าเป้สะพายหลัง]"
-- ลูกค้า: "แนะนำสินค้าหน่อย" → "แนะนำสินค้าขายดีของร้าน${particleEnd} [SHOW_PRODUCTS]"
+### ❌ กรณีที่ห้ามใส่ marker (ห้ามละเมิด!):
+- **ยืนยันรายการที่ลูกค้าสั่ง** → ห้ามใส่ [PRODUCT:...] เด็ดขาด!
+- **สรุปออเดอร์/สรุปรายการ** → ห้ามใส่ marker
+- **ถามข้อมูลลูกค้า** → ห้ามใส่ marker
+- **รับออเดอร์/แจ้งเลขออเดอร์** → ห้ามใส่ marker
 
 **หมายเหตุ**: ใช้ชื่อสินค้าเต็มเท่านั้น เช่น [PRODUCT:เสื้อยืดคอกลม] ไม่ใช่ [PRODUCT:เสื้อยืด]
 
@@ -2317,29 +2340,36 @@ serve(async (req) => {
       let faqsData = getCached<any[]>('line_faqs');
       let settingsData = getCached<any[]>('line_settings');
 
+      // Also check for related_products cache
+      let relatedProductsData = getCached<any[]>('line_related_products');
+      
       const needsAiSettings = !aiSettingsData;
       const needsProducts = !products;
       const needsFaqs = !faqsData;
       const needsSettings = !settingsData;
+      const needsRelatedProducts = !relatedProductsData;
 
-      if (needsAiSettings || needsProducts || needsFaqs || needsSettings) {
+      if (needsAiSettings || needsProducts || needsFaqs || needsSettings || needsRelatedProducts) {
         const cacheMisses = [];
         if (needsAiSettings) cacheMisses.push('ai_settings');
         if (needsProducts) cacheMisses.push('products');
         if (needsFaqs) cacheMisses.push('faqs');
         if (needsSettings) cacheMisses.push('settings');
+        if (needsRelatedProducts) cacheMisses.push('related_products');
         console.log(`[LINE] Cache miss: ${cacheMisses.join(', ')}`);
 
         const [
           aiSettingsResult,
           productsResult,
           faqsResult,
-          settingsResult
+          settingsResult,
+          relatedProductsResult
         ] = await Promise.all([
           needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
           needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
           needsFaqs ? supabase.from("faqs").select("question, answer").eq("is_active", true) : Promise.resolve({ data: faqsData }),
-          needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"]) : Promise.resolve({ data: settingsData })
+          needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "SHIPPING_INFO", "BANK_ACCOUNTS", "PAYMENT_METHODS", "RETURN_POLICY"]) : Promise.resolve({ data: settingsData }),
+          needsRelatedProducts ? supabase.from("related_products").select("product_id, related_product_id") : Promise.resolve({ data: relatedProductsData })
         ]);
 
         if (needsAiSettings && aiSettingsResult.data) {
@@ -2358,9 +2388,16 @@ serve(async (req) => {
           settingsData = settingsResult.data || [];
           setCache('line_settings', settingsData);
         }
+        if (needsRelatedProducts) {
+          relatedProductsData = relatedProductsResult.data || [];
+          setCache('line_related_products', relatedProductsData);
+        }
       } else {
         console.log('[LINE] All data served from cache!');
       }
+      
+      // Ensure relatedProductsData is initialized
+      relatedProductsData = relatedProductsData || [];
 
       const aiSettings: AISettings = aiSettingsData || {
         ai_name: "น้องช้อป",
@@ -2379,7 +2416,16 @@ serve(async (req) => {
       settingsData = settingsData || [];
       const faqList = faqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n');
       
-      // Build product catalog with variants info for AI
+      // Build related products map for cross-sell
+      const relatedProductsMap = new Map<string, string[]>();
+      for (const rp of relatedProductsData) {
+        const existing = relatedProductsMap.get(rp.product_id) || [];
+        existing.push(rp.related_product_id);
+        relatedProductsMap.set(rp.product_id, existing);
+      }
+      console.log(`[LINE] Related products configured: ${relatedProductsData.length} pairs`);
+      
+      // Build product catalog with variants info AND related products for AI
       const productCatalog = productList.map((p: any) => {
         let info = `- ${p.name}: ฿${p.price}${p.promotion_price ? ` (ลด: ฿${p.promotion_price})` : ''}`;
         if (p.description) info += ` - ${p.description}`;
@@ -2393,6 +2439,17 @@ serve(async (req) => {
             return null;
           }).filter(Boolean).join(' | ');
           if (variantInfo) info += ` [ตัวเลือก: ${variantInfo}]`;
+        }
+        
+        // Include related products info for cross-sell
+        const relatedIds = relatedProductsMap.get(p.id) || [];
+        if (relatedIds.length > 0) {
+          const relatedNames = relatedIds
+            .map(id => productList.find((prod: any) => prod.id === id)?.name)
+            .filter(Boolean);
+          if (relatedNames.length > 0) {
+            info += ` | 🔗สินค้าที่เกี่ยวข้อง: [${relatedNames.join(', ')}]`;
+          }
         }
         
         return info;
@@ -2523,29 +2580,41 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
 - ข้อความทักทายต้องไม่เกิน 2 ประโยค]` });
       }
       
-      // Add saved addresses context for returning customers
+      // Add saved addresses context for returning customers - MUST be prominent
       if (customerContext.savedAddresses && customerContext.savedAddresses.length > 0 && !isGreeting) {
         const addressList = customerContext.savedAddresses.map((a, i) => 
-          `${i + 1}. "${a.label}": ${a.address}${a.isDefault ? ' (ค่าเริ่มต้น)' : ''}`
+          `${i + 1}. "${a.label}": ${a.address}${a.isDefault ? ' ⭐(ค่าเริ่มต้น)' : ''}`
         ).join('\n');
         
-        const savedAddressInstruction = `[ข้อมูลลูกค้าเก่า - ที่อยู่จัดส่งที่บันทึกไว้]
-ลูกค้าท่านนี้มีที่อยู่จัดส่งที่บันทึกไว้:
+        const savedAddressInstruction = `🚨🚨🚨 [กฎบังคับ - ลูกค้าเก่ามีที่อยู่บันทึกไว้แล้ว!] 🚨🚨🚨
+
+📍 ที่อยู่จัดส่งที่บันทึกไว้:
 ${addressList}
+${customerContext.customerName ? `👤 ชื่อเดิม: ${customerContext.customerName}` : ''}
+${customerContext.customerPhone ? `📞 เบอร์โทรเดิม: ${customerContext.customerPhone}` : ''}
 
-📋 วิธีใช้ที่อยู่เดิม:
-- เมื่อถามข้อมูลจัดส่ง ให้แจ้งลูกค้าว่ามีที่อยู่เดิมบันทึกไว้
-- ตัวอย่าง: "พบที่อยู่เดิมของคุณนะคะ ต้องการจัดส่งไปที่ ${customerContext.savedAddresses[0].address} ใช่ไหมคะ? หรือต้องการเปลี่ยนที่อยู่ใหม่คะ?"
-${customerContext.customerName ? `- ชื่อเดิม: ${customerContext.customerName}` : ''}
-${customerContext.customerPhone ? `- เบอร์โทรเดิม: ${customerContext.customerPhone}` : ''}
+⚠️ กฎบังคับ (ห้ามละเมิดเด็ดขาด!):
+**เมื่อถึงขั้นตอนถามข้อมูลจัดส่ง → ห้ามถามชื่อ/ที่อยู่/เบอร์โทรโดยตรง!**
 
-⚠️ กฎสำคัญ:
-- ถ้าลูกค้าตอบ "ใช่", "ที่เดิม", "ตามที่อยู่เดิม", "เหมือนเดิม" → ใช้ที่อยู่ที่ is_default = true หรือรายการแรก
-- ถ้าลูกค้าระบุ label เช่น "บ้าน", "ออฟฟิศ" → ใช้ที่อยู่ที่ตรงกับ label นั้น
-- ถ้าลูกค้าต้องการเปลี่ยน → ถามที่อยู่ใหม่ตามปกติ`;
+✅ ต้องถามแบบนี้แทน:
+"พบข้อมูลเดิมของคุณ${customerContext.customerName ? ` คุณ${customerContext.customerName}` : ''}นะคะ ต้องการจัดส่งไปที่อยู่เดิมไหมคะ?
+
+📍 ${customerContext.savedAddresses[0].address}
+${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
+
+ถ้าใช่ พิมพ์ 'ใช่' หรือ 'ที่เดิม' ได้เลยค่ะ
+ถ้าต้องการเปลี่ยน รบกวนแจ้งที่อยู่ใหม่ค่ะ"
+
+❌ ห้ามถามแบบนี้:
+- "กรุณาแจ้งชื่อ-นามสกุล ที่อยู่ เบอร์โทร" ← ผิด! ต้องเสนอที่อยู่เดิมก่อน!
+
+🔄 เมื่อลูกค้าตอบ:
+- "ใช่", "ที่เดิม", "ตามเดิม", "เหมือนเดิม", "ครับ", "ค่ะ", "ok" → ใช้ที่อยู่⭐หรือรายการแรก
+- "บ้าน", "ออฟฟิศ", "ที่ทำงาน" → ใช้ที่อยู่ที่ตรงกับ label นั้น
+- ลูกค้าพิมพ์ที่อยู่ใหม่ → ใช้ที่อยู่ใหม่ที่ลูกค้าพิมพ์`;
         
         aiMessages.push({ role: "system", content: savedAddressInstruction });
-        console.log(`[LINE] Added saved addresses context: ${customerContext.savedAddresses.length} addresses`);
+        console.log(`[LINE] Added MANDATORY saved addresses instruction: ${customerContext.savedAddresses.length} addresses`);
       }
       
       // (productListPattern and isNewProductList already defined above at line 2062-2063)
