@@ -61,11 +61,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Order, OrderItem } from '@/types';
 import { PaymentSlipSection } from '@/components/admin/PaymentSlipSection';
 
-type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+type OrderStatus = 'pending' | 'confirmed' | 'payment_confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
 const statusOptions: { value: OrderStatus; label: string; color: string }[] = [
   { value: 'pending', label: 'รอดำเนินการ', color: 'bg-yellow-500' },
   { value: 'confirmed', label: 'ยืนยันแล้ว', color: 'bg-blue-500' },
+  { value: 'payment_confirmed', label: 'ชำระเงินแล้ว', color: 'bg-emerald-500' },
   { value: 'shipped', label: 'จัดส่งแล้ว', color: 'bg-purple-500' },
   { value: 'delivered', label: 'ส่งสำเร็จ', color: 'bg-green-500' },
   { value: 'cancelled', label: 'ยกเลิก', color: 'bg-red-500' },
@@ -97,6 +98,7 @@ export default function AdminOrders() {
     notes: '',
   });
   const [sendNotificationOnSave, setSendNotificationOnSave] = useState(true);
+  const [sendReceiptOnPaymentConfirm, setSendReceiptOnPaymentConfirm] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
@@ -356,11 +358,12 @@ export default function AdminOrders() {
     const variants: Record<OrderStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       pending: 'secondary',
       confirmed: 'default',
+      payment_confirmed: 'default',
       shipped: 'outline',
       delivered: 'default',
       cancelled: 'destructive'
     };
-    return <Badge variant={variants[status]}>{option?.label || status}</Badge>;
+    return <Badge variant={variants[status] || 'default'}>{option?.label || status}</Badge>;
   };
 
   const getPlatformIcon = (platform: Order['platform']) => {
