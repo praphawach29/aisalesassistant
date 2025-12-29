@@ -141,6 +141,31 @@ const ORDER_STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   cancelled: { label: 'ยกเลิก', emoji: '❌' }
 };
 
+// Create receipt message for webchat
+function createWebChatReceipt(orderNumber: string, orderData: OrderData): string {
+  const itemsList = orderData.items.map(item => 
+    `   • ${item.name} x${item.quantity} = ฿${(item.price * item.quantity).toLocaleString()}`
+  ).join('\n');
+
+  const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  
+  let receipt = `\n\n🧾 **ใบเสร็จออเดอร์**\n`;
+  receipt += `━━━━━━━━━━━━━━━━━━\n`;
+  receipt += `📋 เลขที่: **${orderNumber}**\n`;
+  receipt += `👤 ชื่อ: ${orderData.customerName}\n`;
+  receipt += `📞 เบอร์: ${orderData.customerPhone}\n`;
+  receipt += `📍 ที่อยู่: ${orderData.customerAddress}\n`;
+  receipt += `━━━━━━━━━━━━━━━━━━\n`;
+  receipt += `📦 **รายการสินค้า:**\n`;
+  receipt += itemsList + '\n';
+  receipt += `━━━━━━━━━━━━━━━━━━\n`;
+  receipt += `💰 **ยอดรวม: ฿${subtotal.toLocaleString()}**\n`;
+  receipt += `━━━━━━━━━━━━━━━━━━\n`;
+  receipt += `\n💳 กรุณาโอนเงินและกดปุ่ม 📎 เพื่อแนบสลิปโอนเงินค่ะ`;
+  
+  return receipt;
+}
+
 export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -651,8 +676,9 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
         const orderResult = await createOrder(orderData);
         
         if (orderResult) {
-          // Append order number to the response
-          const orderConfirmation = `\n\n🎉 **สร้างออเดอร์สำเร็จ!**\n📋 เลขที่ออเดอร์: **${orderResult.orderNumber}**\n\n💳 กรุณาโอนเงินและกดปุ่ม 📎 เพื่อแนบสลิปโอนเงินค่ะ`;
+          // Create receipt with order details
+          const receiptMessage = createWebChatReceipt(orderResult.orderNumber, orderData);
+          const orderConfirmation = `\n\n🎉 **สร้างออเดอร์สำเร็จ!**${receiptMessage}`;
           assistantContent = orderCleanText + orderConfirmation;
         } else {
           assistantContent = orderCleanText + '\n\n❌ ขออภัยค่ะ เกิดข้อผิดพลาดในการสร้างออเดอร์ กรุณาลองใหม่อีกครั้งนะคะ';
