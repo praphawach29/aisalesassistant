@@ -80,18 +80,34 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
     fetchAISettings();
   }, []);
 
-  // Fetch products for carousel display
+  // Fetch products for carousel display with sales counts
   useEffect(() => {
     const fetchProducts = async () => {
-      const { data } = await supabase
+      // Fetch products
+      const { data: productsData } = await supabase
         .from('products')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       
-      if (data) {
-        // Map database products to Product type with proper variants typing
-        const mappedProducts: Product[] = data.map(p => ({
+      // Fetch sales counts from order_items
+      const { data: salesData } = await supabase
+        .from('order_items')
+        .select('product_id, quantity');
+      
+      // Calculate sales count per product
+      const salesCountMap: Record<string, number> = {};
+      if (salesData) {
+        salesData.forEach(item => {
+          if (item.product_id) {
+            salesCountMap[item.product_id] = (salesCountMap[item.product_id] || 0) + item.quantity;
+          }
+        });
+      }
+      
+      if (productsData) {
+        // Map database products to Product type with proper variants typing and sales count
+        const mappedProducts: Product[] = productsData.map(p => ({
           id: p.id,
           name: p.name,
           description: p.description,
@@ -101,7 +117,8 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
           category: p.category,
           stock: p.stock,
           variants: Array.isArray(p.variants) ? p.variants as unknown as Product['variants'] : null,
-          created_at: p.created_at
+          created_at: p.created_at,
+          sales_count: salesCountMap[p.id] || 0
         }));
         setProducts(mappedProducts);
       }

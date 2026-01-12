@@ -22,6 +22,7 @@ export interface Product {
   stock: number;
   variants?: ProductVariant[] | null;
   created_at?: string;
+  sales_count?: number;
 }
 
 interface ProductCarouselProps {
