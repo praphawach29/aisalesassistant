@@ -30,6 +30,28 @@ const hasProductMarker = (content: string): boolean => {
          content.includes('รายการสินค้า');
 };
 
+// Helper function to filter products based on marker type
+const filterProductsByMarker = (content: string, products: Product[]): Product[] => {
+  // Filter for promotions - only products with promotion_price
+  if (content.includes('[SHOW_PROMOTIONS]')) {
+    return products.filter(p => p.promotion_price !== null && p.promotion_price > 0);
+  }
+  
+  // Filter for new arrivals - products added in the last 7 days
+  if (content.includes('[SHOW_NEW_ARRIVALS]')) {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return products.filter(p => {
+      if (!p.created_at) return false;
+      const productDate = new Date(p.created_at);
+      return productDate >= sevenDaysAgo;
+    });
+  }
+  
+  // Default - return all products
+  return products;
+};
+
 // Helper function to extract single product reference from message
 const extractProductReference = (content: string, products: Product[]): Product | null => {
   // Pattern: [PRODUCT:product_name] or [SHOW_PRODUCT:product_name]
@@ -157,7 +179,8 @@ function RenderContent({ content }: { content: string }) {
 
 export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }: ChatBubbleProps) {
   const isUser = message.role === 'user';
-  const showCarousel = !isUser && products && products.length > 0 && hasProductMarker(message.content);
+  const filteredProducts = products ? filterProductsByMarker(message.content, products) : [];
+  const showCarousel = !isUser && filteredProducts.length > 0 && hasProductMarker(message.content);
   const singleProduct = !isUser && products ? extractProductReference(message.content, products) : null;
   
   const displayContent = cleanContent(message.content);
@@ -240,7 +263,7 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
         {/* Product Carousel */}
         {showCarousel && !singleProduct && (
           <ProductCarousel 
-            products={products} 
+            products={filteredProducts} 
             onSelectProduct={onSelectProduct}
           />
         )}
