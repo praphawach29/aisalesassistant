@@ -25,6 +25,7 @@ interface ChatBubbleProps {
 const hasProductMarker = (content: string): boolean => {
   return content.includes('[SHOW_PRODUCTS]') || 
          content.includes('[SHOW_PROMOTIONS]') ||
+         content.includes('[SHOW_NEW_ARRIVALS]') ||
          content.includes('สินค้าที่แนะนำ') ||
          content.includes('รายการสินค้า');
 };
@@ -58,6 +59,7 @@ const cleanContent = (content: string): string => {
   return content
     .replace(/\[SHOW_PRODUCTS?\]/gi, '')
     .replace(/\[SHOW_PROMOTIONS\]/gi, '')
+    .replace(/\[SHOW_NEW_ARRIVALS\]/gi, '')
     .replace(/\[(?:SHOW_)?PRODUCT:[^\]]+\]/gi, '')
     .trim();
 };
