@@ -27,6 +27,7 @@ const hasProductMarker = (content: string): boolean => {
          content.includes('[SHOW_PROMOTIONS]') ||
          content.includes('[SHOW_NEW_ARRIVALS]') ||
          content.includes('[SHOW_BESTSELLERS]') ||
+         content.includes('[SHOW_LOW_STOCK]') ||
          content.includes('สินค้าที่แนะนำ') ||
          content.includes('รายการสินค้า');
 };
@@ -55,6 +56,13 @@ const filterProductsByMarker = (content: string, products: Product[]): Product[]
       .filter(p => (p.sales_count ?? 0) > 0)
       .sort((a, b) => (b.sales_count ?? 0) - (a.sales_count ?? 0))
       .slice(0, 10); // Top 10 bestsellers
+  }
+  
+  // Filter for low stock - products with stock less than 10
+  if (content.includes('[SHOW_LOW_STOCK]')) {
+    return products
+      .filter(p => p.stock < 10 && p.stock > 0)
+      .sort((a, b) => a.stock - b.stock); // Sort by lowest stock first
   }
   
   // Default - return all products
@@ -92,6 +100,7 @@ const cleanContent = (content: string): string => {
     .replace(/\[SHOW_PROMOTIONS\]/gi, '')
     .replace(/\[SHOW_NEW_ARRIVALS\]/gi, '')
     .replace(/\[SHOW_BESTSELLERS\]/gi, '')
+    .replace(/\[SHOW_LOW_STOCK\]/gi, '')
     .replace(/\[(?:SHOW_)?PRODUCT:[^\]]+\]/gi, '')
     .trim();
 };
