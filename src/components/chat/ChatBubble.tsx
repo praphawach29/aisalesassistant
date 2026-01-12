@@ -26,6 +26,7 @@ const hasProductMarker = (content: string): boolean => {
   return content.includes('[SHOW_PRODUCTS]') || 
          content.includes('[SHOW_PROMOTIONS]') ||
          content.includes('[SHOW_NEW_ARRIVALS]') ||
+         content.includes('[SHOW_BESTSELLERS]') ||
          content.includes('สินค้าที่แนะนำ') ||
          content.includes('รายการสินค้า');
 };
@@ -46,6 +47,14 @@ const filterProductsByMarker = (content: string, products: Product[]): Product[]
       const productDate = new Date(p.created_at);
       return productDate >= sevenDaysAgo;
     });
+  }
+  
+  // Filter for bestsellers - products with sales, sorted by sales_count
+  if (content.includes('[SHOW_BESTSELLERS]')) {
+    return products
+      .filter(p => (p.sales_count ?? 0) > 0)
+      .sort((a, b) => (b.sales_count ?? 0) - (a.sales_count ?? 0))
+      .slice(0, 10); // Top 10 bestsellers
   }
   
   // Default - return all products
@@ -82,6 +91,7 @@ const cleanContent = (content: string): string => {
     .replace(/\[SHOW_PRODUCTS?\]/gi, '')
     .replace(/\[SHOW_PROMOTIONS\]/gi, '')
     .replace(/\[SHOW_NEW_ARRIVALS\]/gi, '')
+    .replace(/\[SHOW_BESTSELLERS\]/gi, '')
     .replace(/\[(?:SHOW_)?PRODUCT:[^\]]+\]/gi, '')
     .trim();
 };
