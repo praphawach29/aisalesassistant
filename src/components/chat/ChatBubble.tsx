@@ -24,6 +24,7 @@ interface ChatBubbleProps {
 // Helper function to detect if message contains product list marker
 const hasProductMarker = (content: string): boolean => {
   return content.includes('[SHOW_PRODUCTS]') || 
+         content.includes('[SHOW_PROMOTIONS]') ||
          content.includes('สินค้าที่แนะนำ') ||
          content.includes('รายการสินค้า');
 };
@@ -56,6 +57,7 @@ const extractCopyableValues = (content: string): { text: string; value: string }
 const cleanContent = (content: string): string => {
   return content
     .replace(/\[SHOW_PRODUCTS?\]/gi, '')
+    .replace(/\[SHOW_PROMOTIONS\]/gi, '')
     .replace(/\[(?:SHOW_)?PRODUCT:[^\]]+\]/gi, '')
     .trim();
 };
