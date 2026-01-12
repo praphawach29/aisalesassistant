@@ -282,7 +282,7 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
                     botAvatarUrl={aiSettings?.avatar_url}
                   />
                 ))}
-                {isLoading && <ThinkingIndicator />}
+                {isLoading && <ThinkingIndicator botAvatarUrl={aiSettings?.avatar_url} />}
               </>
             )}
           </div>

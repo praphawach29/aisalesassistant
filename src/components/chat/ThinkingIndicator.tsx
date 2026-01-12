@@ -1,12 +1,21 @@
 import { Bot } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-export function ThinkingIndicator() {
+interface ThinkingIndicatorProps {
+  botAvatarUrl?: string | null;
+}
+
+export function ThinkingIndicator({ botAvatarUrl }: ThinkingIndicatorProps) {
   return (
     <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md">
-        <Bot className="w-4 h-4" />
-      </div>
+      <Avatar className="flex-shrink-0 w-8 h-8 shadow-md">
+        {botAvatarUrl ? (
+          <AvatarImage src={botAvatarUrl} alt="Bot" className="object-cover" />
+        ) : null}
+        <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
+          <Bot className="w-4 h-4" />
+        </AvatarFallback>
+      </Avatar>
       
       <div className="flex flex-col gap-2 max-w-[80%]">
         <div className="rounded-2xl px-5 py-3.5 bg-gradient-to-r from-muted to-muted/80 rounded-bl-md shadow-sm border border-border/50">
