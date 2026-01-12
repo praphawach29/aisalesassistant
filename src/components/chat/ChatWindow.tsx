@@ -100,7 +100,8 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
           image_url: p.image_url,
           category: p.category,
           stock: p.stock,
-          variants: Array.isArray(p.variants) ? p.variants as unknown as Product['variants'] : null
+          variants: Array.isArray(p.variants) ? p.variants as unknown as Product['variants'] : null,
+          created_at: p.created_at
         }));
         setProducts(mappedProducts);
       }

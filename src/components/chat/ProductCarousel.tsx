@@ -21,6 +21,7 @@ export interface Product {
   category: string | null;
   stock: number;
   variants?: ProductVariant[] | null;
+  created_at?: string;
 }
 
 interface ProductCarouselProps {
