@@ -253,12 +253,12 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
         )}
 
         <div className={cn(
-          'rounded-2xl px-4 py-3 overflow-hidden',
+          'rounded-2xl px-4 py-3',
           isUser
             ? 'bg-primary text-primary-foreground rounded-br-md'
             : 'bg-muted text-foreground rounded-bl-md'
         )}>
-          <div className="text-sm whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">
+          <div className="text-sm whitespace-pre-wrap leading-relaxed break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
             {displayContent ? (
               <RenderContent content={displayContent} />
             ) : (
