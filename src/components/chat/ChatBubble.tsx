@@ -209,7 +209,7 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
 
   return (
     <div className={cn(
-      'flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300',
+      'flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full',
       isUser ? 'flex-row-reverse' : 'flex-row'
     )}>
       {isUser ? (
@@ -223,13 +223,13 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
         </Avatar>
       )}
       
-      <div className="flex flex-col gap-2 overflow-hidden" style={{ maxWidth: 'calc(100% - 44px)' }}>
+      <div className="flex flex-col gap-2 min-w-0 flex-1 max-w-[85%]">
         {/* Image Preview for payment slips */}
         {message.image_url && (
           <Dialog>
             <DialogTrigger asChild>
               <div className={cn(
-                "relative cursor-pointer group rounded-lg overflow-hidden",
+                "relative cursor-pointer group rounded-lg overflow-hidden w-fit",
                 isUser ? "self-end" : "self-start"
               )}>
                 <img 
@@ -254,12 +254,12 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
 
         {displayContent && (
           <div className={cn(
-            'rounded-2xl px-4 py-3 w-fit max-w-full',
+            'rounded-2xl px-4 py-3 w-fit max-w-full overflow-hidden',
             isUser
-              ? 'bg-primary text-primary-foreground rounded-br-md'
-              : 'bg-muted text-foreground rounded-bl-md'
+              ? 'bg-primary text-primary-foreground rounded-br-md self-end'
+              : 'bg-muted text-foreground rounded-bl-md self-start'
           )}>
-            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
+            <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
               <RenderContent content={displayContent} />
             </p>
           </div>
