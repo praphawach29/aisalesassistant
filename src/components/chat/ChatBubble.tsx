@@ -223,7 +223,7 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
         </Avatar>
       )}
       
-      <div className="flex flex-col gap-2 min-w-0 flex-1 max-w-[85%]">
+      <div className="flex flex-col gap-2" style={{ maxWidth: 'calc(100% - 44px)' }}>
         {/* Image Preview for payment slips */}
         {message.image_url && (
           <Dialog>
@@ -254,12 +254,12 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
 
         {displayContent && (
           <div className={cn(
-            'rounded-2xl px-4 py-3 w-fit max-w-full overflow-hidden',
+            'rounded-2xl px-4 py-3 inline-block',
             isUser
-              ? 'bg-primary text-primary-foreground rounded-br-md self-end'
-              : 'bg-muted text-foreground rounded-bl-md self-start'
-          )}>
-            <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+              ? 'bg-primary text-primary-foreground rounded-br-md'
+              : 'bg-muted text-foreground rounded-bl-md'
+          )} style={{ maxWidth: '100%', wordBreak: 'break-word' }}>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed m-0">
               <RenderContent content={displayContent} />
             </p>
           </div>
