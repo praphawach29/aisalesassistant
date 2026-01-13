@@ -254,11 +254,11 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
 
         {displayContent && (
           <div className={cn(
-            'rounded-2xl px-4 py-3 inline-block',
+            'rounded-2xl px-4 py-3 w-fit',
             isUser
               ? 'bg-primary text-primary-foreground rounded-br-md'
               : 'bg-muted text-foreground rounded-bl-md'
-          )} style={{ maxWidth: '100%', wordBreak: 'break-word' }}>
+          )} style={{ maxWidth: 'min(85%, 280px)', wordBreak: 'break-word' }}>
             <p className="text-sm whitespace-pre-wrap leading-relaxed m-0">
               <RenderContent content={displayContent} />
             </p>
