@@ -252,24 +252,18 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
           </Dialog>
         )}
 
-        <div className={cn(
-          'rounded-2xl px-4 py-3',
-          isUser
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-muted text-foreground rounded-bl-md'
-        )}>
-          <div className="text-sm whitespace-pre-wrap leading-relaxed break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-            {displayContent ? (
+        {displayContent && (
+          <div className={cn(
+            'rounded-2xl px-4 py-3 max-w-full overflow-hidden',
+            isUser
+              ? 'bg-primary text-primary-foreground rounded-br-md'
+              : 'bg-muted text-foreground rounded-bl-md'
+          )}>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed break-all">
               <RenderContent content={displayContent} />
-            ) : (
-              <span className="inline-flex gap-1">
-                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </span>
-            )}
+            </p>
           </div>
-        </div>
+        )}
         
         {/* Single Product Card */}
         {singleProduct && (
