@@ -1,23 +1,20 @@
-import { Bot } from 'lucide-react';
+import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
 
 interface ThinkingIndicatorProps {
   botAvatarUrl?: string | null;
 }
 
 export function ThinkingIndicator({ botAvatarUrl }: ThinkingIndicatorProps) {
+  // Use provided avatar URL or fallback to default female avatar (same as ChatBubble)
+  const botAvatar = botAvatarUrl || avatarWoman1;
+
   return (
     <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {botAvatarUrl ? (
-        <img 
-          src={botAvatarUrl} 
-          alt="Bot" 
-          className="flex-shrink-0 w-8 h-8 rounded-full object-cover shadow-md"
-        />
-      ) : (
-        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md">
-          <Bot className="w-4 h-4" />
-        </div>
-      )}
+      <img 
+        src={botAvatar} 
+        alt="Bot" 
+        className="flex-shrink-0 w-8 h-8 rounded-full object-cover shadow-md"
+      />
       
       <div className="flex flex-col gap-2 max-w-[80%]">
         <div className="rounded-2xl px-5 py-3.5 bg-gradient-to-r from-muted to-muted/80 rounded-bl-md shadow-sm border border-border/50">
