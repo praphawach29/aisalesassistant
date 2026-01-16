@@ -9,12 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCacheInvalidation } from '@/hooks/useCacheInvalidation';
-import { Bot, Save, FlaskConical, Plus, Settings2 } from 'lucide-react';
+import { Bot, Save, FlaskConical, Plus, Settings2, Store } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 interface AITemplate {
   id: string;
@@ -46,6 +48,13 @@ interface AISettings {
   custom_rules: string;
   avatar_url: string | null;
   ai_provider: string;
+  default_store_type: string;
+  use_auto_detect: boolean;
+}
+
+interface StoreType {
+  value: string;
+  label: string;
 }
 
 const defaultSettings: AISettings = {
@@ -60,7 +69,17 @@ const defaultSettings: AISettings = {
   custom_rules: '',
   avatar_url: null,
   ai_provider: 'lovable',
+  default_store_type: 'auto',
+  use_auto_detect: true,
 };
+
+const defaultStoreTypes: StoreType[] = [
+  { value: 'auto', label: '🔄 อัตโนมัติ (Auto-detect)' },
+  { value: 'general', label: '🏪 ร้านทั่วไป' },
+  { value: 'technology', label: '💻 เทคโนโลยี / IT' },
+  { value: 'food', label: '🍽️ อาหาร / เครื่องดื่ม' },
+  { value: 'beauty', label: '💄 ความงาม / เครื่องสำอาง' },
+];
 
 export default function AdminAISettings() {
   const [templates, setTemplates] = useState<AITemplate[]>([]);
@@ -72,6 +91,7 @@ export default function AdminAISettings() {
   const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateDescription, setNewTemplateDescription] = useState('');
+  const [storeTypes, setStoreTypes] = useState<StoreType[]>(defaultStoreTypes);
   const { toast } = useToast();
   const { invalidateCache } = useCacheInvalidation();
 
@@ -90,6 +110,31 @@ export default function AdminAISettings() {
 
       if (templatesError) throw templatesError;
       setTemplates(templatesData || []);
+
+      // Fetch unique store types from category_expertise
+      const { data: expertiseData } = await supabase
+        .from('category_expertise')
+        .select('store_type')
+        .eq('is_active', true);
+
+      if (expertiseData) {
+        const uniqueStoreTypes = [...new Set(expertiseData.map(e => e.store_type).filter(Boolean))];
+        const storeTypeLabels: Record<string, string> = {
+          'general': '🏪 ร้านทั่วไป',
+          'technology': '💻 เทคโนโลยี / IT',
+          'food': '🍽️ อาหาร / เครื่องดื่ม',
+          'beauty': '💄 ความงาม / เครื่องสำอาง',
+        };
+        
+        const dynamicStoreTypes: StoreType[] = [
+          { value: 'auto', label: '🔄 อัตโนมัติ (Auto-detect)' },
+          ...uniqueStoreTypes.map(type => ({
+            value: type as string,
+            label: storeTypeLabels[type as string] || `📦 ${type}`,
+          })),
+        ];
+        setStoreTypes(dynamicStoreTypes);
+      }
 
       // Fetch current active settings
       const { data: settingsData, error: settingsError } = await supabase
@@ -114,7 +159,9 @@ export default function AdminAISettings() {
           closing_message: settingsData.closing_message || '',
           custom_rules: settingsData.custom_rules || '',
           avatar_url: settingsData.avatar_url || null,
-          ai_provider: (settingsData as any).ai_provider || 'lovable',
+          ai_provider: settingsData.ai_provider || 'lovable',
+          default_store_type: settingsData.default_store_type || 'auto',
+          use_auto_detect: settingsData.use_auto_detect ?? true,
         });
         setSelectedTemplateId(settingsData.template_id);
       }
@@ -173,8 +220,10 @@ export default function AdminAISettings() {
             custom_rules: settings.custom_rules,
             avatar_url: settings.avatar_url,
             ai_provider: settings.ai_provider,
+            default_store_type: settings.default_store_type,
+            use_auto_detect: settings.use_auto_detect,
             is_active: true,
-          } as any)
+          })
           .eq('id', settings.id);
 
         if (error) throw error;
@@ -194,8 +243,10 @@ export default function AdminAISettings() {
             custom_rules: settings.custom_rules,
             avatar_url: settings.avatar_url,
             ai_provider: settings.ai_provider,
+            default_store_type: settings.default_store_type,
+            use_auto_detect: settings.use_auto_detect,
             is_active: true,
-          } as any);
+          });
 
         if (error) throw error;
       }
@@ -367,6 +418,65 @@ export default function AdminAISettings() {
             </Button>
           </div>
         </div>
+
+        {/* Store Type Selection */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Store className="w-5 h-5 text-primary" />
+              <CardTitle className="text-base sm:text-lg">ประเภทร้านค้า</CardTitle>
+            </div>
+            <CardDescription className="text-xs sm:text-sm">
+              เลือกประเภทร้านค้าเพื่อให้ AI มีความเชี่ยวชาญเฉพาะทาง หรือใช้โหมดอัตโนมัติ
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">โหมดตรวจจับอัตโนมัติ</Label>
+                  <p className="text-xs text-muted-foreground">
+                    AI จะวิเคราะห์จากข้อความลูกค้าและปรับความเชี่ยวชาญตามหมวดหมู่สินค้า
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.use_auto_detect}
+                  onCheckedChange={(checked) => {
+                    setSettings({ 
+                      ...settings, 
+                      use_auto_detect: checked,
+                      default_store_type: checked ? 'auto' : settings.default_store_type === 'auto' ? 'general' : settings.default_store_type
+                    });
+                  }}
+                />
+              </div>
+              
+              {!settings.use_auto_detect && (
+                <div className="space-y-2">
+                  <Label>เลือกประเภทร้านค้า</Label>
+                  <Select
+                    value={settings.default_store_type}
+                    onValueChange={(value) => setSettings({ ...settings, default_store_type: value })}
+                  >
+                    <SelectTrigger className="w-full bg-background">
+                      <SelectValue placeholder="เลือกประเภทร้านค้า" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover">
+                      {storeTypes.filter(st => st.value !== 'auto').map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    AI จะใช้ความเชี่ยวชาญของประเภทร้านที่เลือกตลอดเวลา
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs for different settings */}
         <Tabs defaultValue="personality" className="space-y-6">
