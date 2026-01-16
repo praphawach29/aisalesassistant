@@ -29,7 +29,8 @@ import {
   BookOpen,
   CreditCard,
   Link2,
-  GraduationCap
+  GraduationCap,
+  Database
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -90,6 +91,7 @@ const menuCategories: MenuCategory[] = [
       { path: '/admin/embed-code', label: 'Embed Code', icon: Code },
       { path: '/admin/web-scraping', label: 'Web Scraping', icon: Globe },
       { path: '/admin/integrations', label: 'Integration', icon: Plug },
+      { path: '/admin/backup-reset', label: 'สำรอง/รีเซ็ต', icon: Database },
       { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
     ]
   },
