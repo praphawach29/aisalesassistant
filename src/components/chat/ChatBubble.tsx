@@ -217,10 +217,11 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
           <User className="w-4 h-4" />
         </div>
       ) : (
-        <Avatar className="flex-shrink-0 w-8 h-8">
-          <AvatarImage src={botAvatar} alt="Bot Avatar" />
-          <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">AI</AvatarFallback>
-        </Avatar>
+        <img 
+          src={botAvatar} 
+          alt="Bot" 
+          className="flex-shrink-0 w-8 h-8 rounded-full object-cover shadow-md"
+        />
       )}
       
       <div className="flex flex-col gap-2" style={{ maxWidth: 'calc(100% - 44px)' }}>
