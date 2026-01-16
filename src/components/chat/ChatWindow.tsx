@@ -194,8 +194,8 @@ export function ChatWindow({ welcomeMessage, logoUrl, quickActions }: ChatWindow
       {/* Header */}
       <div className="flex items-center justify-between p-3 sm:p-4 border-b bg-card">
         <div className="flex items-center gap-2 sm:gap-3">
-          {logoUrl ? (
-            <img src={logoUrl} alt="" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" />
+          {(logoUrl || aiSettings?.avatar_url) ? (
+            <img src={logoUrl || aiSettings?.avatar_url || ''} alt="" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover" />
           ) : (
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
               <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
