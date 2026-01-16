@@ -819,34 +819,44 @@ serve(async (req) => {
     console.log("Is first message:", isFirstMessage);
 
     // Determine which provider to use
-    // Priority: 1. AI settings provider, 2. Default provider (OpenAI if key exists, else Lovable)
-    let provider = aiSettings.ai_provider || DEFAULT_PROVIDER;
-    let providerConfig = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS[DEFAULT_PROVIDER];
+    // Priority: 1. OpenAI via env var (if available), 2. AI settings provider, 3. Lovable AI
+    let provider = aiSettings.ai_provider || 'lovable';
+    let apiKey: string | undefined;
     
-    let apiKey = DEFAULT_API_KEY;
-    
-    // If using external provider (not via env var), fetch the API key from database
-    if (provider !== 'lovable' && provider !== DEFAULT_PROVIDER) {
-      const { data: keyData } = await supabase
-        .from('ai_provider_keys')
-        .select('encrypted_api_key')
-        .eq('provider', provider)
-        .eq('is_active', true)
-        .maybeSingle();
-      
-      if (keyData?.encrypted_api_key) {
-        apiKey = await decrypt(keyData.encrypted_api_key);
+    // If OpenAI API key is set in env, always use OpenAI as primary
+    if (OPENAI_API_KEY) {
+      // OpenAI is available via env var - use it as default
+      if (provider === 'lovable' || provider === 'openai') {
+        provider = 'openai';
+        apiKey = OPENAI_API_KEY;
       } else {
-        // Fallback to default provider if no key found
-        console.log(`No API key found for ${provider}, falling back to ${DEFAULT_PROVIDER}`);
-        provider = DEFAULT_PROVIDER;
-        providerConfig = PROVIDER_CONFIGS[DEFAULT_PROVIDER];
-        apiKey = DEFAULT_API_KEY;
+        // User selected a different provider, try to fetch its key from database
+        const { data: keyData } = await supabase
+          .from('ai_provider_keys')
+          .select('encrypted_api_key')
+          .eq('provider', provider)
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (keyData?.encrypted_api_key) {
+          apiKey = await decrypt(keyData.encrypted_api_key);
+        } else {
+          // Fallback to OpenAI if no key found for selected provider
+          console.log(`No API key found for ${provider}, falling back to OpenAI`);
+          provider = 'openai';
+          apiKey = OPENAI_API_KEY;
+        }
       }
-    } else if (provider === 'openai' && OPENAI_API_KEY) {
-      // Use env var OpenAI key directly
-      apiKey = OPENAI_API_KEY;
+    } else if (LOVABLE_API_KEY) {
+      // No OpenAI key, use Lovable AI
+      provider = 'lovable';
+      apiKey = LOVABLE_API_KEY;
+    } else {
+      // No API keys available
+      throw new Error('No AI provider API key configured');
     }
+    
+    let providerConfig = PROVIDER_CONFIGS[provider];
 
     console.log(`Calling ${provider} AI...`);
     
