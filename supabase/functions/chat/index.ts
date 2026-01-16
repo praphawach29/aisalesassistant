@@ -7,9 +7,14 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY") || "";
+
+// Default provider: Use OpenAI if API key is available, otherwise use Lovable AI
+const DEFAULT_PROVIDER = OPENAI_API_KEY ? "openai" : "lovable";
+const DEFAULT_API_KEY = OPENAI_API_KEY || LOVABLE_API_KEY;
 
 // ============= In-Memory Cache with TTL and Invalidation =============
 interface CacheEntry<T> {
@@ -814,13 +819,14 @@ serve(async (req) => {
     console.log("Is first message:", isFirstMessage);
 
     // Determine which provider to use
-    const provider = aiSettings.ai_provider || 'lovable';
-    const providerConfig = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.lovable;
+    // Priority: 1. AI settings provider, 2. Default provider (OpenAI if key exists, else Lovable)
+    let provider = aiSettings.ai_provider || DEFAULT_PROVIDER;
+    let providerConfig = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS[DEFAULT_PROVIDER];
     
-    let apiKey = LOVABLE_API_KEY;
+    let apiKey = DEFAULT_API_KEY;
     
-    // If using external provider, fetch the API key
-    if (provider !== 'lovable') {
+    // If using external provider (not via env var), fetch the API key from database
+    if (provider !== 'lovable' && provider !== DEFAULT_PROVIDER) {
       const { data: keyData } = await supabase
         .from('ai_provider_keys')
         .select('encrypted_api_key')
@@ -831,9 +837,15 @@ serve(async (req) => {
       if (keyData?.encrypted_api_key) {
         apiKey = await decrypt(keyData.encrypted_api_key);
       } else {
-        // Fallback to lovable if no key found
-        console.log(`No API key found for ${provider}, falling back to Lovable AI`);
+        // Fallback to default provider if no key found
+        console.log(`No API key found for ${provider}, falling back to ${DEFAULT_PROVIDER}`);
+        provider = DEFAULT_PROVIDER;
+        providerConfig = PROVIDER_CONFIGS[DEFAULT_PROVIDER];
+        apiKey = DEFAULT_API_KEY;
       }
+    } else if (provider === 'openai' && OPENAI_API_KEY) {
+      // Use env var OpenAI key directly
+      apiKey = OPENAI_API_KEY;
     }
 
     console.log(`Calling ${provider} AI...`);
