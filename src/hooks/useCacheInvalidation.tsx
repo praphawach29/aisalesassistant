@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 // Cache invalidation types
-export type CacheType = 'products' | 'faqs' | 'settings' | 'ai_settings' | 'all';
+export type CacheType = 'products' | 'faqs' | 'settings' | 'ai_settings' | 'category_expertise' | 'all';
 
 /**
  * Hook to invalidate edge function caches after admin updates
