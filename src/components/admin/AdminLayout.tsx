@@ -37,26 +37,62 @@ interface AdminLayoutProps {
   title: string;
 }
 
-const menuItems = [
-  { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin/orders', label: 'ออเดอร์', icon: ShoppingCart },
-  { path: '/admin/payment-slips', label: 'สลิปโอนเงิน', icon: CreditCard },
-  { path: '/admin/products', label: 'สินค้า', icon: Package },
-  { path: '/admin/related-products', label: 'สินค้าที่เกี่ยวข้อง', icon: Link2 },
-  { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
-  { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
-  { path: '/admin/notifications', label: 'แจ้งเตือน', icon: Bell },
-  { path: '/admin/templates', label: 'เทมเพลต', icon: MessageSquareText },
-  { path: '/admin/ai-settings', label: 'ตั้งค่า AI', icon: Bot },
-  { path: '/admin/category-expertise', label: 'ความเชี่ยวชาญ', icon: GraduationCap },
-  { path: '/admin/coupons', label: 'คูปอง', icon: Ticket },
-  { path: '/admin/addresses', label: 'ที่อยู่ลูกค้า', icon: MapPin },
-  { path: '/admin/broadcast', label: 'Broadcast', icon: Radio },
-  { path: '/admin/embed-code', label: 'Embed Code', icon: Code },
-  { path: '/admin/web-scraping', label: 'Web Scraping', icon: Globe },
-  { path: '/admin/knowledge-base', label: 'ฐานความรู้', icon: BookOpen },
-  { path: '/admin/integrations', label: 'Integration', icon: Plug },
-  { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
+interface MenuItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface MenuCategory {
+  category: string;
+  items: MenuItem[];
+}
+
+const menuCategories: MenuCategory[] = [
+  {
+    category: 'ภาพรวม',
+    items: [
+      { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    ]
+  },
+  {
+    category: 'การขาย',
+    items: [
+      { path: '/admin/orders', label: 'ออเดอร์', icon: ShoppingCart },
+      { path: '/admin/payment-slips', label: 'สลิปโอนเงิน', icon: CreditCard },
+      { path: '/admin/products', label: 'สินค้า', icon: Package },
+      { path: '/admin/related-products', label: 'สินค้าที่เกี่ยวข้อง', icon: Link2 },
+      { path: '/admin/coupons', label: 'คูปอง', icon: Ticket },
+    ]
+  },
+  {
+    category: 'ลูกค้า',
+    items: [
+      { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
+      { path: '/admin/addresses', label: 'ที่อยู่ลูกค้า', icon: MapPin },
+      { path: '/admin/broadcast', label: 'Broadcast', icon: Radio },
+    ]
+  },
+  {
+    category: 'AI & ความรู้',
+    items: [
+      { path: '/admin/ai-settings', label: 'ตั้งค่า AI', icon: Bot },
+      { path: '/admin/category-expertise', label: 'ความเชี่ยวชาญ', icon: GraduationCap },
+      { path: '/admin/faqs', label: 'FAQ', icon: HelpCircle },
+      { path: '/admin/knowledge-base', label: 'ฐานความรู้', icon: BookOpen },
+      { path: '/admin/templates', label: 'เทมเพลต', icon: MessageSquareText },
+    ]
+  },
+  {
+    category: 'ระบบ',
+    items: [
+      { path: '/admin/notifications', label: 'แจ้งเตือน', icon: Bell },
+      { path: '/admin/embed-code', label: 'Embed Code', icon: Code },
+      { path: '/admin/web-scraping', label: 'Web Scraping', icon: Globe },
+      { path: '/admin/integrations', label: 'Integration', icon: Plug },
+      { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
+    ]
+  },
 ];
 
 export function AdminLayout({ children, title }: AdminLayoutProps) {
@@ -96,30 +132,49 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
 
       {/* Navigation */}
       <ScrollArea className="flex-1 py-4">
-        <nav className="space-y-1 px-2">
-          {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => isMobile && setIsMobileOpen(false)}
-              >
-                <div className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground",
-                  isCollapsed && !isMobile && "justify-center"
-                )}>
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  {(!isCollapsed || isMobile) && (
-                    <span className="font-medium">{item.label}</span>
-                  )}
+        <nav className="space-y-4 px-2">
+          {menuCategories.map((category) => (
+            <div key={category.category} className="space-y-1">
+              {/* Category Label */}
+              {(!isCollapsed || isMobile) && (
+                <div className="px-3 py-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {category.category}
+                  </span>
                 </div>
-              </Link>
-            );
-          })}
+              )}
+              {isCollapsed && !isMobile && (
+                <div className="flex justify-center py-1">
+                  <div className="w-6 h-px bg-border" />
+                </div>
+              )}
+              
+              {/* Menu Items */}
+              {category.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => isMobile && setIsMobileOpen(false)}
+                  >
+                    <div className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground",
+                      isCollapsed && !isMobile && "justify-center"
+                    )}>
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      {(!isCollapsed || isMobile) && (
+                        <span className="font-medium">{item.label}</span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
       </ScrollArea>
 
