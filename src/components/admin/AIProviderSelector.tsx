@@ -21,8 +21,22 @@ interface AIProvider {
 
 const AI_PROVIDERS: AIProvider[] = [
   {
+    id: 'openai',
+    name: 'ChatGPT (OpenAI)',
+    description: 'GPT-4o โมเดลอัจฉริยะจาก OpenAI - ตั้งค่าจากระบบแล้ว',
+    characteristics: [
+      'ฉลาดมาก เข้าใจบริบทได้ดีเยี่ยม',
+      'ตอบคำถามซับซ้อนได้ดี',
+      'รองรับหลายภาษา',
+      'เหมาะกับงานที่ต้องการคุณภาพสูง',
+    ],
+    icon: <MessageSquare className="w-5 h-5" />,
+    color: 'bg-gradient-to-r from-emerald-500 to-teal-500',
+    requiresApiKey: false, // Already configured via env
+  },
+  {
     id: 'lovable',
-    name: 'Lovable AI (แนะนำ)',
+    name: 'Lovable AI',
     description: 'AI เริ่มต้นที่ใช้งานได้ทันที ไม่ต้องใส่ API Key',
     characteristics: [
       'ใช้งานได้ทันที ไม่ต้องตั้งค่า',
@@ -35,17 +49,17 @@ const AI_PROVIDERS: AIProvider[] = [
     requiresApiKey: false,
   },
   {
-    id: 'openai',
-    name: 'ChatGPT (OpenAI)',
-    description: 'GPT-4o โมเดลอัจฉริยะจาก OpenAI',
+    id: 'gemini',
+    name: 'Google Gemini',
+    description: 'Gemini Pro จาก Google',
     characteristics: [
-      'ฉลาดมาก เข้าใจบริบทได้ดีเยี่ยม',
-      'ตอบคำถามซับซ้อนได้ดี',
-      'รองรับหลายภาษา',
-      'เหมาะกับงานที่ต้องการคุณภาพสูง',
+      'ตอบเร็ว ประสิทธิภาพสูง',
+      'เข้าใจบริบทการสนทนาดี',
+      'รองรับภาษาไทยได้ดี',
+      'เหมาะกับการใช้งานหลากหลาย',
     ],
-    icon: <MessageSquare className="w-5 h-5" />,
-    color: 'bg-gradient-to-r from-emerald-500 to-teal-500',
+    icon: <Zap className="w-5 h-5" />,
+    color: 'bg-gradient-to-r from-blue-500 to-cyan-500',
     requiresApiKey: true,
   },
   {
