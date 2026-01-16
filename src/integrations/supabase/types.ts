@@ -136,6 +136,7 @@ export type Database = {
           closing_message: string | null
           created_at: string
           custom_rules: string | null
+          default_store_type: string | null
           formality_level: number
           gender: string
           greeting_message: string | null
@@ -145,6 +146,7 @@ export type Database = {
           response_length: string
           template_id: string | null
           updated_at: string
+          use_auto_detect: boolean | null
           use_emoji: boolean
         }
         Insert: {
@@ -154,6 +156,7 @@ export type Database = {
           closing_message?: string | null
           created_at?: string
           custom_rules?: string | null
+          default_store_type?: string | null
           formality_level?: number
           gender?: string
           greeting_message?: string | null
@@ -163,6 +166,7 @@ export type Database = {
           response_length?: string
           template_id?: string | null
           updated_at?: string
+          use_auto_detect?: boolean | null
           use_emoji?: boolean
         }
         Update: {
@@ -172,6 +176,7 @@ export type Database = {
           closing_message?: string | null
           created_at?: string
           custom_rules?: string | null
+          default_store_type?: string | null
           formality_level?: number
           gender?: string
           greeting_message?: string | null
@@ -181,6 +186,7 @@ export type Database = {
           response_length?: string
           template_id?: string | null
           updated_at?: string
+          use_auto_detect?: boolean | null
           use_emoji?: boolean
         }
         Relationships: [
@@ -241,6 +247,51 @@ export type Database = {
           status?: string
           success_count?: number | null
           target_audience?: string
+        }
+        Relationships: []
+      }
+      category_expertise: {
+        Row: {
+          category: string
+          common_questions: string | null
+          created_at: string
+          expertise_name: string
+          expertise_prompt: string
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          selling_tips: string | null
+          store_type: string | null
+          terminology: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          common_questions?: string | null
+          created_at?: string
+          expertise_name: string
+          expertise_prompt: string
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          selling_tips?: string | null
+          store_type?: string | null
+          terminology?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          common_questions?: string | null
+          created_at?: string
+          expertise_name?: string
+          expertise_prompt?: string
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          selling_tips?: string | null
+          store_type?: string | null
+          terminology?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

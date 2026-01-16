@@ -19,6 +19,7 @@ import AdminSettings from "./pages/AdminSettings";
 import AdminNotifications from "./pages/AdminNotifications";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminAISettings from "./pages/AdminAISettings";
+import AdminCategoryExpertise from "./pages/AdminCategoryExpertise";
 import AdminCoupons from "./pages/AdminCoupons";
 import AdminAddresses from "./pages/AdminAddresses";
 import AdminBroadcast from "./pages/AdminBroadcast";
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/admin/notifications" element={<AdminNotifications />} />
             <Route path="/admin/templates" element={<AdminTemplates />} />
             <Route path="/admin/ai-settings" element={<AdminAISettings />} />
+            <Route path="/admin/category-expertise" element={<AdminCategoryExpertise />} />
             <Route path="/admin/coupons" element={<AdminCoupons />} />
             <Route path="/admin/addresses" element={<AdminAddresses />} />
             <Route path="/admin/broadcast" element={<AdminBroadcast />} />

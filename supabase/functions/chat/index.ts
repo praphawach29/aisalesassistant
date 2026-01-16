@@ -154,6 +154,20 @@ interface AISettings {
   closing_message: string | null;
   custom_rules: string | null;
   ai_provider?: string;
+  default_store_type?: string;
+  use_auto_detect?: boolean;
+}
+
+interface CategoryExpertise {
+  id: string;
+  category: string;
+  expertise_name: string;
+  expertise_prompt: string;
+  selling_tips: string | null;
+  terminology: string | null;
+  common_questions: string | null;
+  store_type: string;
+  is_active: boolean;
 }
 
 interface SavedAddress {
@@ -193,7 +207,94 @@ interface StoreSettings {
   termsConditions: string;
 }
 
-function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean, scrapedContent: string, customerContext?: CustomerContext): string {
+// Function to get category expertise based on user message and settings
+async function getCategoryExpertise(
+  supabase: any,
+  userMessage: string,
+  products: any[],
+  aiSettings: AISettings
+): Promise<string> {
+  try {
+    const useAutoDetect = aiSettings.use_auto_detect !== false;
+    const defaultStoreType = aiSettings.default_store_type || 'auto';
+    
+    // Get all active expertise
+    const { data: allExpertise, error } = await supabase
+      .from('category_expertise')
+      .select('*')
+      .eq('is_active', true);
+    
+    if (error || !allExpertise || allExpertise.length === 0) {
+      return '';
+    }
+
+    let relevantExpertise: CategoryExpertise[] = [];
+
+    if (defaultStoreType !== 'auto' && !useAutoDetect) {
+      // Use fixed store type expertise
+      relevantExpertise = allExpertise.filter((e: CategoryExpertise) => 
+        e.store_type === defaultStoreType || e.store_type === 'general'
+      );
+    } else {
+      // Auto-detect: find categories mentioned in user message or product categories
+      const messageLower = userMessage.toLowerCase();
+      
+      // Get categories from products mentioned or all products
+      const productCategories = new Set<string>();
+      for (const p of products) {
+        if (p.category) {
+          productCategories.add(p.category.toLowerCase());
+        }
+        // Check if product is mentioned in message
+        if (messageLower.includes(p.name.toLowerCase())) {
+          if (p.category) {
+            productCategories.add(p.category.toLowerCase());
+          }
+        }
+      }
+
+      // Find matching expertise
+      for (const expertise of allExpertise) {
+        const categoryLower = expertise.category.toLowerCase();
+        // Check if category is mentioned in message or matches product categories
+        if (messageLower.includes(categoryLower) || productCategories.has(categoryLower)) {
+          relevantExpertise.push(expertise);
+        }
+      }
+
+      // If no specific match but we have a default store type, use that
+      if (relevantExpertise.length === 0 && defaultStoreType !== 'auto') {
+        relevantExpertise = allExpertise.filter((e: CategoryExpertise) => 
+          e.store_type === defaultStoreType
+        );
+      }
+    }
+
+    if (relevantExpertise.length === 0) {
+      return '';
+    }
+
+    // Build expertise prompt (limit to 3 most relevant)
+    const limitedExpertise = relevantExpertise.slice(0, 3);
+    const expertiseText = limitedExpertise.map(e => {
+      let text = `\n### 🎓 ${e.expertise_name} (${e.category}):\n${e.expertise_prompt}`;
+      if (e.selling_tips) {
+        text += `\n\n**เทคนิคการขาย:**\n${e.selling_tips}`;
+      }
+      if (e.terminology) {
+        text += `\n\n**คำศัพท์ที่ควรรู้:** ${e.terminology}`;
+      }
+      return text;
+    }).join('\n');
+
+    return `\n## 🎓 ความเชี่ยวชาญเฉพาะทาง:\n${expertiseText}`;
+  } catch (error) {
+    console.error('Error getting category expertise:', error);
+    return '';
+  }
+}
+
+function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean, scrapedContent: string, customerContext?: CustomerContext, categoryExpertise?: string): string {
   const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
 
   // Gender-specific particles
@@ -640,7 +741,9 @@ ${customerContext.savedAddresses.map((a, i) => (i + 1) + '. ' + a.label + ': ' +
 - ห้ามตอบคำถามที่ไม่เกี่ยวกับสินค้าหรือการซื้อขาย
 - ห้ามให้ข้อมูลที่ไม่แน่ใจ ถ้าไม่รู้ให้ตอบว่า "ขออภัย${particleEnd} ไม่มีข้อมูลในส่วนนี้ รบกวนติดต่อทางร้านโดยตรงนะ${particleQuestion}"
 - ห้ามพูดถึงเรื่องการเมือง ศาสนา หรือเรื่องละเอียดอ่อน
-- ห้ามแกล้งทำเป็นมนุษย์ ถ้าถามว่าเป็น AI ให้ยอมรับว่า "ใช่${particleEnd} เป็น AI ผู้ช่วยขาย${particleEnd}"`;
+- ห้ามแกล้งทำเป็นมนุษย์ ถ้าถามว่าเป็น AI ให้ยอมรับว่า "ใช่${particleEnd} เป็น AI ผู้ช่วยขาย${particleEnd}"
+
+${categoryExpertise || ''}`;
 }
 
 serve(async (req) => {
@@ -905,8 +1008,16 @@ serve(async (req) => {
       }
     }
 
+    // Get category expertise based on user message
+    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const categoryExpertise = await getCategoryExpertise(supabase, lastUserMessage, products, aiSettings);
+    
+    if (categoryExpertise) {
+      console.log("Category expertise loaded for message");
+    }
+
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext, categoryExpertise);
     
     console.log("Is first message:", isFirstMessage);
 
