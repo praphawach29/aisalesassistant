@@ -30,7 +30,10 @@ import {
   CreditCard,
   Link2,
   GraduationCap,
-  Database
+  Database,
+  FileText,
+  Bug,
+  BarChart3
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -93,6 +96,14 @@ const menuCategories: MenuCategory[] = [
       { path: '/admin/integrations', label: 'Integration', icon: Plug },
       { path: '/admin/backup-reset', label: 'สำรอง/รีเซ็ต', icon: Database },
       { path: '/admin/settings', label: 'ตั้งค่า', icon: Settings },
+    ]
+  },
+  {
+    category: 'รายงาน',
+    items: [
+      { path: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+      { path: '/admin/audit-logs', label: 'Audit Logs', icon: FileText },
+      { path: '/admin/error-logs', label: 'Error Logs', icon: Bug },
     ]
   },
 ];
