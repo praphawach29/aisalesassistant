@@ -1033,6 +1033,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_conversation_platform_user_id: {
+        Args: { conv_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
