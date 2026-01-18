@@ -1959,6 +1959,27 @@ serve(async (req) => {
 
     // Process each event
     for (const event of webhook.events || []) {
+      // ============= Rate Limiting per user =============
+      if (event.source?.userId) {
+        try {
+          const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
+            p_identifier: event.source.userId,
+            p_endpoint: 'line-webhook',
+            p_max_requests: 30,  // 30 messages per minute per user
+            p_window_seconds: 60
+          });
+
+          if (rateLimitResult && !rateLimitResult.allowed) {
+            console.log(`[LINE] Rate limit exceeded for user ${event.source.userId}`);
+            // Skip processing this event but don't return error to LINE
+            continue;
+          }
+        } catch (rateLimitError) {
+          // Log but don't block on rate limit errors
+          console.warn('[LINE] Rate limit check failed:', rateLimitError);
+        }
+      }
+
       // Handle text messages
       if (event.type === "message" && event.message?.type === "text") {
         const userId = event.source?.userId;

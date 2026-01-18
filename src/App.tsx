@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
 import ProductDetail from "./pages/ProductDetail";
@@ -38,48 +39,50 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/chat" element={<Chat />} />
-            <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/admin" element={<AdminLogin />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/products" element={<AdminProducts />} />
-            <Route path="/admin/orders" element={<AdminOrders />} />
-            <Route path="/admin/payment-slips" element={<AdminPaymentSlips />} />
-            <Route path="/admin/chats" element={<AdminChats />} />
-            <Route path="/admin/faqs" element={<AdminFAQs />} />
-            <Route path="/admin/integrations" element={<AdminIntegrations />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
-            <Route path="/admin/notifications" element={<AdminNotifications />} />
-            <Route path="/admin/templates" element={<AdminTemplates />} />
-            <Route path="/admin/ai-settings" element={<AdminAISettings />} />
-            <Route path="/admin/category-expertise" element={<AdminCategoryExpertise />} />
-            <Route path="/admin/coupons" element={<AdminCoupons />} />
-            <Route path="/admin/addresses" element={<AdminAddresses />} />
-            <Route path="/admin/broadcast" element={<AdminBroadcast />} />
-            <Route path="/admin/embed-code" element={<AdminEmbedCode />} />
-            <Route path="/admin/web-scraping" element={<AdminWebScraping />} />
-            <Route path="/admin/knowledge-base" element={<AdminKnowledgeBase />} />
-            <Route path="/admin/related-products" element={<AdminRelatedProducts />} />
-            <Route path="/admin/backup-reset" element={<AdminBackupReset />} />
-            <Route path="/widget-demo" element={<WidgetDemo />} />
-            <Route path="/embed" element={<Embed />} />
-            <Route path="/embed-widget" element={<EmbedWidget />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms-of-service" element={<TermsOfService />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/admin" element={<AdminLogin />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/orders" element={<AdminOrders />} />
+              <Route path="/admin/payment-slips" element={<AdminPaymentSlips />} />
+              <Route path="/admin/chats" element={<AdminChats />} />
+              <Route path="/admin/faqs" element={<AdminFAQs />} />
+              <Route path="/admin/integrations" element={<AdminIntegrations />} />
+              <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/notifications" element={<AdminNotifications />} />
+              <Route path="/admin/templates" element={<AdminTemplates />} />
+              <Route path="/admin/ai-settings" element={<AdminAISettings />} />
+              <Route path="/admin/category-expertise" element={<AdminCategoryExpertise />} />
+              <Route path="/admin/coupons" element={<AdminCoupons />} />
+              <Route path="/admin/addresses" element={<AdminAddresses />} />
+              <Route path="/admin/broadcast" element={<AdminBroadcast />} />
+              <Route path="/admin/embed-code" element={<AdminEmbedCode />} />
+              <Route path="/admin/web-scraping" element={<AdminWebScraping />} />
+              <Route path="/admin/knowledge-base" element={<AdminKnowledgeBase />} />
+              <Route path="/admin/related-products" element={<AdminRelatedProducts />} />
+              <Route path="/admin/backup-reset" element={<AdminBackupReset />} />
+              <Route path="/widget-demo" element={<WidgetDemo />} />
+              <Route path="/embed" element={<Embed />} />
+              <Route path="/embed-widget" element={<EmbedWidget />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

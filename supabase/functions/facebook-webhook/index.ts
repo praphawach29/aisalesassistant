@@ -1618,6 +1618,25 @@ serve(async (req) => {
         const senderId = event.sender?.id;
         if (!senderId) continue;
         
+        // ============= Rate Limiting per user =============
+        try {
+          const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
+            p_identifier: senderId,
+            p_endpoint: 'facebook-webhook',
+            p_max_requests: 30,  // 30 messages per minute per user
+            p_window_seconds: 60
+          });
+
+          if (rateLimitResult && !rateLimitResult.allowed) {
+            console.log(`[FB] Rate limit exceeded for user ${senderId}`);
+            // Skip processing this event but don't return error to Facebook
+            continue;
+          }
+        } catch (rateLimitError) {
+          // Log but don't block on rate limit errors
+          console.warn('[FB] Rate limit check failed:', rateLimitError);
+        }
+        
         // Log the full event for debugging
         console.log(`[FB] Event type: message=${!!event.message}, postback=${!!event.postback}, quick_reply=${!!event.message?.quick_reply}`);
         
