@@ -29,6 +29,9 @@ import AdminWebScraping from "./pages/AdminWebScraping";
 import AdminKnowledgeBase from "./pages/AdminKnowledgeBase";
 import AdminRelatedProducts from "./pages/AdminRelatedProducts";
 import AdminBackupReset from "./pages/AdminBackupReset";
+import AdminAuditLogs from "./pages/AdminAuditLogs";
+import AdminErrorLogs from "./pages/AdminErrorLogs";
+import AdminAnalytics from "./pages/AdminAnalytics";
 import WidgetDemo from "./pages/WidgetDemo";
 import Embed from "./pages/Embed";
 import EmbedWidget from "./pages/EmbedWidget";
@@ -71,6 +74,9 @@ const App = () => (
               <Route path="/admin/knowledge-base" element={<AdminKnowledgeBase />} />
               <Route path="/admin/related-products" element={<AdminRelatedProducts />} />
               <Route path="/admin/backup-reset" element={<AdminBackupReset />} />
+              <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
+              <Route path="/admin/error-logs" element={<AdminErrorLogs />} />
+              <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/widget-demo" element={<WidgetDemo />} />
               <Route path="/embed" element={<Embed />} />
               <Route path="/embed-widget" element={<EmbedWidget />} />
