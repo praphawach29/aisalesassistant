@@ -1033,6 +1033,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_admin_notification: {
+        Args: {
+          p_data?: Json
+          p_message: string
+          p_title: string
+          p_type: string
+        }
+        Returns: string
+      }
       get_conversation_platform_user_id: {
         Args: { conv_id: string }
         Returns: string
