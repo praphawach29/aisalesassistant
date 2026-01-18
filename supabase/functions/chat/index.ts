@@ -761,6 +761,43 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
+    // ============= Rate Limiting =============
+    const clientIP = req.headers.get('x-forwarded-for') || 
+                     req.headers.get('cf-connecting-ip') || 
+                     webUserId || 
+                     'anonymous';
+    
+    try {
+      const { data: rateLimitResult } = await supabase.rpc('check_rate_limit', {
+        p_identifier: clientIP,
+        p_endpoint: 'chat',
+        p_max_requests: 30,  // 30 messages per minute
+        p_window_seconds: 60
+      });
+
+      if (rateLimitResult && !rateLimitResult.allowed) {
+        console.log(`[Chat] Rate limit exceeded for ${clientIP}`);
+        return new Response(
+          JSON.stringify({
+            error: 'Too Many Requests',
+            message: 'คุณส่งข้อความบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่',
+            retry_after: rateLimitResult.retry_after
+          }),
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              'Retry-After': String(rateLimitResult.retry_after || 60)
+            }
+          }
+        );
+      }
+    } catch (rateLimitError) {
+      // Log but don't block on rate limit errors
+      console.warn('[Chat] Rate limit check failed:', rateLimitError);
+    }
+
     // Check for cache invalidation before using cache
     await checkCacheInvalidation(supabase);
 
