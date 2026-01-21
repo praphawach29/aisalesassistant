@@ -384,37 +384,46 @@ export type Database = {
       }
       chat_conversations: {
         Row: {
+          assigned_admin_id: string | null
           created_at: string
           customer_address: string | null
           customer_name: string | null
           customer_phone: string | null
           id: string
+          is_human_takeover: boolean
           last_message: string | null
           last_message_at: string | null
           platform: string
           platform_user_id: string | null
+          takeover_at: string | null
         }
         Insert: {
+          assigned_admin_id?: string | null
           created_at?: string
           customer_address?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
+          is_human_takeover?: boolean
           last_message?: string | null
           last_message_at?: string | null
           platform?: string
           platform_user_id?: string | null
+          takeover_at?: string | null
         }
         Update: {
+          assigned_admin_id?: string | null
           created_at?: string
           customer_address?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           id?: string
+          is_human_takeover?: boolean
           last_message?: string | null
           last_message_at?: string | null
           platform?: string
           platform_user_id?: string | null
+          takeover_at?: string | null
         }
         Relationships: []
       }

@@ -40,10 +40,14 @@ import {
   Calendar,
   Clock,
   Trash2,
-  UserCheck
+  UserCheck,
+  Bot,
+  UserCog,
+  Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatConversation, ChatMessage } from '@/types';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function AdminChats() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
@@ -59,6 +63,9 @@ export default function AdminChats() {
   const [conversationToDelete, setConversationToDelete] = useState<ChatConversation | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingNames, setIsUpdatingNames] = useState(false);
+  const [adminMessage, setAdminMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isTogglingTakeover, setIsTogglingTakeover] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -70,8 +77,8 @@ export default function AdminChats() {
     if (user && isAdmin) {
       fetchConversations();
       
-      // Subscribe to realtime updates
-      const channel = supabase
+      // Subscribe to realtime updates for conversations
+      const conversationsChannel = supabase
         .channel('chats-admin-changes')
         .on(
           'postgres_changes',
@@ -79,12 +86,31 @@ export default function AdminChats() {
           () => fetchConversations()
         )
         .subscribe();
+      
+      // Subscribe to realtime updates for messages
+      const messagesChannel = supabase
+        .channel('chats-messages-changes')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+          (payload) => {
+            // If viewing a conversation and new message arrives, refresh messages
+            if (selectedConversation && payload.new && 
+                (payload.new as any).conversation_id === selectedConversation.id) {
+              fetchMessages(selectedConversation.id);
+            }
+            // Also refresh conversations to update last_message
+            fetchConversations();
+          }
+        )
+        .subscribe();
 
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(conversationsChannel);
+        supabase.removeChannel(messagesChannel);
       };
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, selectedConversation?.id]);
 
   const fetchConversations = async () => {
     setIsLoadingData(true);
@@ -201,6 +227,78 @@ export default function AdminChats() {
       toast.error('เกิดข้อผิดพลาดในการอัปเดตชื่อลูกค้า');
     } finally {
       setIsUpdatingNames(false);
+    }
+  };
+
+  const handleToggleTakeover = async (takeover: boolean) => {
+    if (!selectedConversation || !user) return;
+    
+    setIsTogglingTakeover(true);
+    try {
+      const { error } = await supabase
+        .from('chat_conversations')
+        .update({
+          is_human_takeover: takeover,
+          assigned_admin_id: takeover ? user.id : null,
+          takeover_at: takeover ? new Date().toISOString() : null
+        })
+        .eq('id', selectedConversation.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setSelectedConversation({
+        ...selectedConversation,
+        is_human_takeover: takeover,
+        assigned_admin_id: takeover ? user.id : null,
+        takeover_at: takeover ? new Date().toISOString() : null
+      });
+      
+      toast.success(takeover ? 'เข้าร่วมแชทเรียบร้อย คุณสามารถตอบข้อความได้แล้ว' : 'คืนให้บอทเรียบร้อย AI จะตอบข้อความต่อไป');
+      fetchConversations();
+    } catch (error) {
+      console.error('Error toggling takeover:', error);
+      toast.error('เกิดข้อผิดพลาด');
+    } finally {
+      setIsTogglingTakeover(false);
+    }
+  };
+
+  const handleSendAdminMessage = async () => {
+    if (!selectedConversation || !user || !adminMessage.trim()) return;
+    
+    setIsSendingMessage(true);
+    try {
+      // Insert message to chat_messages
+      const { error: msgError } = await supabase
+        .from('chat_messages')
+        .insert({
+          conversation_id: selectedConversation.id,
+          role: 'assistant',
+          content: adminMessage.trim()
+        });
+      
+      if (msgError) throw msgError;
+
+      // Update conversation last message
+      await supabase
+        .from('chat_conversations')
+        .update({
+          last_message: adminMessage.trim(),
+          last_message_at: new Date().toISOString()
+        })
+        .eq('id', selectedConversation.id);
+      
+      toast.success('ส่งข้อความเรียบร้อย');
+      setAdminMessage('');
+      
+      // Refresh messages
+      await fetchMessages(selectedConversation.id);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('เกิดข้อผิดพลาดในการส่งข้อความ');
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -409,6 +507,13 @@ export default function AdminChats() {
                         <Badge variant="outline" className="text-[10px] sm:text-xs px-1 sm:px-2 hidden sm:inline-flex flex-shrink-0">
                           {getPlatformLabel(conversation.platform)}
                         </Badge>
+                        {/* Takeover indicator */}
+                        {conversation.is_human_takeover && (
+                          <Badge className="bg-green-500 text-white text-[10px] px-1 hidden sm:inline-flex flex-shrink-0">
+                            <UserCog className="w-2.5 h-2.5 mr-0.5" />
+                            แอดมิน
+                          </Badge>
+                        )}
                         <span className="text-[10px] sm:hidden text-muted-foreground flex-shrink-0 ml-auto">
                           {getTimeAgo(conversation.last_message_at)}
                         </span>
@@ -466,9 +571,23 @@ export default function AdminChats() {
               {/* Customer Info */}
               <Card className="flex-shrink-0 mb-3 sm:mb-4">
                 <CardContent className="p-3 sm:pt-4 sm:p-4 space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
-                  <div className="flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-                    <span>{selectedConversation.customer_name || 'ไม่ระบุชื่อ'}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
+                      <span>{selectedConversation.customer_name || 'ไม่ระบุชื่อ'}</span>
+                    </div>
+                    {/* Takeover Status Badge */}
+                    {selectedConversation.is_human_takeover ? (
+                      <Badge className="bg-green-500 text-white">
+                        <UserCog className="w-3 h-3 mr-1" />
+                        แอดมินดูแล
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">
+                        <Bot className="w-3 h-3 mr-1" />
+                        AI ดูแล
+                      </Badge>
+                    )}
                   </div>
                   {selectedConversation.customer_phone && (
                     <div className="flex items-center gap-2">
@@ -483,6 +602,40 @@ export default function AdminChats() {
                   <div className="flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                     <span className="truncate">ล่าสุด: {formatDate(selectedConversation.last_message_at)}</span>
+                  </div>
+                  
+                  {/* Takeover Toggle Button */}
+                  <div className="pt-2 border-t">
+                    {selectedConversation.is_human_takeover ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={() => handleToggleTakeover(false)}
+                        disabled={isTogglingTakeover}
+                      >
+                        {isTogglingTakeover ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Bot className="w-4 h-4" />
+                        )}
+                        คืนให้บอท AI ดูแล
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={() => handleToggleTakeover(true)}
+                        disabled={isTogglingTakeover}
+                      >
+                        {isTogglingTakeover ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <UserCog className="w-4 h-4" />
+                        )}
+                        เข้ามาตอบแชทเอง
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -527,6 +680,42 @@ export default function AdminChats() {
                   )}
                 </ScrollArea>
               </div>
+
+              {/* Admin Message Input - Only show when in takeover mode */}
+              {selectedConversation.is_human_takeover && (
+                <div className="pt-3 border-t mt-3">
+                  <p className="text-xs font-medium mb-2 flex items-center gap-1.5">
+                    <UserCog className="w-3.5 h-3.5" />
+                    ตอบข้อความในฐานะแอดมิน
+                  </p>
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="พิมพ์ข้อความตอบลูกค้า..."
+                      value={adminMessage}
+                      onChange={(e) => setAdminMessage(e.target.value)}
+                      className="min-h-[60px] text-sm resize-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendAdminMessage();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="icon"
+                      className="h-[60px] w-10 shrink-0"
+                      onClick={handleSendAdminMessage}
+                      disabled={isSendingMessage || !adminMessage.trim()}
+                    >
+                      {isSendingMessage ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Delete Button in Sheet */}
               <div className="pt-3 sm:pt-4 border-t mt-3 sm:mt-4">
