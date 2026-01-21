@@ -51,6 +51,7 @@ interface Product {
   id: string;
   name: string;
   description: string | null;
+  specifications: string | null;
   price: number;
   promotion_price: number | null;
   stock: number;
@@ -65,6 +66,7 @@ interface Product {
 interface ProductFormData {
   name: string;
   description: string;
+  specifications: string;
   price: string;
   promotion_price: string;
   stock: string;
@@ -77,6 +79,7 @@ interface ProductFormData {
 const initialFormData: ProductFormData = {
   name: '',
   description: '',
+  specifications: '',
   price: '',
   promotion_price: '',
   stock: '0',
@@ -147,6 +150,7 @@ export default function AdminProducts() {
     setFormData({
       name: product.name,
       description: product.description || '',
+      specifications: product.specifications || '',
       price: product.price.toString(),
       promotion_price: product.promotion_price?.toString() || '',
       stock: product.stock.toString(),
@@ -231,6 +235,7 @@ export default function AdminProducts() {
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
+      specifications: formData.specifications.trim() || null,
       price: Number(formData.price),
       promotion_price: formData.promotion_price ? Number(formData.promotion_price) : null,
       stock: Number(formData.stock) || 0,
@@ -380,6 +385,22 @@ export default function AdminProducts() {
                   maxLength={1000}
                   className="min-h-[60px]"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="specifications" className="text-sm">รายละเอียดเพิ่มเติม (สเปค)</Label>
+                <Textarea
+                  id="specifications"
+                  value={formData.specifications}
+                  onChange={(e) => setFormData({ ...formData, specifications: e.target.value })}
+                  placeholder="เช่น วัสดุ: ผ้าฝ้าย 100%&#10;ขนาด: S, M, L, XL&#10;น้ำหนัก: 200 กรัม&#10;วิธีดูแลรักษา: ซักมือหรือเครื่อง อุณหภูมิไม่เกิน 30°C"
+                  rows={4}
+                  maxLength={2000}
+                  className="min-h-[100px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  ใส่ข้อมูลเชิงลึกเช่น วัสดุ ขนาด น้ำหนัก วิธีดูแลรักษา เพื่อให้บอทตอบคำถามได้ละเอียดขึ้น
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2 sm:gap-4">
