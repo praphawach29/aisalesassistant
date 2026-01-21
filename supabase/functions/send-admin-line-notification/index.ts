@@ -285,6 +285,47 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check notification type preferences
+    const notificationType = notificationData.type;
+    let settingKey = '';
+    
+    switch (notificationType) {
+      case 'new_order':
+        settingKey = 'ADMIN_LINE_NOTIFY_NEW_ORDER';
+        break;
+      case 'low_stock':
+        settingKey = 'ADMIN_LINE_NOTIFY_LOW_STOCK';
+        break;
+      case 'out_of_stock':
+      case 'out_of_stock_request':
+        settingKey = 'ADMIN_LINE_NOTIFY_OUT_OF_STOCK';
+        break;
+      case 'payment_received':
+      case 'new_payment_slip':
+        settingKey = 'ADMIN_LINE_NOTIFY_PAYMENT';
+        break;
+      default:
+        // For other notification types, send by default
+        settingKey = '';
+    }
+
+    if (settingKey) {
+      const { data: typeSetting } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', settingKey)
+        .maybeSingle();
+
+      // Default to true if not set
+      if (typeSetting?.value === 'false') {
+        console.log(`Notification type ${notificationType} is disabled for LINE`);
+        return new Response(
+          JSON.stringify({ success: true, message: `Notification type ${notificationType} is disabled`, sent: false }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Get admin LINE user ID
     const { data: adminLineSetting } = await supabase
       .from('settings')
