@@ -43,11 +43,25 @@ import {
   UserCheck,
   Bot,
   UserCog,
-  Send
+  Send,
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatConversation, ChatMessage } from '@/types';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+
+interface MessageTemplate {
+  id: string;
+  name: string;
+  content: string;
+  category: string | null;
+}
 
 export default function AdminChats() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
@@ -66,6 +80,8 @@ export default function AdminChats() {
   const [adminMessage, setAdminMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isTogglingTakeover, setIsTogglingTakeover] = useState(false);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [isTemplatePopoverOpen, setIsTemplatePopoverOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -111,6 +127,22 @@ export default function AdminChats() {
       };
     }
   }, [user, isAdmin, selectedConversation?.id]);
+
+  // Fetch message templates
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      const { data } = await supabase
+        .from('message_templates')
+        .select('id, name, content, category')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      
+      if (data) {
+        setTemplates(data);
+      }
+    };
+    fetchTemplates();
+  }, []);
 
   const fetchConversations = async () => {
     setIsLoadingData(true);
@@ -684,10 +716,63 @@ export default function AdminChats() {
               {/* Admin Message Input - Only show when in takeover mode */}
               {selectedConversation.is_human_takeover && (
                 <div className="pt-3 border-t mt-3">
-                  <p className="text-xs font-medium mb-2 flex items-center gap-1.5">
-                    <UserCog className="w-3.5 h-3.5" />
-                    ตอบข้อความในฐานะแอดมิน
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium flex items-center gap-1.5">
+                      <UserCog className="w-3.5 h-3.5" />
+                      ตอบข้อความในฐานะแอดมิน
+                    </p>
+                    
+                    {/* Quick Reply Templates Popover */}
+                    <Popover open={isTemplatePopoverOpen} onOpenChange={setIsTemplatePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+                          <Zap className="w-3 h-3" />
+                          ข้อความด่วน
+                          <ChevronDown className="w-3 h-3" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-2" align="end">
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+                            เลือกข้อความเทมเพลต
+                          </p>
+                          <ScrollArea className="h-[200px]">
+                            {templates.length === 0 ? (
+                              <p className="text-xs text-muted-foreground text-center py-4">
+                                ยังไม่มีเทมเพลต
+                              </p>
+                            ) : (
+                              <div className="space-y-1">
+                                {templates.map((template) => (
+                                  <button
+                                    key={template.id}
+                                    onClick={() => {
+                                      setAdminMessage(template.content);
+                                      setIsTemplatePopoverOpen(false);
+                                    }}
+                                    className="w-full text-left p-2 rounded-md hover:bg-muted transition-colors"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-medium">{template.name}</span>
+                                      {template.category && (
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                          {template.category}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
+                                      {template.content}
+                                    </p>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </ScrollArea>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
                   <div className="flex gap-2">
                     <Textarea
                       placeholder="พิมพ์ข้อความตอบลูกค้า..."
