@@ -11,6 +11,7 @@ import ProductDetail from "./pages/ProductDetail";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProducts from "./pages/AdminProducts";
+import AdminProductFAQs from "./pages/AdminProductFAQs";
 import AdminOrders from "./pages/AdminOrders";
 import AdminPaymentSlips from "./pages/AdminPaymentSlips";
 import AdminChats from "./pages/AdminChats";
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="/admin" element={<AdminLogin />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/product-faqs" element={<AdminProductFAQs />} />
               <Route path="/admin/orders" element={<AdminOrders />} />
               <Route path="/admin/payment-slips" element={<AdminPaymentSlips />} />
               <Route path="/admin/chats" element={<AdminChats />} />

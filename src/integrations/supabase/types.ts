@@ -929,6 +929,47 @@ export type Database = {
           },
         ]
       }
+      product_faqs: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          is_active: boolean
+          product_id: string
+          question: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          product_id: string
+          question: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          product_id?: string
+          question?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_faqs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category: string | null
@@ -940,6 +981,7 @@ export type Database = {
           name: string
           price: number
           promotion_price: number | null
+          specifications: string | null
           stock: number
           updated_at: string
           variants: Json | null
@@ -954,6 +996,7 @@ export type Database = {
           name: string
           price?: number
           promotion_price?: number | null
+          specifications?: string | null
           stock?: number
           updated_at?: string
           variants?: Json | null
@@ -968,6 +1011,7 @@ export type Database = {
           name?: string
           price?: number
           promotion_price?: number | null
+          specifications?: string | null
           stock?: number
           updated_at?: string
           variants?: Json | null

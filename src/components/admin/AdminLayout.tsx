@@ -65,6 +65,7 @@ const menuCategories: MenuCategory[] = [
       { path: '/admin/orders', label: 'ออเดอร์', icon: ShoppingCart },
       { path: '/admin/payment-slips', label: 'สลิปโอนเงิน', icon: CreditCard },
       { path: '/admin/products', label: 'สินค้า', icon: Package },
+      { path: '/admin/product-faqs', label: 'Product FAQ', icon: HelpCircle },
       { path: '/admin/related-products', label: 'สินค้าที่เกี่ยวข้อง', icon: Link2 },
       { path: '/admin/coupons', label: 'คูปอง', icon: Ticket },
     ]
