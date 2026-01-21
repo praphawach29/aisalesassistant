@@ -128,6 +128,17 @@ export function useNotifications() {
     }
   }, []);
 
+  // Send notification to admin LINE
+  const sendToAdminLine = useCallback(async (notification: AdminNotification) => {
+    try {
+      await supabase.functions.invoke('send-admin-line-notification', {
+        body: { notification }
+      });
+    } catch (error) {
+      console.error('Error sending admin LINE notification:', error);
+    }
+  }, []);
+
   // Subscribe to realtime notifications
   useEffect(() => {
     fetchNotifications();
@@ -141,7 +152,7 @@ export function useNotifications() {
           schema: 'public',
           table: 'admin_notifications',
         },
-        (payload) => {
+        async (payload) => {
           const newNotification = {
             ...payload.new,
             data: payload.new.data as Record<string, unknown>
@@ -159,6 +170,9 @@ export function useNotifications() {
 
           // Show browser notification
           showBrowserNotification(newNotification.title, newNotification.message);
+
+          // Send to admin LINE
+          sendToAdminLine(newNotification);
         }
       )
       .subscribe();
@@ -166,7 +180,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchNotifications, toast, showBrowserNotification]);
+  }, [fetchNotifications, toast, showBrowserNotification, sendToAdminLine]);
 
   return {
     notifications,

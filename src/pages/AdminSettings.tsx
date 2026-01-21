@@ -55,6 +55,8 @@ const DEFAULT_STORE_SETTINGS: StoreSetting[] = [
   { key: 'WARRANTY_INFO', value: '', description: 'ข้อมูลการรับประกัน' },
   { key: 'PRIVACY_POLICY', value: '', description: 'นโยบายความเป็นส่วนตัว' },
   { key: 'TERMS_CONDITIONS', value: '', description: 'ข้อกำหนดและเงื่อนไข' },
+  { key: 'ADMIN_LINE_NOTIFY_ENABLED', value: 'false', description: 'เปิดใช้งาน LINE แจ้งเตือนสำหรับแอดมิน' },
+  { key: 'ADMIN_LINE_USER_ID', value: '', description: 'LINE User ID ของแอดมิน' },
 ];
 
 const AdminSettings = () => {
@@ -728,6 +730,59 @@ const AdminSettings = () => {
                 />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Admin LINE Notification */}
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-600">
+              <Bell className="h-5 w-5" />
+              รับการแจ้งเตือนผ่าน LINE (สำหรับแอดมิน)
+            </CardTitle>
+            <CardDescription>
+              เชื่อมต่อ LINE ส่วนตัวของแอดมินเพื่อรับการแจ้งเตือนเมื่อมีออเดอร์ใหม่, สินค้าใกล้หมด ฯลฯ
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-base">เปิดใช้งาน LINE แจ้งเตือน</Label>
+                <p className="text-sm text-muted-foreground">
+                  ส่งการแจ้งเตือนไปยัง LINE ส่วนตัวของคุณ
+                </p>
+              </div>
+              <Switch
+                checked={settings.find(s => s.key === 'ADMIN_LINE_NOTIFY_ENABLED')?.value === 'true'}
+                onCheckedChange={(checked) => handleValueChange('ADMIN_LINE_NOTIFY_ENABLED', String(checked))}
+              />
+            </div>
+            
+            {settings.find(s => s.key === 'ADMIN_LINE_NOTIFY_ENABLED')?.value === 'true' && (
+              <div className="space-y-4 pl-4 border-l-2 border-green-500/30">
+                <div className="space-y-2">
+                  <Label>LINE User ID ของแอดมิน</Label>
+                  <Input
+                    value={settings.find(s => s.key === 'ADMIN_LINE_USER_ID')?.value || ''}
+                    onChange={(e) => handleValueChange('ADMIN_LINE_USER_ID', e.target.value)}
+                    placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    หา User ID ได้จากการพิมพ์ข้อความหา LINE OA ของคุณ แล้วดูใน Admin &gt; แชท &gt; คลิกแชทนั้น จะเห็น User ID
+                  </p>
+                </div>
+                <div className="p-3 bg-green-500/10 rounded-lg">
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    💡 <strong>วิธีหา LINE User ID:</strong><br/>
+                    1. เพิ่มเพื่อน LINE Official Account ของร้านคุณ<br/>
+                    2. ส่งข้อความอะไรก็ได้ไปหาบอท<br/>
+                    3. ไปที่หน้า "แชท" ในแอดมิน คลิกที่แชทของคุณ<br/>
+                    4. คัดลอก User ID ที่แสดงอยู่มาใส่ที่นี่
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

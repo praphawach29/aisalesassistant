@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.generate-product-faq]
 verify_jwt = true
+
+[functions.send-admin-line-notification]
+verify_jwt = false
