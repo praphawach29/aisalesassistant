@@ -57,6 +57,10 @@ const DEFAULT_STORE_SETTINGS: StoreSetting[] = [
   { key: 'TERMS_CONDITIONS', value: '', description: 'ข้อกำหนดและเงื่อนไข' },
   { key: 'ADMIN_LINE_NOTIFY_ENABLED', value: 'false', description: 'เปิดใช้งาน LINE แจ้งเตือนสำหรับแอดมิน' },
   { key: 'ADMIN_LINE_USER_ID', value: '', description: 'LINE User ID ของแอดมิน' },
+  { key: 'ADMIN_LINE_NOTIFY_NEW_ORDER', value: 'true', description: 'แจ้งเตือนออเดอร์ใหม่ทาง LINE' },
+  { key: 'ADMIN_LINE_NOTIFY_LOW_STOCK', value: 'true', description: 'แจ้งเตือนสินค้าใกล้หมดทาง LINE' },
+  { key: 'ADMIN_LINE_NOTIFY_OUT_OF_STOCK', value: 'true', description: 'แจ้งเตือนสินค้าหมดทาง LINE' },
+  { key: 'ADMIN_LINE_NOTIFY_PAYMENT', value: 'true', description: 'แจ้งเตือนสลิปชำระเงินใหม่ทาง LINE' },
 ];
 
 const AdminSettings = () => {
@@ -772,6 +776,70 @@ const AdminSettings = () => {
                     หา User ID ได้จากการพิมพ์ข้อความหา LINE OA ของคุณ แล้วดูใน Admin &gt; แชท &gt; คลิกแชทนั้น จะเห็น User ID
                   </p>
                 </div>
+
+                {/* Notification Type Selection */}
+                <div className="space-y-3 pt-4 border-t border-green-500/20">
+                  <Label className="text-base font-medium">เลือกประเภทการแจ้งเตือนที่ต้องการรับ</Label>
+                  
+                  <div className="grid gap-3">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-background border">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🛒</span>
+                        <div>
+                          <Label className="font-medium">ออเดอร์ใหม่</Label>
+                          <p className="text-xs text-muted-foreground">แจ้งเตือนเมื่อมีคำสั่งซื้อใหม่เข้ามา</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={settings.find(s => s.key === 'ADMIN_LINE_NOTIFY_NEW_ORDER')?.value !== 'false'}
+                        onCheckedChange={(checked) => handleValueChange('ADMIN_LINE_NOTIFY_NEW_ORDER', String(checked))}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-background border">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">⚠️</span>
+                        <div>
+                          <Label className="font-medium">สินค้าใกล้หมด</Label>
+                          <p className="text-xs text-muted-foreground">แจ้งเตือนเมื่อสินค้าเหลือน้อย (≤5 ชิ้น)</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={settings.find(s => s.key === 'ADMIN_LINE_NOTIFY_LOW_STOCK')?.value !== 'false'}
+                        onCheckedChange={(checked) => handleValueChange('ADMIN_LINE_NOTIFY_LOW_STOCK', String(checked))}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-background border">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🚨</span>
+                        <div>
+                          <Label className="font-medium">สินค้าหมด</Label>
+                          <p className="text-xs text-muted-foreground">แจ้งเตือนเมื่อสินค้าหมดสต็อก</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={settings.find(s => s.key === 'ADMIN_LINE_NOTIFY_OUT_OF_STOCK')?.value !== 'false'}
+                        onCheckedChange={(checked) => handleValueChange('ADMIN_LINE_NOTIFY_OUT_OF_STOCK', String(checked))}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-background border">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">💰</span>
+                        <div>
+                          <Label className="font-medium">สลิปชำระเงิน</Label>
+                          <p className="text-xs text-muted-foreground">แจ้งเตือนเมื่อลูกค้าส่งสลิปชำระเงิน</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={settings.find(s => s.key === 'ADMIN_LINE_NOTIFY_PAYMENT')?.value !== 'false'}
+                        onCheckedChange={(checked) => handleValueChange('ADMIN_LINE_NOTIFY_PAYMENT', String(checked))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="p-3 bg-green-500/10 rounded-lg">
                   <p className="text-sm text-green-700 dark:text-green-400">
                     💡 <strong>วิธีหา LINE User ID:</strong><br/>
