@@ -845,6 +845,7 @@ serve(async (req) => {
     // ============= Try to get data from cache first =============
     let products = getCached<any[]>('products');
     let faqs = getCached<any[]>('faqs');
+    let productFaqs = getCached<any[]>('product_faqs');
     let settingsData = getCached<any[]>('settings');
     let scrapedData = getCached<any[]>('scraped_content');
     let knowledgeData = getCached<any[]>('knowledge_base');
@@ -855,6 +856,7 @@ serve(async (req) => {
     const needsAiSettings = !aiSettingsData;
     const needsProducts = !products;
     const needsFaqs = !faqs;
+    const needsProductFaqs = !productFaqs;
     const needsSettings = !settingsData;
     const needsScraped = !scrapedData;
     const needsKnowledge = !knowledgeData;
@@ -865,6 +867,7 @@ serve(async (req) => {
     if (needsAiSettings) cacheMisses.push('ai_settings'); else cacheHits.push('ai_settings');
     if (needsProducts) cacheMisses.push('products'); else cacheHits.push('products');
     if (needsFaqs) cacheMisses.push('faqs'); else cacheHits.push('faqs');
+    if (needsProductFaqs) cacheMisses.push('product_faqs'); else cacheHits.push('product_faqs');
     if (needsSettings) cacheMisses.push('settings'); else cacheHits.push('settings');
     if (needsScraped) cacheMisses.push('scraped'); else cacheHits.push('scraped');
     if (needsKnowledge) cacheMisses.push('knowledge'); else cacheHits.push('knowledge');
@@ -878,6 +881,7 @@ serve(async (req) => {
         aiSettingsResult,
         productsResult,
         faqsResult,
+        productFaqsResult,
         settingsResult,
         scrapedResult,
         knowledgeResult,
@@ -886,6 +890,7 @@ serve(async (req) => {
         needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
         needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
         needsFaqs ? supabase.from("faqs").select("question, answer").eq("is_active", true) : Promise.resolve({ data: faqs }),
+        needsProductFaqs ? supabase.from("product_faqs").select("product_id, question, answer").eq("is_active", true).order("sort_order") : Promise.resolve({ data: productFaqs }),
         needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]) : Promise.resolve({ data: settingsData }),
         needsScraped ? supabase.from("scraped_content").select("source_name, summary, content").eq("is_active", true) : Promise.resolve({ data: scrapedData }),
         needsKnowledge ? supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true) : Promise.resolve({ data: knowledgeData }),
@@ -904,6 +909,10 @@ serve(async (req) => {
       if (needsFaqs) {
         faqs = faqsResult.data || [];
         setCache('faqs', faqs);
+      }
+      if (needsProductFaqs) {
+        productFaqs = productFaqsResult.data || [];
+        setCache('product_faqs', productFaqs);
       }
       if (needsSettings) {
         settingsData = settingsResult.data || [];
@@ -943,10 +952,20 @@ serve(async (req) => {
     // Ensure arrays are initialized
     products = products || [];
     faqs = faqs || [];
+    productFaqs = productFaqs || [];
     scrapedData = scrapedData || [];
     knowledgeData = knowledgeData || [];
     settingsData = settingsData || [];
     relatedProductsData = relatedProductsData || [];
+
+    // Build product FAQs map
+    const productFaqsMap = new Map<string, Array<{question: string, answer: string}>>();
+    for (const pf of productFaqs) {
+      const existing = productFaqsMap.get(pf.product_id) || [];
+      existing.push({ question: pf.question, answer: pf.answer });
+      productFaqsMap.set(pf.product_id, existing);
+    }
+    console.log("Product FAQs loaded:", productFaqs.length, "items");
 
     // Build related products map for cross-sell
     const relatedProductsMap = new Map<string, string[]>();
@@ -982,9 +1001,14 @@ serve(async (req) => {
       hasShippingInfo: !!storeSettings.shippingInfo
     });
 
-    // Build product catalog with image URLs, variants, and related products
+    // Build product catalog with image URLs, variants, specifications, product FAQs, and related products
     const productCatalog = products.map((p: any) => {
       let productInfo = `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}]`;
+      
+      // Add specifications info (detailed product info)
+      if (p.specifications) {
+        productInfo += `\n  📋 สเปค: ${p.specifications}`;
+      }
       
       // Add variants info
       if (p.variants && Array.isArray(p.variants) && p.variants.length > 0) {
@@ -1007,6 +1031,15 @@ serve(async (req) => {
           .filter(Boolean);
         if (relatedNames.length > 0) {
           productInfo += ` | สินค้าที่เกี่ยวข้อง: [${relatedNames.join(', ')}]`;
+        }
+      }
+      
+      // Add product-specific FAQs
+      const pFaqs = productFaqsMap.get(p.id);
+      if (pFaqs && pFaqs.length > 0) {
+        productInfo += `\n  ❓ FAQ สินค้านี้:`;
+        for (const faq of pFaqs) {
+          productInfo += `\n    Q: ${faq.question}\n    A: ${faq.answer}`;
         }
       }
       
