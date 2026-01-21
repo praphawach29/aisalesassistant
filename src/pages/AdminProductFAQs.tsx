@@ -44,7 +44,9 @@ import {
   RefreshCw,
   Search,
   Package,
-  MessageCircleQuestion
+  MessageCircleQuestion,
+  Sparkles,
+  Wand2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -52,6 +54,8 @@ interface Product {
   id: string;
   name: string;
   image_url: string | null;
+  specifications: string | null;
+  description: string | null;
 }
 
 interface ProductFAQ {
@@ -95,6 +99,9 @@ export default function AdminProductFAQs() {
   const [selectedFAQ, setSelectedFAQ] = useState<ProductFAQ | null>(null);
   const [formData, setFormData] = useState<FAQFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isAutoGenDialogOpen, setIsAutoGenDialogOpen] = useState(false);
+  const [selectedProductForGen, setSelectedProductForGen] = useState<string>('');
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -115,11 +122,11 @@ export default function AdminProductFAQs() {
     const [productsRes, faqsRes] = await Promise.all([
       supabase
         .from('products')
-        .select('id, name, image_url')
+        .select('id, name, image_url, specifications, description')
         .order('name'),
       supabase
         .from('product_faqs')
-        .select('*, products:product_id(id, name, image_url)')
+        .select('*, products:product_id(id, name, image_url, specifications, description)')
         .order('sort_order')
     ]);
 
@@ -259,6 +266,54 @@ export default function AdminProductFAQs() {
     }
   };
 
+  const handleAutoGenerate = async () => {
+    if (!selectedProductForGen) {
+      toast.error('กรุณาเลือกสินค้า');
+      return;
+    }
+
+    const product = products.find(p => p.id === selectedProductForGen);
+    if (!product?.description && !product?.specifications) {
+      toast.error('สินค้านี้ไม่มี description หรือ specifications กรุณาเพิ่มข้อมูลก่อน');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-product-faq', {
+        body: { productId: selectedProductForGen }
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        if (data.error.includes('Rate limit')) {
+          toast.error('เกินขีดจำกัดการใช้งาน กรุณาลองใหม่อีกครั้ง');
+        } else if (data.error.includes('Payment required')) {
+          toast.error('กรุณาเติมเครดิต Lovable AI');
+        } else {
+          toast.error(data.error);
+        }
+        return;
+      }
+
+      await invalidateCache(['product_faqs']);
+      toast.success(`สร้าง FAQ อัตโนมัติสำเร็จ ${data.count} รายการ`);
+      setIsAutoGenDialogOpen(false);
+      setSelectedProductForGen('');
+      fetchData();
+    } catch (error) {
+      console.error('Error generating FAQs:', error);
+      toast.error('เกิดข้อผิดพลาดในการสร้าง FAQ');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Get products with specs for auto-generate
+  const productsWithSpecs = products.filter(p => p.description || p.specifications);
+
+
   const filteredFaqs = faqs.filter(faq => {
     const matchesSearch = 
       faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -335,6 +390,113 @@ export default function AdminProductFAQs() {
         <Button variant="outline" size="icon" onClick={fetchData} disabled={isLoadingData} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
           <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
         </Button>
+
+        {/* Auto Generate Dialog */}
+        <Dialog open={isAutoGenDialogOpen} onOpenChange={setIsAutoGenDialogOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              variant="outline" 
+              className="gap-2 h-9 sm:h-10 px-3 sm:px-4 shrink-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-300 hover:from-purple-500/20 hover:to-pink-500/20"
+              onClick={() => setSelectedProductForGen('')}
+            >
+              <Sparkles className="w-4 h-4 text-purple-600" />
+              <span className="hidden sm:inline">AI สร้าง FAQ</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="w-[95vw] max-w-md p-4 sm:p-6">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Wand2 className="w-5 h-5 text-purple-600" />
+                สร้าง FAQ อัตโนมัติด้วย AI
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                AI จะวิเคราะห์ข้อมูลสินค้า (description และ specifications) เพื่อสร้างคำถาม-คำตอบที่พบบ่อยโดยอัตโนมัติ 3-5 รายการ
+              </p>
+              
+              <div className="space-y-1.5">
+                <Label className="text-sm">เลือกสินค้า *</Label>
+                <Select 
+                  value={selectedProductForGen} 
+                  onValueChange={setSelectedProductForGen}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="เลือกสินค้าที่ต้องการสร้าง FAQ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productsWithSpecs.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        ไม่มีสินค้าที่มีข้อมูล description หรือ specifications
+                      </div>
+                    ) : (
+                      productsWithSpecs.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          <div className="flex items-center gap-2">
+                            {product.image_url ? (
+                              <img src={product.image_url} className="w-5 h-5 rounded object-cover" alt="" />
+                            ) : (
+                              <Package className="w-5 h-5 text-muted-foreground" />
+                            )}
+                            <span>{product.name}</span>
+                            {product.specifications && (
+                              <Badge variant="secondary" className="text-[10px] px-1">มี specs</Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedProductForGen && (
+                <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                  <p className="font-medium mb-1">ข้อมูลที่จะใช้สร้าง FAQ:</p>
+                  {(() => {
+                    const p = products.find(p => p.id === selectedProductForGen);
+                    return (
+                      <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+                        {p?.description && <li>Description: มี</li>}
+                        {p?.specifications && <li>Specifications: มี</li>}
+                      </ul>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsAutoGenDialogOpen(false)}
+                  className="flex-1 h-9 sm:h-10"
+                  disabled={isGenerating}
+                >
+                  ยกเลิก
+                </Button>
+                <Button 
+                  onClick={handleAutoGenerate} 
+                  disabled={isGenerating || !selectedProductForGen}
+                  className="flex-1 h-9 sm:h-10 gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      กำลังสร้าง...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      สร้าง FAQ
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={openCreateDialog} className="gap-2 h-9 sm:h-10 px-3 sm:px-4 shrink-0">
