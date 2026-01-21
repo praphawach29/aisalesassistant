@@ -50,16 +50,24 @@ export function ChatWidget({
           className={cn(
             'mb-4 bg-card rounded-2xl shadow-2xl border overflow-hidden transition-all duration-300',
             isMinimized 
-              ? 'h-14' 
+              ? 'h-16' 
               : 'h-[calc(100vh-120px)] w-[calc(100vw-32px)] max-h-[600px] max-w-[400px] sm:h-[500px] sm:w-[380px]'
           )}
           style={primaryColor ? { '--primary': primaryColor } as React.CSSProperties : undefined}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-3 bg-primary text-primary-foreground">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5" />
-              <span className="font-semibold text-sm sm:text-base">AI Sales Assistant</span>
+          <div className="flex items-center justify-between p-4 bg-primary text-primary-foreground">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 border-2 border-primary-foreground/30">
+                <AvatarImage src={botAvatar} alt="Chat Assistant" className="object-cover" />
+                <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
+                  <MessageCircle className="w-5 h-5" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col">
+                <span className="font-semibold text-sm sm:text-base leading-tight">AI Sales Assistant</span>
+                <span className="text-xs text-primary-foreground/70">พร้อมให้บริการ</span>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <Button 
@@ -83,7 +91,7 @@ export function ChatWidget({
 
           {/* Chat Content */}
           {!isMinimized && (
-            <div className="h-[calc(100%-56px)]">
+            <div className="h-[calc(100%-72px)]">
               <ChatWindow />
             </div>
           )}
