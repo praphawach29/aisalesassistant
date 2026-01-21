@@ -752,7 +752,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationId, webUserId } = await req.json();
+    const { messages, conversationId, webUserId, isAdminMessage, adminUserId } = await req.json();
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -760,6 +760,47 @@ serve(async (req) => {
 
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // ============= Check Human Takeover Mode =============
+    // If this conversation is in human takeover mode and it's not an admin message,
+    // we should skip AI response and just acknowledge the message was received
+    if (conversationId && !isAdminMessage) {
+      const { data: convData } = await supabase
+        .from('chat_conversations')
+        .select('is_human_takeover')
+        .eq('id', conversationId)
+        .maybeSingle();
+      
+      if (convData?.is_human_takeover) {
+        console.log(`[Chat] Conversation ${conversationId} is in human takeover mode, skipping AI response`);
+        
+        // Return a special response indicating human takeover
+        return new Response(
+          JSON.stringify({ 
+            human_takeover: true,
+            message: 'ข้อความถูกส่งถึงแอดมินแล้ว รอสักครู่นะคะ'
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+    }
+
+    // If this is an admin message, just save it and return success (no AI response needed)
+    if (isAdminMessage && adminUserId && conversationId) {
+      console.log(`[Chat] Admin ${adminUserId} sending message to conversation ${conversationId}`);
+      
+      // The message is already saved by the client, just return success
+      return new Response(
+        JSON.stringify({ success: true, admin_message: true }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // ============= Rate Limiting =============
     const clientIP = req.headers.get('x-forwarded-for') || 

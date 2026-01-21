@@ -55,9 +55,13 @@ export interface ChatConversation {
   platform_user_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_address?: string | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
+  is_human_takeover?: boolean;
+  assigned_admin_id?: string | null;
+  takeover_at?: string | null;
 }
 
 export interface FAQ {
