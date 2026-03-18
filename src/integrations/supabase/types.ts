@@ -1234,6 +1234,98 @@ export type Database = {
           },
         ]
       }
+      store_subscription: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          messages_reset_at: string
+          messages_used: number
+          plan_id: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          messages_reset_at?: string
+          messages_used?: number
+          plan_id: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          messages_reset_at?: string
+          messages_used?: number
+          plan_id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_subscription_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_plans: {
+        Row: {
+          billing_period: string
+          created_at: string
+          features: Json
+          id: string
+          is_active: boolean
+          max_messages_per_month: number | null
+          max_platforms: number
+          max_products: number | null
+          name: string
+          name_th: string
+          price: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          max_messages_per_month?: number | null
+          max_platforms?: number
+          max_products?: number | null
+          name: string
+          name_th: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          max_messages_per_month?: number | null
+          max_platforms?: number
+          max_products?: number | null
+          name?: string
+          name_th?: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
