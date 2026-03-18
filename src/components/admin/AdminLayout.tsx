@@ -61,6 +61,7 @@ const menuCategories: MenuCategory[] = [
     category: 'ภาพรวม',
     items: [
       { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/admin/subscription', label: 'แพ็กเกจ', icon: Sparkles },
     ]
   },
   {
