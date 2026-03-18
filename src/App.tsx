@@ -28,6 +28,7 @@ import AdminAddresses from "./pages/AdminAddresses";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminEmbedCode from "./pages/AdminEmbedCode";
 import AdminWebScraping from "./pages/AdminWebScraping";
+import AdminAPIUsage from "./pages/AdminAPIUsage";
 import AdminKnowledgeBase from "./pages/AdminKnowledgeBase";
 import AdminRelatedProducts from "./pages/AdminRelatedProducts";
 import AdminBackupReset from "./pages/AdminBackupReset";
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/admin/guide" element={<AdminGuide />} />
+              <Route path="/admin/api-usage" element={<AdminAPIUsage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
