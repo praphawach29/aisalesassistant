@@ -77,11 +77,11 @@ const AdminAPIUsage = () => {
   // Fetch subscription for quota
   const { data: subscription } = useQuery({
     queryKey: ['api-usage-subscription'],
-    queryFn: async () - > {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('store_subscription')
         .select('*, subscription_plans(*)')
-        .limit this(1)
+        .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data;
