@@ -79,6 +79,16 @@ const defaultStoreTypes: StoreType[] = [
   { value: 'technology', label: '💻 เทคโนโลยี / IT' },
   { value: 'food', label: '🍽️ อาหาร / เครื่องดื่ม' },
   { value: 'beauty', label: '💄 ความงาม / เครื่องสำอาง' },
+  { value: 'printer', label: '🖨️ ร้านปริ้นเตอร์' },
+  { value: 'spa', label: '💆 สปา & นวด' },
+  { value: 'clinic', label: '🏥 คลินิกทั่วไป' },
+  { value: 'beauty_clinic', label: '✨ คลินิกความงาม' },
+  { value: 'restaurant', label: '🍜 ร้านอาหาร' },
+  { value: 'fitness', label: '🏋️ ฟิตเนส' },
+  { value: 'education', label: '📚 โรงเรียน/กวดวิชา' },
+  { value: 'car_repair', label: '🚗 อู่ซ่อมรถ' },
+  { value: 'pet_clinic', label: '🐾 คลินิกสัตว์เลี้ยง' },
+  { value: 'real_estate', label: '🏠 อสังหาริมทรัพย์' },
 ];
 
 export default function AdminAISettings() {
@@ -124,6 +134,16 @@ export default function AdminAISettings() {
           'technology': '💻 เทคโนโลยี / IT',
           'food': '🍽️ อาหาร / เครื่องดื่ม',
           'beauty': '💄 ความงาม / เครื่องสำอาง',
+          'printer': '🖨️ ร้านปริ้นเตอร์',
+          'spa': '💆 สปา & นวด',
+          'clinic': '🏥 คลินิกทั่วไป',
+          'beauty_clinic': '✨ คลินิกความงาม',
+          'restaurant': '🍜 ร้านอาหาร',
+          'fitness': '🏋️ ฟิตเนส',
+          'education': '📚 โรงเรียน/กวดวิชา',
+          'car_repair': '🚗 อู่ซ่อมรถ',
+          'pet_clinic': '🐾 คลินิกสัตว์เลี้ยง',
+          'real_estate': '🏠 อสังหาริมทรัพย์',
         };
         
         const dynamicStoreTypes: StoreType[] = [
