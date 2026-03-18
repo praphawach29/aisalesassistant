@@ -67,7 +67,7 @@ const AdminAPIUsage = () => {
       const { data, error } = await supabase
         .from('chat_conversations')
         .select('id, platform, created_at')
-        .gte('created_at', startDate opening.toISOString())
+        .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
       if (error) throw error;
       return data || [];
