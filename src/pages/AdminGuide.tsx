@@ -362,9 +362,9 @@ export default function AdminGuide() {
                             {step.description}
                           </p>
                           {step.tip && (
-                            <div className="mt-2 flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                              <CheckCircle2 className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                              <p className="text-xs text-amber-800 dark:text-amber-300">
+                            <div className="mt-2 flex items-start gap-2 bg-accent/50 border border-accent rounded-lg p-3">
+                              <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                              <p className="text-xs text-muted-foreground">
                                 <strong>💡 เคล็ดลับ:</strong> {step.tip}
                               </p>
                             </div>

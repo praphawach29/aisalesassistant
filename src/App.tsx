@@ -40,6 +40,7 @@ import Embed from "./pages/Embed";
 import EmbedWidget from "./pages/EmbedWidget";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import AdminGuide from "./pages/AdminGuide";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
