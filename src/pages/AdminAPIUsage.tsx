@@ -94,7 +94,7 @@ const AdminAPIUsage = () => {
     const totalCostTHB = totalMessages * COST_PER_MESSAGE_THB;
     const avgPerDay = totalMessages / days;
     const projectedMonthly = avgPerDay * 30;
-    const projectedMonthlyCost    THB = projectedMonthly * COST_PER_MESSAGE_THB;
+    const projectedMonthlyCostTHB = projectedMonthly * COST_PER_MESSAGE_THB;
 
     return { totalMessages, totalCostUSD, totalCostTHB, avgPerDay, projectedMonthly, projectedMonthlyCostTHB };
   }, [chatMessages, days]);
