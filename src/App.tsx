@@ -89,6 +89,7 @@ const App = () => (
               <Route path="/embed-widget" element={<EmbedWidget />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/admin/guide" element={<AdminGuide />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
