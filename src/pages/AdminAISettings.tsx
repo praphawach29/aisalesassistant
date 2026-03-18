@@ -134,6 +134,16 @@ export default function AdminAISettings() {
           'technology': '💻 เทคโนโลยี / IT',
           'food': '🍽️ อาหาร / เครื่องดื่ม',
           'beauty': '💄 ความงาม / เครื่องสำอาง',
+          'printer': '🖨️ ร้านปริ้นเตอร์',
+          'spa': '💆 สปา & นวด',
+          'clinic': '🏥 คลินิกทั่วไป',
+          'beauty_clinic': '✨ คลินิกความงาม',
+          'restaurant': '🍜 ร้านอาหาร',
+          'fitness': '🏋️ ฟิตเนส',
+          'education': '📚 โรงเรียน/กวดวิชา',
+          'car_repair': '🚗 อู่ซ่อมรถ',
+          'pet_clinic': '🐾 คลินิกสัตว์เลี้ยง',
+          'real_estate': '🏠 อสังหาริมทรัพย์',
         };
         
         const dynamicStoreTypes: StoreType[] = [
