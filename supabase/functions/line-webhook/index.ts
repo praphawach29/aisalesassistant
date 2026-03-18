@@ -1980,6 +1980,224 @@ serve(async (req) => {
         }
       }
 
+      // ============= Handle Follow Event (New Friend) =============
+      if (event.type === "follow") {
+        const userId = event.source?.userId;
+        const replyToken = event.replyToken;
+        if (!userId || !replyToken) continue;
+
+        console.log(`[LINE] New friend follow event from: ${userId}`);
+
+        // Fetch user profile
+        let displayName = "เพื่อนใหม่";
+        try {
+          const profileResponse = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${lineAccessToken}` }
+          });
+          if (profileResponse.ok) {
+            const profile = await profileResponse.json();
+            displayName = profile.displayName || "เพื่อนใหม่";
+          }
+        } catch (e) {
+          console.error('[LINE] Error fetching profile for follow event:', e);
+        }
+
+        // Fetch store settings & welcome message config
+        const { data: welcomeSettings } = await supabase
+          .from('settings')
+          .select('key, value')
+          .in('key', [
+            'STORE_NAME', 'LINE_WELCOME_ENABLED', 'LINE_WELCOME_MESSAGE',
+            'LINE_WELCOME_CTA_1', 'LINE_WELCOME_CTA_2', 'LINE_WELCOME_CTA_3',
+            'BUSINESS_HOURS', 'SHIPPING_INFO'
+          ]);
+
+        const getVal = (key: string, fallback: string) =>
+          welcomeSettings?.find((s: any) => s.key === key)?.value || fallback;
+
+        const welcomeEnabled = getVal('LINE_WELCOME_ENABLED', 'true');
+        if (welcomeEnabled === 'false') {
+          console.log('[LINE] Welcome message disabled, skipping');
+          continue;
+        }
+
+        const storeName = getVal('STORE_NAME', 'ร้านค้าของเรา');
+        const welcomeMsg = getVal('LINE_WELCOME_MESSAGE', 
+          `ยินดีต้อนรับสู่ ${storeName} ค่ะ! 🎉\n\nขอบคุณที่เพิ่มเพื่อนกับเรานะคะ เรายินดีให้บริการคุณเสมอค่ะ 😊`
+        );
+        const cta1 = getVal('LINE_WELCOME_CTA_1', '🛍️ ดูสินค้า');
+        const cta2 = getVal('LINE_WELCOME_CTA_2', '💬 สอบถามข้อมูล');
+        const cta3 = getVal('LINE_WELCOME_CTA_3', '📦 เช็คสถานะออเดอร์');
+        const businessHours = getVal('BUSINESS_HOURS', '');
+        const shippingInfo = getVal('SHIPPING_INFO', '');
+
+        // Build info highlights
+        const highlights: Array<{icon: string; label: string; value: string}> = [];
+        if (businessHours) {
+          highlights.push({ icon: "🕐", label: "เวลาทำการ", value: businessHours });
+        }
+        if (shippingInfo) {
+          highlights.push({ icon: "🚚", label: "จัดส่ง", value: shippingInfo });
+        }
+
+        // Build Flex Message
+        const bodyContents: any[] = [
+          {
+            type: "text",
+            text: `สวัสดีคุณ ${displayName}! 👋`,
+            weight: "bold",
+            size: "xl",
+            color: "#1DB446",
+            wrap: true
+          },
+          {
+            type: "separator",
+            margin: "lg"
+          },
+          {
+            type: "text",
+            text: welcomeMsg,
+            wrap: true,
+            size: "sm",
+            color: "#555555",
+            margin: "lg"
+          }
+        ];
+
+        // Add highlights if available
+        if (highlights.length > 0) {
+          bodyContents.push({
+            type: "separator",
+            margin: "lg"
+          });
+          for (const h of highlights) {
+            bodyContents.push({
+              type: "box",
+              layout: "horizontal",
+              margin: "md",
+              contents: [
+                { type: "text", text: `${h.icon} ${h.label}`, size: "xs", color: "#aaaaaa", flex: 3 },
+                { type: "text", text: h.value, size: "xs", color: "#333333", flex: 5, wrap: true, align: "end" }
+              ]
+            });
+          }
+        }
+
+        const welcomeFlex = {
+          type: "flex",
+          altText: `ยินดีต้อนรับสู่ ${storeName}!`,
+          contents: {
+            type: "bubble",
+            size: "mega",
+            header: {
+              type: "box",
+              layout: "vertical",
+              backgroundColor: "#1DB446",
+              paddingAll: "20px",
+              contents: [
+                {
+                  type: "text",
+                  text: `🏪 ${storeName}`,
+                  color: "#FFFFFF",
+                  weight: "bold",
+                  size: "lg"
+                },
+                {
+                  type: "text",
+                  text: "ยินดีต้อนรับเพื่อนใหม่!",
+                  color: "#FFFFFFBB",
+                  size: "sm",
+                  margin: "sm"
+                }
+              ]
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              paddingAll: "20px",
+              spacing: "sm",
+              contents: bodyContents
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              paddingAll: "15px",
+              contents: [
+                {
+                  type: "button",
+                  action: { type: "message", label: cta1, text: cta1.replace(/^[^\w\u0E00-\u0E7F]*\s*/, '') },
+                  style: "primary",
+                  color: "#1DB446",
+                  height: "sm"
+                },
+                {
+                  type: "button",
+                  action: { type: "message", label: cta2, text: cta2.replace(/^[^\w\u0E00-\u0E7F]*\s*/, '') },
+                  style: "secondary",
+                  height: "sm"
+                },
+                {
+                  type: "button",
+                  action: { type: "message", label: cta3, text: cta3.replace(/^[^\w\u0E00-\u0E7F]*\s*/, '') },
+                  style: "secondary",
+                  height: "sm"
+                }
+              ]
+            }
+          }
+        };
+
+        // Send welcome message
+        try {
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({
+              replyToken,
+              messages: [welcomeFlex]
+            }),
+          });
+          console.log(`[LINE] Welcome message sent to new friend: ${displayName}`);
+        } catch (e) {
+          console.error('[LINE] Error sending welcome message:', e);
+        }
+
+        // Create conversation for new friend
+        const { data: existingConv } = await supabase
+          .from('chat_conversations')
+          .select('id')
+          .eq('platform', 'line')
+          .eq('platform_user_id', userId)
+          .maybeSingle();
+
+        if (!existingConv) {
+          await supabase.from('chat_conversations').insert({
+            platform: 'line',
+            platform_user_id: userId,
+            customer_name: displayName,
+            last_message: '🆕 เพิ่มเพื่อนใหม่',
+            last_message_at: new Date().toISOString()
+          });
+          console.log(`[LINE] Created conversation for new friend: ${displayName}`);
+        }
+
+        continue;
+      }
+
+      // ============= Handle Unfollow Event =============
+      if (event.type === "unfollow") {
+        const userId = event.source?.userId;
+        if (userId) {
+          console.log(`[LINE] User unfollowed: ${userId}`);
+        }
+        continue;
+      }
+
       // Handle text messages
       if (event.type === "message" && event.message?.type === "text") {
         const userId = event.source?.userId;

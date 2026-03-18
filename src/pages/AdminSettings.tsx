@@ -61,6 +61,11 @@ const DEFAULT_STORE_SETTINGS: StoreSetting[] = [
   { key: 'ADMIN_LINE_NOTIFY_LOW_STOCK', value: 'true', description: 'แจ้งเตือนสินค้าใกล้หมดทาง LINE' },
   { key: 'ADMIN_LINE_NOTIFY_OUT_OF_STOCK', value: 'true', description: 'แจ้งเตือนสินค้าหมดทาง LINE' },
   { key: 'ADMIN_LINE_NOTIFY_PAYMENT', value: 'true', description: 'แจ้งเตือนสลิปชำระเงินใหม่ทาง LINE' },
+  { key: 'LINE_WELCOME_ENABLED', value: 'true', description: 'เปิดใช้งานข้อความต้อนรับเพื่อนใหม่' },
+  { key: 'LINE_WELCOME_MESSAGE', value: '', description: 'ข้อความต้อนรับเพื่อนใหม่' },
+  { key: 'LINE_WELCOME_CTA_1', value: '🛍️ ดูสินค้า', description: 'ปุ่มลัดที่ 1' },
+  { key: 'LINE_WELCOME_CTA_2', value: '💬 สอบถามข้อมูล', description: 'ปุ่มลัดที่ 2' },
+  { key: 'LINE_WELCOME_CTA_3', value: '📦 เช็คสถานะออเดอร์', description: 'ปุ่มลัดที่ 3' },
 ];
 
 const AdminSettings = () => {
