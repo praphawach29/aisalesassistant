@@ -28,6 +28,7 @@ import AdminAddresses from "./pages/AdminAddresses";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminEmbedCode from "./pages/AdminEmbedCode";
 import AdminWebScraping from "./pages/AdminWebScraping";
+import AdminAPIUsage from "./pages/AdminAPIUsage";
 import AdminKnowledgeBase from "./pages/AdminKnowledgeBase";
 import AdminRelatedProducts from "./pages/AdminRelatedProducts";
 import AdminBackupReset from "./pages/AdminBackupReset";
