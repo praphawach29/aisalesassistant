@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from './NotificationBell';
 import {
@@ -33,7 +35,9 @@ import {
   Database,
   FileText,
   Bug,
-  BarChart3
+  BarChart3,
+  Lock,
+  Sparkles
 } from 'lucide-react';
 
 interface AdminLayoutProps {
