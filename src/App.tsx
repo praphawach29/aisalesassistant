@@ -82,6 +82,7 @@ const App = () => (
               <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
               <Route path="/admin/error-logs" element={<AdminErrorLogs />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
+              <Route path="/admin/subscription" element={<AdminSubscription />} />
               <Route path="/widget-demo" element={<WidgetDemo />} />
               <Route path="/embed" element={<Embed />} />
               <Route path="/embed-widget" element={<EmbedWidget />} />
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          </SubscriptionProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
