@@ -12,9 +12,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY") || "";
 
-// Default provider: Use OpenAI if API key is available, otherwise use Lovable AI
-const DEFAULT_PROVIDER = OPENAI_API_KEY ? "openai" : "lovable";
-const DEFAULT_API_KEY = OPENAI_API_KEY || LOVABLE_API_KEY;
+// Default provider: Lovable AI (Gemini Flash) - most cost-effective
+const DEFAULT_PROVIDER = "lovable";
+const DEFAULT_API_KEY = LOVABLE_API_KEY;
 
 // ============= In-Memory Cache with TTL and Invalidation =============
 interface CacheEntry<T> {
