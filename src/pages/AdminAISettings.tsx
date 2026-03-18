@@ -79,6 +79,16 @@ const defaultStoreTypes: StoreType[] = [
   { value: 'technology', label: '💻 เทคโนโลยี / IT' },
   { value: 'food', label: '🍽️ อาหาร / เครื่องดื่ม' },
   { value: 'beauty', label: '💄 ความงาม / เครื่องสำอาง' },
+  { value: 'printer', label: '🖨️ ร้านปริ้นเตอร์' },
+  { value: 'spa', label: '💆 สปา & นวด' },
+  { value: 'clinic', label: '🏥 คลินิกทั่วไป' },
+  { value: 'beauty_clinic', label: '✨ คลินิกความงาม' },
+  { value: 'restaurant', label: '🍜 ร้านอาหาร' },
+  { value: 'fitness', label: '🏋️ ฟิตเนส' },
+  { value: 'education', label: '📚 โรงเรียน/กวดวิชา' },
+  { value: 'car_repair', label: '🚗 อู่ซ่อมรถ' },
+  { value: 'pet_clinic', label: '🐾 คลินิกสัตว์เลี้ยง' },
+  { value: 'real_estate', label: '🏠 อสังหาริมทรัพย์' },
 ];
 
 export default function AdminAISettings() {
