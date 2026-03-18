@@ -102,7 +102,7 @@ interface ProviderConfig {
 const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
   lovable: {
     url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "google/gemini-2.5-flash",
+    model: "google/gemini-3-flash-preview",
     getHeaders: (apiKey) => ({
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
