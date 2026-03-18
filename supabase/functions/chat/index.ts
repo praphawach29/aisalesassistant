@@ -12,9 +12,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY") || "";
 
-// Default provider: Use OpenAI if API key is available, otherwise use Lovable AI
-const DEFAULT_PROVIDER = OPENAI_API_KEY ? "openai" : "lovable";
-const DEFAULT_API_KEY = OPENAI_API_KEY || LOVABLE_API_KEY;
+// Default provider: Lovable AI (Gemini Flash) - most cost-effective
+const DEFAULT_PROVIDER = "lovable";
+const DEFAULT_API_KEY = LOVABLE_API_KEY;
 
 // ============= In-Memory Cache with TTL and Invalidation =============
 interface CacheEntry<T> {
@@ -102,7 +102,7 @@ interface ProviderConfig {
 const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
   lovable: {
     url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "google/gemini-2.5-flash",
+    model: "google/gemini-3-flash-preview",
     getHeaders: (apiKey) => ({
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
@@ -1133,41 +1133,46 @@ serve(async (req) => {
     console.log("Is first message:", isFirstMessage);
 
     // Determine which provider to use
-    // Priority: 1. OpenAI via env var (if available), 2. AI settings provider, 3. Lovable AI
+    // Priority: 1. Lovable AI (Gemini Flash - cost-effective), 2. AI settings provider, 3. OpenAI fallback
     let provider = aiSettings.ai_provider || 'lovable';
     let apiKey: string | undefined;
     
-    // If OpenAI API key is set in env, always use OpenAI as primary
-    if (OPENAI_API_KEY) {
-      // OpenAI is available via env var - use it as default
-      if (provider === 'lovable' || provider === 'openai') {
+    if (provider === 'lovable') {
+      // Default: use Lovable AI (Gemini Flash) - most cost-effective
+      apiKey = LOVABLE_API_KEY;
+    } else if (provider === 'openai' && OPENAI_API_KEY) {
+      // Use OpenAI if explicitly selected and key available
+      apiKey = OPENAI_API_KEY;
+    } else if (provider !== 'lovable') {
+      // Try to fetch key for selected provider from database
+      const { data: keyData } = await supabase
+        .from('ai_provider_keys')
+        .select('encrypted_api_key')
+        .eq('provider', provider)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (keyData?.encrypted_api_key) {
+        apiKey = await decrypt(keyData.encrypted_api_key);
+      } else {
+        // Fallback to Lovable AI if no key found
+        console.log(`No API key found for ${provider}, falling back to Lovable AI (Gemini Flash)`);
+        provider = 'lovable';
+        apiKey = LOVABLE_API_KEY;
+      }
+    }
+    
+    if (!apiKey) {
+      // Final fallback
+      if (LOVABLE_API_KEY) {
+        provider = 'lovable';
+        apiKey = LOVABLE_API_KEY;
+      } else if (OPENAI_API_KEY) {
         provider = 'openai';
         apiKey = OPENAI_API_KEY;
       } else {
-        // User selected a different provider, try to fetch its key from database
-        const { data: keyData } = await supabase
-          .from('ai_provider_keys')
-          .select('encrypted_api_key')
-          .eq('provider', provider)
-          .eq('is_active', true)
-          .maybeSingle();
-        
-        if (keyData?.encrypted_api_key) {
-          apiKey = await decrypt(keyData.encrypted_api_key);
-        } else {
-          // Fallback to OpenAI if no key found for selected provider
-          console.log(`No API key found for ${provider}, falling back to OpenAI`);
-          provider = 'openai';
-          apiKey = OPENAI_API_KEY;
-        }
+        throw new Error('No AI provider API key configured');
       }
-    } else if (LOVABLE_API_KEY) {
-      // No OpenAI key, use Lovable AI
-      provider = 'lovable';
-      apiKey = LOVABLE_API_KEY;
-    } else {
-      // No API keys available
-      throw new Error('No AI provider API key configured');
     }
     
     let providerConfig = PROVIDER_CONFIGS[provider];
