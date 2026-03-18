@@ -145,6 +145,7 @@ export default function AdminAISettings() {
           'car_repair': '🚗 อู่ซ่อมรถ',
           'pet_clinic': '🐾 คลินิกสัตว์เลี้ยง',
           'real_estate': '🏠 อสังหาริมทรัพย์',
+          'cafe': '☕ คาเฟ่',
         };
         
         const dynamicStoreTypes: StoreType[] = [
