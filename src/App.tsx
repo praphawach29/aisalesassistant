@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { SubscriptionProvider } from "@/hooks/useSubscription";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
@@ -34,6 +35,7 @@ import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminErrorLogs from "./pages/AdminErrorLogs";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import WidgetDemo from "./pages/WidgetDemo";
+import AdminSubscription from "./pages/AdminSubscription";
 import Embed from "./pages/Embed";
 import EmbedWidget from "./pages/EmbedWidget";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -47,6 +49,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
+          <SubscriptionProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -79,6 +82,7 @@ const App = () => (
               <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
               <Route path="/admin/error-logs" element={<AdminErrorLogs />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
+              <Route path="/admin/subscription" element={<AdminSubscription />} />
               <Route path="/widget-demo" element={<WidgetDemo />} />
               <Route path="/embed" element={<Embed />} />
               <Route path="/embed-widget" element={<EmbedWidget />} />
@@ -87,6 +91,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          </SubscriptionProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

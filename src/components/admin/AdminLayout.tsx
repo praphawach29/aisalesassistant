@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from './NotificationBell';
 import {
@@ -33,7 +35,9 @@ import {
   Database,
   FileText,
   Bug,
-  BarChart3
+  BarChart3,
+  Lock,
+  Sparkles
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -57,6 +61,7 @@ const menuCategories: MenuCategory[] = [
     category: 'ภาพรวม',
     items: [
       { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/admin/subscription', label: 'แพ็กเกจ', icon: Sparkles },
     ]
   },
   {
@@ -111,6 +116,7 @@ const menuCategories: MenuCategory[] = [
 
 export function AdminLayout({ children, title }: AdminLayoutProps) {
   const { signOut } = useAuth();
+  const { isFeatureLocked, canAccessPage } = useSubscription();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -166,24 +172,54 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
               {/* Menu Items */}
               {category.items.map((item) => {
                 const isActive = location.pathname === item.path;
+                const lockInfo = isFeatureLocked(item.path);
+                const isLocked = lockInfo.locked;
+                
+                const linkContent = (
+                  <div className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                    isLocked
+                      ? "opacity-50 cursor-not-allowed"
+                      : isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground",
+                    isCollapsed && !isMobile && "justify-center"
+                  )}>
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    {(!isCollapsed || isMobile) && (
+                      <span className="font-medium flex-1">{item.label}</span>
+                    )}
+                    {isLocked && (!isCollapsed || isMobile) && (
+                      <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                    )}
+                  </div>
+                );
+
+                if (isLocked) {
+                  return (
+                    <Tooltip key={item.path}>
+                      <TooltipTrigger asChild>
+                        <Link
+                          to="/admin/subscription"
+                          onClick={() => isMobile && setIsMobileOpen(false)}
+                        >
+                          {linkContent}
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>ต้องอัปเกรดเป็น {lockInfo.requiredPlan}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }
+
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
                     onClick={() => isMobile && setIsMobileOpen(false)}
                   >
-                    <div className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-muted text-muted-foreground hover:text-foreground",
-                      isCollapsed && !isMobile && "justify-center"
-                    )}>
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
-                      {(!isCollapsed || isMobile) && (
-                        <span className="font-medium">{item.label}</span>
-                      )}
-                    </div>
+                    {linkContent}
                   </Link>
                 );
               })}
