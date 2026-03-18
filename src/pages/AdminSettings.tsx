@@ -742,6 +742,89 @@ const AdminSettings = () => {
           </CardContent>
         </Card>
 
+        {/* LINE Welcome Message for New Friends */}
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-emerald-600">
+              <span className="text-xl">👋</span>
+              ข้อความต้อนรับเพื่อนใหม่ LINE
+            </CardTitle>
+            <CardDescription>
+              ตั้งค่าข้อความต้อนรับอัตโนมัติเมื่อมีคนเพิ่มเพื่อน LINE OA ของร้าน
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-base">เปิดใช้งานข้อความต้อนรับ</Label>
+                <p className="text-sm text-muted-foreground">
+                  ส่ง Flex Message ต้อนรับเมื่อมีเพื่อนใหม่เพิ่มเข้ามา
+                </p>
+              </div>
+              <Switch
+                checked={settings.find(s => s.key === 'LINE_WELCOME_ENABLED')?.value !== 'false'}
+                onCheckedChange={(checked) => handleValueChange('LINE_WELCOME_ENABLED', String(checked))}
+              />
+            </div>
+
+            {settings.find(s => s.key === 'LINE_WELCOME_ENABLED')?.value !== 'false' && (
+              <div className="space-y-4 pl-4 border-l-2 border-emerald-500/30">
+                <div className="space-y-2">
+                  <Label>ข้อความต้อนรับ</Label>
+                  <Textarea
+                    value={settings.find(s => s.key === 'LINE_WELCOME_MESSAGE')?.value || ''}
+                    onChange={(e) => handleValueChange('LINE_WELCOME_MESSAGE', e.target.value)}
+                    placeholder={`ยินดีต้อนรับสู่ร้านของเรา! 🎉\n\nขอบคุณที่เพิ่มเพื่อนกับเรานะคะ เรายินดีให้บริการคุณเสมอค่ะ 😊`}
+                    rows={4}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    ถ้าเว้นว่าง ระบบจะใช้ข้อความตั้งต้นอัตโนมัติ (รวมชื่อร้าน)
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">ปุ่มลัด (Quick Actions)</Label>
+                  <div className="grid gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground w-6">1.</span>
+                      <Input
+                        value={settings.find(s => s.key === 'LINE_WELCOME_CTA_1')?.value || '🛍️ ดูสินค้า'}
+                        onChange={(e) => handleValueChange('LINE_WELCOME_CTA_1', e.target.value)}
+                        placeholder="🛍️ ดูสินค้า"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground w-6">2.</span>
+                      <Input
+                        value={settings.find(s => s.key === 'LINE_WELCOME_CTA_2')?.value || '💬 สอบถามข้อมูล'}
+                        onChange={(e) => handleValueChange('LINE_WELCOME_CTA_2', e.target.value)}
+                        placeholder="💬 สอบถามข้อมูล"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground w-6">3.</span>
+                      <Input
+                        value={settings.find(s => s.key === 'LINE_WELCOME_CTA_3')?.value || '📦 เช็คสถานะออเดอร์'}
+                        onChange={(e) => handleValueChange('LINE_WELCOME_CTA_3', e.target.value)}
+                        placeholder="📦 เช็คสถานะออเดอร์"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    ปุ่มเหล่านี้จะแสดงใน Flex Message ให้ลูกค้ากดเพื่อเริ่มสนทนา
+                  </p>
+                </div>
+
+                <div className="p-3 bg-emerald-500/10 rounded-lg">
+                  <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                    👁️ <strong>ตัวอย่างข้อความ:</strong> เมื่อมีคนเพิ่มเพื่อน LINE OA จะได้รับ Flex Message สวยงามพร้อมชื่อร้าน, ข้อความต้อนรับ, เวลาทำการ และปุ่มลัด 3 ปุ่ม
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Admin LINE Notification */}
         <Card className="border-green-500/30 bg-green-500/5">
           <CardHeader>
