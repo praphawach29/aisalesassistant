@@ -89,6 +89,7 @@ const defaultStoreTypes: StoreType[] = [
   { value: 'car_repair', label: '🚗 อู่ซ่อมรถ' },
   { value: 'pet_clinic', label: '🐾 คลินิกสัตว์เลี้ยง' },
   { value: 'real_estate', label: '🏠 อสังหาริมทรัพย์' },
+  { value: 'cafe', label: '☕ คาเฟ่' },
 ];
 
 export default function AdminAISettings() {
