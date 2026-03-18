@@ -116,6 +116,7 @@ const menuCategories: MenuCategory[] = [
 
 export function AdminLayout({ children, title }: AdminLayoutProps) {
   const { signOut } = useAuth();
+  const { isFeatureLocked, canAccessPage } = useSubscription();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
