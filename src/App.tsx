@@ -35,6 +35,7 @@ import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminErrorLogs from "./pages/AdminErrorLogs";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import WidgetDemo from "./pages/WidgetDemo";
+import AdminSubscription from "./pages/AdminSubscription";
 import Embed from "./pages/Embed";
 import EmbedWidget from "./pages/EmbedWidget";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
