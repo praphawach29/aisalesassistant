@@ -93,6 +93,8 @@ const App = () => (
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/admin/guide" element={<AdminGuide />} />
               <Route path="/admin/api-usage" element={<AdminAPIUsage />} />
+              <Route path="/track" element={<TrackOrder />} />
+              <Route path="/track/:orderNumber" element={<TrackOrder />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
