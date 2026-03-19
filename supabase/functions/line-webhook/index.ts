@@ -3215,62 +3215,80 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
         console.log("Cart action:", cartAction);
 
         if (cartAction.type === 'add' && cartAction.productName) {
-          // Find product
-          const product = productList.find(p => 
-            p.name.toLowerCase().includes(cartAction.productName!.toLowerCase()) ||
-            cartAction.productName!.toLowerCase().includes(p.name.toLowerCase())
-          );
-
-          if (product) {
-            if (product.stock < (cartAction.quantity || 1)) {
-              lineMessages.push({ type: "text", text: `ขออภัยค่ะ สินค้า "${product.name}" มีไม่เพียงพอ (เหลือ ${product.stock} ชิ้น) ค่ะ` });
-            } else {
-              // Check if item already in cart
-              const { data: existingItem } = await supabase
-                .from('shopping_carts')
-                .select('*')
-                .eq('platform_user_id', userId)
-                .eq('product_id', product.id)
-                .maybeSingle();
-
-              const price = product.promotion_price || product.price;
-
-              if (existingItem) {
-                // Update quantity
-                await supabase
-                  .from('shopping_carts')
-                  .update({ 
-                    quantity: existingItem.quantity + (cartAction.quantity || 1),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', existingItem.id);
-              } else {
-                // Insert new item
-                await supabase.from('shopping_carts').insert({
-                  platform_user_id: userId,
-                  conversation_id: conversation.id,
-                  product_id: product.id,
-                  product_name: product.name,
-                  quantity: cartAction.quantity || 1,
-                  price: price,
-                  variants: cartAction.variants || null
-                });
-              }
-
-              // Get updated cart
-              const { data: cartItems } = await supabase
-                .from('shopping_carts')
-                .select('*')
-                .eq('platform_user_id', userId);
-
-              const cartCount = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-              lineMessages.push({ 
-                type: "text", 
-                text: `✅ เพิ่ม "${product.name}" ลงตะกร้าแล้วค่ะ! (ตะกร้ามี ${cartCount} ชิ้น)\n\nพิมพ์ "ดูตะกร้า" เพื่อดูรายการทั้งหมดค่ะ 🛒` 
-              });
+          // Handle multiple cart adds if available
+          const addsToProcess = multiCartAdds || [cartAction];
+          const addedProducts: string[] = [];
+          
+          for (const addAction of addsToProcess) {
+            if (!addAction.productName) continue;
+            
+            // Find product - use exact match first, then partial
+            let product = productList.find(p => p.name.toLowerCase() === addAction.productName!.toLowerCase());
+            if (!product) {
+              product = productList.find(p => 
+                p.name.toLowerCase().includes(addAction.productName!.toLowerCase()) ||
+                addAction.productName!.toLowerCase().includes(p.name.toLowerCase())
+              );
             }
-          } else {
-            lineMessages.push({ type: "text", text: `ขออภัยค่ะ ไม่พบสินค้า "${cartAction.productName}" ค่ะ` });
+
+            if (product) {
+              if (product.stock < (addAction.quantity || 1)) {
+                lineMessages.push({ type: "text", text: `ขออภัยค่ะ สินค้า "${product.name}" มีไม่เพียงพอ (เหลือ ${product.stock} ชิ้น) ค่ะ` });
+              } else {
+                // Check if item already in cart
+                const { data: existingItem } = await supabase
+                  .from('shopping_carts')
+                  .select('*')
+                  .eq('platform_user_id', userId)
+                  .eq('product_id', product.id)
+                  .maybeSingle();
+
+                const price = product.promotion_price || product.price;
+
+                if (existingItem) {
+                  // Update quantity
+                  await supabase
+                    .from('shopping_carts')
+                    .update({ 
+                      quantity: existingItem.quantity + (addAction.quantity || 1),
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existingItem.id);
+                } else {
+                  // Insert new item
+                  await supabase.from('shopping_carts').insert({
+                    platform_user_id: userId,
+                    conversation_id: conversation.id,
+                    product_id: product.id,
+                    product_name: product.name,
+                    quantity: addAction.quantity || 1,
+                    price: price,
+                    variants: addAction.variants || null
+                  });
+                }
+                addedProducts.push(product.name);
+              }
+            } else {
+              lineMessages.push({ type: "text", text: `ขออภัยค่ะ ไม่พบสินค้า "${addAction.productName}" ค่ะ` });
+            }
+          }
+
+          // Show combined confirmation for all added products
+          if (addedProducts.length > 0) {
+            // Get updated cart
+            const { data: cartItems } = await supabase
+              .from('shopping_carts')
+              .select('*')
+              .eq('platform_user_id', userId);
+
+            const cartCount = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+            const addedText = addedProducts.length === 1 
+              ? `"${addedProducts[0]}"` 
+              : addedProducts.map(n => `"${n}"`).join(' และ ');
+            lineMessages.push({ 
+              type: "text", 
+              text: `✅ เพิ่ม ${addedText} ลงตะกร้าแล้วค่ะ! (ตะกร้ามี ${cartCount} ชิ้น)\n\nพิมพ์ "ดูตะกร้า" เพื่อดูรายการทั้งหมดค่ะ 🛒` 
+            });
           }
         } else if (cartAction.type === 'remove' && cartAction.productName) {
           // Find item in cart by product name
