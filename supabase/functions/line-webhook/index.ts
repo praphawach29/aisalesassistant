@@ -4160,6 +4160,10 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
             
             console.log(`[LINE] Multi-product order created: ${order.order_number}`);
             
+            // Clear cart after order creation
+            await supabase.from('shopping_carts').delete().eq('platform_user_id', userId);
+            console.log(`[LINE] Cart cleared after multi order for user ${userId}`);
+            
             // Build order confirmation message
             lineMessages.push({
               type: "flex",
