@@ -254,6 +254,7 @@ export default function AdminProducts() {
       image_url: formData.image_url.trim() || null,
       is_active: formData.is_active,
       variants: formData.variants.length > 0 ? JSON.parse(JSON.stringify(formData.variants)) : [],
+      delivery_type: formData.delivery_type,
     };
 
     try {
