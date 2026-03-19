@@ -42,6 +42,7 @@ import EmbedWidget from "./pages/EmbedWidget";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import AdminGuide from "./pages/AdminGuide";
+import TrackOrder from "./pages/TrackOrder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -92,6 +93,8 @@ const App = () => (
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/admin/guide" element={<AdminGuide />} />
               <Route path="/admin/api-usage" element={<AdminAPIUsage />} />
+              <Route path="/track" element={<TrackOrder />} />
+              <Route path="/track/:orderNumber" element={<TrackOrder />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
