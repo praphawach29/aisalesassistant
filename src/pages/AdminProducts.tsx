@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
@@ -59,6 +60,7 @@ interface Product {
   image_url: string | null;
   is_active: boolean;
   variants: ProductVariant[] | null;
+  delivery_type: string;
   created_at: string;
   updated_at: string;
 }
@@ -74,7 +76,15 @@ interface ProductFormData {
   image_url: string;
   is_active: boolean;
   variants: ProductVariant[];
+  delivery_type: string;
 }
+
+const deliveryTypeOptions = [
+  { value: 'shipping', label: '📦 จัดส่ง', desc: 'ต้องระบุที่อยู่จัดส่ง' },
+  { value: 'pickup', label: '🏪 รับหน้าร้าน', desc: 'ไม่ต้องจัดส่ง' },
+  { value: 'digital', label: '💻 สินค้าดิจิทัล', desc: 'ส่งทางออนไลน์' },
+  { value: 'booking', label: '📅 จองบริการ', desc: 'ใช้ระบบจองคิว' },
+];
 
 const initialFormData: ProductFormData = {
   name: '',
@@ -87,6 +97,7 @@ const initialFormData: ProductFormData = {
   image_url: '',
   is_active: true,
   variants: [],
+  delivery_type: 'shipping',
 };
 
 export default function AdminProducts() {
@@ -158,6 +169,7 @@ export default function AdminProducts() {
       image_url: product.image_url || '',
       is_active: product.is_active,
       variants: (product.variants as ProductVariant[]) || [],
+      delivery_type: product.delivery_type || 'shipping',
     });
     setIsDialogOpen(true);
   };
@@ -243,6 +255,7 @@ export default function AdminProducts() {
       image_url: formData.image_url.trim() || null,
       is_active: formData.is_active,
       variants: formData.variants.length > 0 ? JSON.parse(JSON.stringify(formData.variants)) : [],
+      delivery_type: formData.delivery_type,
     };
 
     try {
@@ -456,6 +469,28 @@ export default function AdminProducts() {
                     className="h-9"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm">ประเภทการจัดส่ง</Label>
+                <Select
+                  value={formData.delivery_type}
+                  onValueChange={(value) => setFormData({ ...formData, delivery_type: value })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {deliveryTypeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center gap-2">
+                          <span>{opt.label}</span>
+                          <span className="text-xs text-muted-foreground">- {opt.desc}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">
@@ -783,14 +818,21 @@ export default function AdminProducts() {
                         )}
                       </div>
                       
-                      {/* Stock & Category */}
+                      {/* Stock & Category & Delivery */}
                       <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
                         <span className={product.stock <= 5 ? (product.stock === 0 ? 'text-destructive' : 'text-orange-500') : ''}>
                           สต็อก: {product.stock}
                         </span>
-                        {product.category && (
-                          <span className="truncate max-w-[60%]">{product.category}</span>
-                        )}
+                        <div className="flex items-center gap-1 truncate max-w-[60%]">
+                          {product.delivery_type && product.delivery_type !== 'shipping' && (
+                            <Badge variant="outline" className="text-[8px] sm:text-[10px] px-1 py-0">
+                              {deliveryTypeOptions.find(o => o.value === product.delivery_type)?.label || product.delivery_type}
+                            </Badge>
+                          )}
+                          {product.category && (
+                            <span className="truncate">{product.category}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
