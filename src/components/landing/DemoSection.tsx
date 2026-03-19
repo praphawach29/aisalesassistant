@@ -263,6 +263,7 @@ export default function DemoSection() {
                 {[
                   { icon: MessageCircle, label: 'ตอบอัตโนมัติ' },
                   { icon: ShoppingCart, label: 'รับออเดอร์' },
+                  { icon: CalendarCheck, label: 'จองคิว' },
                   { icon: CreditCard, label: 'ตรวจสลิป' },
                 ].map((tag, i) => (
                   <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/5 text-primary text-[10px] font-medium">
