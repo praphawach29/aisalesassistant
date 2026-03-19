@@ -1044,7 +1044,7 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
     borderColor: "#E5E7EB",
     cornerRadius: "md",
     paddingAll: "sm"
-  }));
+  }; });
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
