@@ -370,6 +370,9 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Demo Section */}
+      <DemoSection />
+
       {/* How It Works Section */}
       <section className="py-16 sm:py-24 relative">
         <div ref={howItWorksRef.ref} className="container mx-auto px-4 relative z-10">
