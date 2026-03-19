@@ -891,8 +891,9 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
           })
           .eq('id', currentConversationId);
         
-        setIsLoading(false);
-        return;
+          setIsLoading(false);
+          return;
+        }
       }
 
       // Add user message to UI immediately
