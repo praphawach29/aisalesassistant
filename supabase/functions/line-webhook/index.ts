@@ -494,6 +494,9 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 
 ## 🛒 การจัดการตะกร้า:
 - "เพิ่มลงตะกร้า [ชื่อสินค้า]" → [CART_ADD:ชื่อสินค้าเต็ม|จำนวน|ตัวเลือก]
+- **สำคัญ! เมื่อเพิ่มสินค้าหลายรายการ → ต้องใช้ [CART_ADD:...] แยกแต่ละรายการ ห้ามรวมเป็นคำสั่งเดียว!**
+  - ตัวอย่าง: ลูกค้าบอก "เอาเสื้อยืด 1 ตัว กับกางเกง 1 ตัว" → ต้องใส่ [CART_ADD:เสื้อยืดคอกลม|1] [CART_ADD:กางเกงขาสั้น|1]
+  - ❌ ห้ามรวมเป็น [CART_ADD:เสื้อยืดคอกลม|2] เพราะเป็นคนละสินค้ากัน!
 - "ลบ [ชื่อสินค้า] ออกจากตะกร้า" → [CART_REMOVE:ชื่อสินค้าเต็ม]
 - "เปลี่ยนจำนวน [ชื่อสินค้า] เป็น X ชิ้น" → [CART_UPDATE:ชื่อสินค้าเต็ม|จำนวนใหม่]
 - "ดูตะกร้า" → [CART_VIEW]
@@ -1689,8 +1692,9 @@ function parseAIResponse(content: string, products: Product[]) {
   const showPromotions = content.includes('[SHOW_PROMOTIONS]');
   const productMatch = content.match(/\[PRODUCT:([^\]]+)\]/);
   
-  // Cart commands
-  const cartAddMatch = content.match(/\[CART_ADD:([^\]]+)\]/);
+  // Cart commands - support multiple CART_ADD commands
+  const cartAddMatches = [...content.matchAll(/\[CART_ADD:([^\]]+)\]/g)];
+  const cartAddMatch = cartAddMatches.length > 0 ? cartAddMatches[0] : null;
   const cartRemoveMatch = content.match(/\[CART_REMOVE:([^\]]+)\]/);
   const cartUpdateMatch = content.match(/\[CART_UPDATE:([^\]]+)\]/);
   const cartView = content.includes('[CART_VIEW]');
@@ -1765,10 +1769,24 @@ function parseAIResponse(content: string, products: Product[]) {
   // Get promotion products
   const promotionProducts = products.filter(p => p.promotion_price && p.promotion_price < p.price);
 
-  // Parse cart action
+  // Parse cart action - support multiple adds
   let cartAction: CartAction | undefined;
+  let multiCartAdds: CartAction[] | undefined;
   
-  if (cartAddMatch) {
+  if (cartAddMatches.length > 1) {
+    // Multiple CART_ADD commands - store all of them
+    multiCartAdds = cartAddMatches.map(match => {
+      const parts = match[1].split('|');
+      return {
+        type: 'add' as const,
+        productName: parts[0]?.trim(),
+        quantity: parseInt(parts[1]) || 1,
+        variants: parts[2]?.trim() || undefined
+      };
+    });
+    // Also set single cartAction for backward compat
+    cartAction = multiCartAdds[0];
+  } else if (cartAddMatch) {
     const parts = cartAddMatch[1].split('|');
     cartAction = {
       type: 'add',
@@ -1904,7 +1922,8 @@ function parseAIResponse(content: string, products: Product[]) {
     showPromotions, 
     specificProduct, 
     promotionProducts, 
-    cartAction, 
+    cartAction,
+    multiCartAdds,
     outOfStockNotification,
     createOrder,
     createMultiOrder,
@@ -3088,7 +3107,7 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       console.log("AI response:", aiContent);
 
       // Parse AI response
-      const { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction, outOfStockNotification, createOrder, createMultiOrder, addressAction } = parseAIResponse(aiContent, productList);
+      const { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction, multiCartAdds, outOfStockNotification, createOrder, createMultiOrder, addressAction } = parseAIResponse(aiContent, productList);
 
       // Handle out of stock notification - create admin notification
       if (outOfStockNotification) {
@@ -3199,62 +3218,80 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
         console.log("Cart action:", cartAction);
 
         if (cartAction.type === 'add' && cartAction.productName) {
-          // Find product
-          const product = productList.find(p => 
-            p.name.toLowerCase().includes(cartAction.productName!.toLowerCase()) ||
-            cartAction.productName!.toLowerCase().includes(p.name.toLowerCase())
-          );
-
-          if (product) {
-            if (product.stock < (cartAction.quantity || 1)) {
-              lineMessages.push({ type: "text", text: `ขออภัยค่ะ สินค้า "${product.name}" มีไม่เพียงพอ (เหลือ ${product.stock} ชิ้น) ค่ะ` });
-            } else {
-              // Check if item already in cart
-              const { data: existingItem } = await supabase
-                .from('shopping_carts')
-                .select('*')
-                .eq('platform_user_id', userId)
-                .eq('product_id', product.id)
-                .maybeSingle();
-
-              const price = product.promotion_price || product.price;
-
-              if (existingItem) {
-                // Update quantity
-                await supabase
-                  .from('shopping_carts')
-                  .update({ 
-                    quantity: existingItem.quantity + (cartAction.quantity || 1),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', existingItem.id);
-              } else {
-                // Insert new item
-                await supabase.from('shopping_carts').insert({
-                  platform_user_id: userId,
-                  conversation_id: conversation.id,
-                  product_id: product.id,
-                  product_name: product.name,
-                  quantity: cartAction.quantity || 1,
-                  price: price,
-                  variants: cartAction.variants || null
-                });
-              }
-
-              // Get updated cart
-              const { data: cartItems } = await supabase
-                .from('shopping_carts')
-                .select('*')
-                .eq('platform_user_id', userId);
-
-              const cartCount = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-              lineMessages.push({ 
-                type: "text", 
-                text: `✅ เพิ่ม "${product.name}" ลงตะกร้าแล้วค่ะ! (ตะกร้ามี ${cartCount} ชิ้น)\n\nพิมพ์ "ดูตะกร้า" เพื่อดูรายการทั้งหมดค่ะ 🛒` 
-              });
+          // Handle multiple cart adds if available
+          const addsToProcess = multiCartAdds || [cartAction];
+          const addedProducts: string[] = [];
+          
+          for (const addAction of addsToProcess) {
+            if (!addAction.productName) continue;
+            
+            // Find product - use exact match first, then partial
+            let product = productList.find(p => p.name.toLowerCase() === addAction.productName!.toLowerCase());
+            if (!product) {
+              product = productList.find(p => 
+                p.name.toLowerCase().includes(addAction.productName!.toLowerCase()) ||
+                addAction.productName!.toLowerCase().includes(p.name.toLowerCase())
+              );
             }
-          } else {
-            lineMessages.push({ type: "text", text: `ขออภัยค่ะ ไม่พบสินค้า "${cartAction.productName}" ค่ะ` });
+
+            if (product) {
+              if (product.stock < (addAction.quantity || 1)) {
+                lineMessages.push({ type: "text", text: `ขออภัยค่ะ สินค้า "${product.name}" มีไม่เพียงพอ (เหลือ ${product.stock} ชิ้น) ค่ะ` });
+              } else {
+                // Check if item already in cart
+                const { data: existingItem } = await supabase
+                  .from('shopping_carts')
+                  .select('*')
+                  .eq('platform_user_id', userId)
+                  .eq('product_id', product.id)
+                  .maybeSingle();
+
+                const price = product.promotion_price || product.price;
+
+                if (existingItem) {
+                  // Update quantity
+                  await supabase
+                    .from('shopping_carts')
+                    .update({ 
+                      quantity: existingItem.quantity + (addAction.quantity || 1),
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existingItem.id);
+                } else {
+                  // Insert new item
+                  await supabase.from('shopping_carts').insert({
+                    platform_user_id: userId,
+                    conversation_id: conversation.id,
+                    product_id: product.id,
+                    product_name: product.name,
+                    quantity: addAction.quantity || 1,
+                    price: price,
+                    variants: addAction.variants || null
+                  });
+                }
+                addedProducts.push(product.name);
+              }
+            } else {
+              lineMessages.push({ type: "text", text: `ขออภัยค่ะ ไม่พบสินค้า "${addAction.productName}" ค่ะ` });
+            }
+          }
+
+          // Show combined confirmation for all added products
+          if (addedProducts.length > 0) {
+            // Get updated cart
+            const { data: cartItems } = await supabase
+              .from('shopping_carts')
+              .select('*')
+              .eq('platform_user_id', userId);
+
+            const cartCount = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+            const addedText = addedProducts.length === 1 
+              ? `"${addedProducts[0]}"` 
+              : addedProducts.map(n => `"${n}"`).join(' และ ');
+            lineMessages.push({ 
+              type: "text", 
+              text: `✅ เพิ่ม ${addedText} ลงตะกร้าแล้วค่ะ! (ตะกร้ามี ${cartCount} ชิ้น)\n\nพิมพ์ "ดูตะกร้า" เพื่อดูรายการทั้งหมดค่ะ 🛒` 
+            });
           }
         } else if (cartAction.type === 'remove' && cartAction.productName) {
           // Find item in cart by product name
