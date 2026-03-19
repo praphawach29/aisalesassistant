@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
+import { resolveAvatarUrl } from '@/lib/avatarMap';
 import {
   Dialog,
   DialogContent,
