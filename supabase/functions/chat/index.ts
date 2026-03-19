@@ -746,6 +746,43 @@ ${customerContext.savedAddresses.map((a, i) => (i + 1) + '. ' + a.label + ': ' +
 ${categoryExpertise || ''}`;
 }
 
+// Booking prompt builder
+function buildBookingPrompt(bookingSettings: any, availableSlots: any[]): string {
+  if (!bookingSettings || !bookingSettings.is_enabled) return '';
+
+  const slotsText = availableSlots.length > 0
+    ? availableSlots.map(s => `- ${s.slot_date} เวลา ${s.start_time}-${s.end_time} (ว่าง ${s.max_bookings - s.current_bookings} ที่)`).join('\n')
+    : 'ไม่มี slot ว่างในขณะนี้';
+
+  return `
+
+## 📅 ระบบจองคิว/นัดหมาย:
+ร้านนี้เปิดให้จองบริการ "${bookingSettings.service_name}" ผ่านแชทได้
+
+### 🕐 ช่วงเวลาที่ว่าง (อัปเดตล่าสุด):
+${slotsText}
+
+${bookingSettings.booking_rules ? `### 📋 กฎการจอง:\n${bookingSettings.booking_rules}` : ''}
+
+### วิธีจัดการจอง:
+1. เมื่อลูกค้าสนใจจอง → แสดงช่วงเวลาที่ว่าง
+2. ถามข้อมูล: ชื่อ, เบอร์โทร, วันเวลาที่ต้องการ
+3. เมื่อข้อมูลครบ → สร้างการจองด้วยคำสั่ง:
+   [CREATE_BOOKING:ชื่อลูกค้า|เบอร์โทร|วันที่(YYYY-MM-DD)|เวลาเริ่ม(HH:MM)|ชื่อบริการ|หมายเหตุ]
+   ตัวอย่าง: [CREATE_BOOKING:สมชาย ใจดี|0812345678|2026-03-25|10:00|${bookingSettings.service_name}|ต้องการล้างรถ SUV]
+4. ${bookingSettings.auto_confirm ? 'การจองจะยืนยันอัตโนมัติทันที' : 'การจองจะรอแอดมินยืนยัน'}
+
+### ตรวจสอบการจอง:
+- เมื่อลูกค้าถามสถานะการจอง: [CHECK_BOOKING:เลขจอง]
+  ตัวอย่าง: [CHECK_BOOKING:BK-20260325-1234]
+
+### ⚠️ กฎสำคัญ:
+- ต้องเสนอเฉพาะเวลาที่ยังว่างเท่านั้น
+- ห้ามรับจองเวลาที่เต็มแล้ว
+- ถ้าไม่มี slot ว่าง แจ้งลูกค้าและแนะนำให้ลองวันอื่น
+`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -851,6 +888,8 @@ serve(async (req) => {
     let knowledgeData = getCached<any[]>('knowledge_base');
     let aiSettingsData = getCached<any>('ai_settings');
     let relatedProductsData = getCached<any[]>('related_products');
+    let bookingSettingsData = getCached<any>('booking_settings');
+    let bookingSlotsData = getCached<any[]>('booking_slots');
 
     // Check what needs to be fetched
     const needsAiSettings = !aiSettingsData;
@@ -861,6 +900,8 @@ serve(async (req) => {
     const needsScraped = !scrapedData;
     const needsKnowledge = !knowledgeData;
     const needsRelatedProducts = !relatedProductsData;
+    const needsBookingSettings = !bookingSettingsData;
+    const needsBookingSlots = !bookingSlotsData;
 
     const cacheHits = [];
     const cacheMisses = [];
@@ -885,7 +926,9 @@ serve(async (req) => {
         settingsResult,
         scrapedResult,
         knowledgeResult,
-        relatedProductsResult
+        relatedProductsResult,
+        bookingSettingsResult,
+        bookingSlotsResult
       ] = await Promise.all([
         needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
         needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
@@ -894,7 +937,9 @@ serve(async (req) => {
         needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]) : Promise.resolve({ data: settingsData }),
         needsScraped ? supabase.from("scraped_content").select("source_name, summary, content").eq("is_active", true) : Promise.resolve({ data: scrapedData }),
         needsKnowledge ? supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true) : Promise.resolve({ data: knowledgeData }),
-        needsRelatedProducts ? supabase.from("related_products").select("product_id, related_product_id") : Promise.resolve({ data: relatedProductsData })
+        needsRelatedProducts ? supabase.from("related_products").select("product_id, related_product_id") : Promise.resolve({ data: relatedProductsData }),
+        needsBookingSettings ? supabase.from("booking_settings").select("*").limit(1).maybeSingle() : Promise.resolve({ data: bookingSettingsData }),
+        needsBookingSlots ? supabase.from("booking_slots").select("*").eq("is_available", true).gte("slot_date", new Date().toISOString().split('T')[0]).order("slot_date").order("start_time").limit(50) : Promise.resolve({ data: bookingSlotsData })
       ]);
 
       // Update cache for fetched data
@@ -929,6 +974,14 @@ serve(async (req) => {
       if (needsRelatedProducts) {
         relatedProductsData = relatedProductsResult.data || [];
         setCache('related_products', relatedProductsData);
+      }
+      if (needsBookingSettings) {
+        bookingSettingsData = bookingSettingsResult.data;
+        setCache('booking_settings', bookingSettingsData, 2 * 60 * 1000);
+      }
+      if (needsBookingSlots) {
+        bookingSlotsData = bookingSlotsResult.data || [];
+        setCache('booking_slots', bookingSlotsData, 60 * 1000); // 1 min cache for slots
       }
     } else {
       console.log('All data served from cache!');
@@ -1127,8 +1180,11 @@ serve(async (req) => {
       console.log("Category expertise loaded for message");
     }
 
+    // Build booking prompt if enabled
+    const bookingPrompt = buildBookingPrompt(bookingSettingsData, bookingSlotsData || []);
+
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext, categoryExpertise);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext, categoryExpertise) + bookingPrompt;
     
     console.log("Is first message:", isFirstMessage);
 

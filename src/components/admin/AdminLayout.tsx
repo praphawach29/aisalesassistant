@@ -37,7 +37,8 @@ import {
   Bug,
   BarChart3,
   Lock,
-  Sparkles
+  Sparkles,
+  CalendarCheck
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -79,6 +80,7 @@ const menuCategories: MenuCategory[] = [
     category: 'ลูกค้า',
     items: [
       { path: '/admin/chats', label: 'แชท', icon: MessageCircle },
+      { path: '/admin/bookings', label: 'จองคิว', icon: CalendarCheck },
       { path: '/admin/addresses', label: 'ที่อยู่ลูกค้า', icon: MapPin },
       { path: '/admin/broadcast', label: 'Broadcast', icon: Radio },
     ]

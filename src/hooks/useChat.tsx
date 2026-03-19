@@ -134,6 +134,52 @@ function parseOrderCommand(text: string): { cleanText: string; orderData?: Order
   return { cleanText: cleanText.trim(), orderData, checkOrderNumber };
 }
 
+// Parse booking commands from AI response
+interface BookingData {
+  customerName: string;
+  customerPhone: string;
+  bookingDate: string;
+  bookingTime: string;
+  serviceName: string;
+  notes: string;
+}
+
+function parseBookingCommand(text: string): { cleanText: string; bookingData?: BookingData; checkBookingNumber?: string } {
+  let cleanText = text;
+  let bookingData: BookingData | undefined;
+  let checkBookingNumber: string | undefined;
+
+  // Match CHECK_BOOKING command
+  const checkMatch = text.match(/\[CHECK_BOOKING:([^\]]+)\]/);
+  if (checkMatch) {
+    checkBookingNumber = checkMatch[1].trim();
+    cleanText = cleanText.replace(/\[CHECK_BOOKING:[^\]]+\]/g, '');
+  }
+
+  // Match CREATE_BOOKING command
+  const bookingMatch = text.match(/\[CREATE_BOOKING:([^\]]+)\]/);
+  if (bookingMatch) {
+    try {
+      const parts = bookingMatch[1].split('|');
+      if (parts.length >= 5) {
+        bookingData = {
+          customerName: parts[0].trim(),
+          customerPhone: parts[1].trim(),
+          bookingDate: parts[2].trim(),
+          bookingTime: parts[3].trim(),
+          serviceName: parts[4].trim(),
+          notes: parts[5]?.trim() || ''
+        };
+      }
+    } catch (error) {
+      console.error('Error parsing booking command:', error);
+    }
+    cleanText = cleanText.replace(/\[CREATE_BOOKING:[^\]]+\]/g, '');
+  }
+
+  return { cleanText: cleanText.trim(), bookingData, checkBookingNumber };
+}
+
 // Order status labels in Thai
 const ORDER_STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   pending: { label: 'รอยืนยัน', emoji: '⏳' },
@@ -916,6 +962,102 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
           ));
           assistantContent = cleanText;
         }
+      }
+
+      // Parse booking commands from the response
+      const { cleanText: bookingCleanText, bookingData: bookingInfo, checkBookingNumber } = parseBookingCommand(assistantContent);
+
+      if (checkBookingNumber) {
+        console.log('[WebChat] Checking booking status:', checkBookingNumber);
+        const { data: bookingRecord } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('booking_number', checkBookingNumber)
+          .maybeSingle();
+
+        if (bookingRecord) {
+          const statusMap: Record<string, string> = {
+            pending: '⏳ รอยืนยัน',
+            confirmed: '✅ ยืนยันแล้ว',
+            completed: '🎉 เสร็จสิ้น',
+            cancelled: '❌ ยกเลิก',
+            no_show: '🚫 ไม่มา'
+          };
+          let bookingMsg = `\n\n📅 **ข้อมูลการจอง: ${bookingRecord.booking_number}**\n`;
+          bookingMsg += `${statusMap[bookingRecord.status] || bookingRecord.status}\n`;
+          bookingMsg += `📋 บริการ: ${bookingRecord.service_name}\n`;
+          bookingMsg += `📆 วันที่: ${bookingRecord.booking_date}\n`;
+          bookingMsg += `🕐 เวลา: ${bookingRecord.booking_time}\n`;
+          bookingMsg += `👤 ชื่อ: ${bookingRecord.customer_name}\n`;
+          if (bookingRecord.notes) bookingMsg += `📝 หมายเหตุ: ${bookingRecord.notes}\n`;
+          assistantContent = bookingCleanText + bookingMsg;
+        } else {
+          assistantContent = bookingCleanText + `\n\n❌ ไม่พบการจองหมายเลข ${checkBookingNumber}`;
+        }
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, content: assistantContent } : m
+        ));
+      }
+
+      if (bookingInfo) {
+        console.log('[WebChat] Creating booking:', bookingInfo);
+        
+        // Find matching slot
+        const { data: matchingSlot } = await supabase
+          .from('booking_slots')
+          .select('*')
+          .eq('slot_date', bookingInfo.bookingDate)
+          .eq('start_time', bookingInfo.bookingTime)
+          .eq('is_available', true)
+          .maybeSingle();
+
+        // Check if auto-confirm is enabled
+        const { data: bSettings } = await supabase
+          .from('booking_settings')
+          .select('auto_confirm')
+          .limit(1)
+          .maybeSingle();
+
+        const status = bSettings?.auto_confirm ? 'confirmed' : 'pending';
+
+        const { data: newBooking, error: bookingError } = await supabase
+          .from('bookings')
+          .insert({
+            customer_name: bookingInfo.customerName,
+            customer_phone: bookingInfo.customerPhone,
+            booking_date: bookingInfo.bookingDate,
+            booking_time: bookingInfo.bookingTime,
+            service_name: bookingInfo.serviceName,
+            notes: bookingInfo.notes || null,
+            platform: 'web',
+            slot_id: matchingSlot?.id || null,
+            status,
+            conversation_id: conversationId || null,
+          } as any)
+          .select('booking_number')
+          .single();
+
+        if (newBooking && !bookingError) {
+          let confirmMsg = `\n\n🎉 **จองสำเร็จ!**\n`;
+          confirmMsg += `━━━━━━━━━━━━━━━━━━\n`;
+          confirmMsg += `📋 เลขจอง: **${newBooking.booking_number}**\n`;
+          confirmMsg += `👤 ชื่อ: ${bookingInfo.customerName}\n`;
+          confirmMsg += `📞 เบอร์: ${bookingInfo.customerPhone}\n`;
+          confirmMsg += `📆 วันที่: ${bookingInfo.bookingDate}\n`;
+          confirmMsg += `🕐 เวลา: ${bookingInfo.bookingTime}\n`;
+          confirmMsg += `📋 บริการ: ${bookingInfo.serviceName}\n`;
+          if (bookingInfo.notes) confirmMsg += `📝 หมายเหตุ: ${bookingInfo.notes}\n`;
+          confirmMsg += `━━━━━━━━━━━━━━━━━━\n`;
+          confirmMsg += status === 'confirmed' 
+            ? `✅ การจองยืนยันเรียบร้อยแล้ว!`
+            : `⏳ การจองอยู่ระหว่างรอยืนยันจากทางร้าน`;
+          assistantContent = bookingCleanText + confirmMsg;
+        } else {
+          assistantContent = bookingCleanText + '\n\n❌ ขออภัย เกิดข้อผิดพลาดในการจอง กรุณาลองใหม่';
+        }
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, content: assistantContent } : m
+        ));
       }
 
       // Save assistant message to database (with cleaned text)
