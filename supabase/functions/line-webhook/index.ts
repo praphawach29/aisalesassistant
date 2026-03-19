@@ -3286,8 +3286,8 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
         console.log(`[LINE] Greeting instruction added. Returning customer: ${isReturningWithName}, Name: ${customerContext.customerName || 'none'}`);
       }
       
-      // Add saved addresses context for returning customers - MUST be prominent
-      if (customerContext.savedAddresses && customerContext.savedAddresses.length > 0 && !isGreeting) {
+      // Add saved addresses context for returning customers - ALWAYS (including greeting)
+      if (customerContext.savedAddresses && customerContext.savedAddresses.length > 0) {
         const addressList = customerContext.savedAddresses.map((a, i) => 
           `${i + 1}. "${a.label}": ${a.address}${a.isDefault ? ' ⭐(ค่าเริ่มต้น)' : ''}`
         ).join('\n');
