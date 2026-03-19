@@ -1697,8 +1697,8 @@ function parseAIResponse(content: string, products: Product[]) {
   const cartAddMatch = cartAddMatches.length > 0 ? cartAddMatches[0] : null;
   const cartRemoveMatch = content.match(/\[CART_REMOVE:([^\]]+)\]/);
   const cartUpdateMatch = content.match(/\[CART_UPDATE:([^\]]+)\]/);
-  const cartView = content.includes('[CART_VIEW]');
-  const cartClear = content.includes('[CART_CLEAR]');
+  const cartView = content.includes('[CART_VIEW]') || content.trim() === 'CART_VIEW';
+  const cartClear = content.includes('[CART_CLEAR]') || content.trim() === 'CART_CLEAR';
   const cartCheckoutMatch = content.match(/\[CART_CHECKOUT:?([^\]]*)\]/);
   const outOfStockMatch = content.match(/\[NOTIFY_OUT_OF_STOCK:([^\]]+)\]/);
   
@@ -1722,7 +1722,9 @@ function parseAIResponse(content: string, products: Product[]) {
     .replace(/\[CART_REMOVE:[^\]]+\]/g, '')
     .replace(/\[CART_UPDATE:[^\]]+\]/g, '')
     .replace(/\[CART_VIEW\]/g, '')
+    .replace(/^CART_VIEW$/gm, '')
     .replace(/\[CART_CLEAR\]/g, '')
+    .replace(/^CART_CLEAR$/gm, '')
     .replace(/\[CART_CHECKOUT:[^\]]*\]/g, '')
     .replace(/\[NOTIFY_OUT_OF_STOCK:[^\]]+\]/g, '')
     .replace(/\[CREATE_ORDER:[^\]]+\]/g, '')
@@ -2709,7 +2711,61 @@ serve(async (req) => {
         continue;
       }
 
-      // Save user message BEFORE calling AI
+      // ============= Direct Cart View Shortcut (skip AI) =============
+      const cartViewKeywords = ['ดูตะกร้า', 'ตะกร้าของฉัน', 'ตะกร้า', 'cart', 'view cart'];
+      const isDirectCartView = cartViewKeywords.some(kw => userMessage.trim().toLowerCase() === kw.toLowerCase());
+      
+      if (isDirectCartView) {
+        console.log('[LINE] Direct cart view shortcut triggered');
+        
+        // Save user message
+        await supabase.from('chat_messages').insert({
+          conversation_id: conversation.id,
+          role: 'user',
+          content: userMessage
+        });
+
+        // Get cart items
+        const { data: cartItems } = await supabase
+          .from('shopping_carts')
+          .select('*')
+          .eq('platform_user_id', userId);
+
+        const cartMessages: any[] = [];
+        if (cartItems && cartItems.length > 0) {
+          const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+          cartMessages.push({
+            type: "flex",
+            altText: "ตะกร้าสินค้า",
+            contents: buildCartSummaryFlex(cartItems as CartItem[], totalAmount)
+          });
+        } else {
+          cartMessages.push({ type: "text", text: "ตะกร้าของคุณยังว่างเปล่าค่ะ 🛒\n\nพิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าได้เลยค่ะ" });
+        }
+
+        // Save bot response
+        await supabase.from('chat_messages').insert({
+          conversation_id: conversation.id,
+          role: 'assistant',
+          content: cartItems && cartItems.length > 0 ? `แสดงตะกร้าสินค้า (${cartItems.length} รายการ)` : 'ตะกร้าว่างเปล่า'
+        });
+
+        await supabase.from('chat_conversations').update({
+          last_message: 'ดูตะกร้า',
+          last_message_at: new Date().toISOString()
+        }).eq('id', conversation.id);
+
+        await fetch("https://api.line.me/v2/bot/message/reply", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${lineAccessToken}`,
+          },
+          body: JSON.stringify({ replyToken, messages: cartMessages }),
+        });
+        continue;
+      }
+
       await supabase.from('chat_messages').insert({
         conversation_id: conversation.id,
         role: 'user',
