@@ -5,7 +5,7 @@ import { useInView } from '@/hooks/useInView';
 import { 
   Store, Coffee, Stethoscope, Sparkles, Scissors, Dumbbell, 
   GraduationCap, Car, PawPrint, Building2, Bot, User,
-  ShoppingCart, CreditCard, MessageCircle, CalendarCheck
+  ShoppingCart, CreditCard, MessageCircle, CalendarCheck, BellRing
 } from 'lucide-react';
 
 interface DemoBusinessType {
@@ -24,12 +24,11 @@ const demoBusinessTypes: DemoBusinessType[] = [
     label: 'ร้านค้าออนไลน์',
     icon: Store,
     aiName: 'น้องช้อป',
-    greeting: 'สวัสดีค่ะ! ยินดีให้บริการค่ะ มีสินค้าอะไรให้ช่วยแนะนำมั้ยคะ? 🛍️',
+    greeting: '🔔 สวัสดีค่ะคุณสมชาย! เห็นว่ามีออเดอร์ ORD-20260319-0042 ยังไม่ได้ชำระเงินค่ะ 🛒',
     conversation: [
-      { role: 'user', text: 'มีเสื้อยืดสีขาวไหม' },
-      { role: 'bot', text: 'มีค่ะ! 🎽 เสื้อยืดคอกลมสีขาว Cotton 100% ราคา ฿390 ไซส์ S-XL มีทั้ง Slim fit และ Oversize ค่ะ สนใจแบบไหนคะ?' },
-      { role: 'user', text: 'เอา Oversize ไซส์ L 2 ตัว' },
-      { role: 'bot', text: '✅ เพิ่มลงตะกร้าแล้วค่ะ\n🛒 เสื้อยืด Oversize สีขาว L x2 = ฿780\n\nส่งชื่อ-ที่อยู่-เบอร์โทร เพื่อสร้างออเดอร์เลยค่ะ!' },
+      { role: 'bot', text: '📦 ออเดอร์ของคุณค่ะ:\n• เสื้อยืด Oversize สีขาว L x2 = ฿780\n\n💳 โอนเข้าบัญชี:\nกสิกร 088-xxx-xxxx\nชื่อ ร้าน SellMate\n\nส่งสลิปมาได้เลยนะคะ! 😊' },
+      { role: 'user', text: 'โอ ลืมไปเลย เดี๋ยวโอนนะ' },
+      { role: 'bot', text: 'ไม่เป็นไรค่ะ ✨ รอสลิปอยู่นะคะ!\n\nพอส่งสลิปมา ระบบจะตรวจสอบอัตโนมัติ และยืนยันออเดอร์ให้ทันทีค่ะ 🚀' },
     ],
     products: ['เสื้อยืด Cotton', 'กางเกงยีนส์', 'รองเท้าผ้าใบ'],
   },
@@ -264,6 +263,7 @@ export default function DemoSection() {
                   { icon: MessageCircle, label: 'ตอบอัตโนมัติ' },
                   { icon: ShoppingCart, label: 'รับออเดอร์' },
                   { icon: CalendarCheck, label: 'จองคิว' },
+                  { icon: BellRing, label: 'ติดตามลูกค้า' },
                   { icon: CreditCard, label: 'ตรวจสลิป' },
                 ].map((tag, i) => (
                   <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/5 text-primary text-[10px] font-medium">
