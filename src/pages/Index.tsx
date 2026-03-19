@@ -230,16 +230,15 @@ const Index = () => {
               <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-primary" />
             </div>
             
-            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-relaxed sm:leading-relaxed md:leading-relaxed lg:leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
               <span className="text-foreground">เปลี่ยนแชทบอทธรรมดา</span>
-              <br />
+              <br className="hidden sm:block" />
+              <span className="text-foreground sm:hidden"> </span>
               <span className="gradient-text">ให้เป็นพนักงานขายมืออาชีพ</span>
             </h1>
             
-            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-loose sm:leading-loose px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
-              SellMate AI ช่วยตอบแชท แนะนำสินค้า รับออเดอร์ และตรวจสลิปอัตโนมัติ 24 ชม.
-              <br className="hidden sm:block" />
-              เชื่อมต่อ LINE · Facebook · เว็บไซต์ พร้อมใช้งานทันที
+            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
+              SellMate AI ช่วยตอบแชท แนะนำสินค้า รับออเดอร์ และตรวจสลิปอัตโนมัติ 24 ชม. เชื่อมต่อ LINE · Facebook · เว็บไซต์ พร้อมใช้งานทันที
             </p>
 
             <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-8 ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
@@ -296,7 +295,7 @@ const Index = () => {
             <span className="inline-block px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-3 sm:mb-4">
               ฟีเจอร์ทั้งหมด
             </span>
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
               ครบทุกเครื่องมือที่ธุรกิจต้องการ
             </h2>
             <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto px-2">
@@ -332,7 +331,7 @@ const Index = () => {
             <span className="inline-block px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-3 sm:mb-4">
               เหมาะกับทุกธุรกิจ
             </span>
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
               ไม่ว่าขายอะไร SellMate AI ช่วยได้
             </h2>
             <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto px-2">
@@ -380,7 +379,7 @@ const Index = () => {
             <span className="inline-block px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-3 sm:mb-4">
               เริ่มต้นง่าย
             </span>
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
               4 ขั้นตอน พร้อมใช้งาน
             </h2>
             <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto px-2">
@@ -423,7 +422,7 @@ const Index = () => {
             <span className="inline-block px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-3 sm:mb-4">
               แพ็กเกจ & ราคา
             </span>
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
               เลือกแพ็กเกจที่เหมาะกับคุณ
             </h2>
             <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto px-2">
@@ -497,9 +496,7 @@ const Index = () => {
                   ทำไมต้อง SellMate AI
                 </span>
                 <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
-                  เพิ่มยอดขาย
-                  <br />
-                  <span className="gradient-text">ลดต้นทุน ทำงานน้อยลง</span>
+                  เพิ่มยอดขาย<br className="hidden sm:block" /><span className="sm:hidden"> </span><span className="gradient-text">ลดต้นทุน ทำงานน้อยลง</span>
                 </h2>
                 <p className="text-muted-foreground text-sm sm:text-lg mb-6 sm:mb-10 leading-relaxed">
                   ให้ AI ทำงานแทนคุณ ตอบแชท รับออเดอร์ ตรวจสลิป ตลอด 24 ชั่วโมง คุณมีเวลาโฟกัสเรื่องสำคัญของธุรกิจ
@@ -560,7 +557,7 @@ const Index = () => {
             <span className="inline-block px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-3 sm:mb-4">
               คำถามที่พบบ่อย
             </span>
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
               มีคำถาม? เรามีคำตอบ
             </h2>
           </div>
@@ -590,7 +587,7 @@ const Index = () => {
             <span className={`inline-block px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-3 sm:mb-4 ${contactRef.isInView ? 'animate-fade-down' : ''}`}>
               เริ่มต้นวันนี้
             </span>
-            <h2 className={`text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 ${contactRef.isInView ? 'animate-fade-up' : ''}`}>
+            <h2 className={`text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight ${contactRef.isInView ? 'animate-fade-up' : ''}`}>
               พร้อมเพิ่มยอดขายด้วย AI?
             </h2>
             <p className={`text-muted-foreground text-sm sm:text-lg mb-8 sm:mb-12 ${contactRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
