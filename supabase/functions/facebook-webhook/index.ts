@@ -2980,6 +2980,9 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
                   .eq("id", conversation.id);
 
                 console.log(`Facebook cart order created: ${order.order_number}`);
+                
+                // Clear cart after order creation
+                await supabase.from('shopping_carts').delete().eq('platform_user_id', recipientId);
 
                 // Fetch bank accounts and shipping info
                 const { data: bankSettingCart } = await supabase
