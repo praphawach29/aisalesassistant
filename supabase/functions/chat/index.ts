@@ -1077,7 +1077,8 @@ serve(async (req) => {
 
     // Build product catalog with image URLs, variants, specifications, product FAQs, and related products
     const productCatalog = products.map((p: any) => {
-      let productInfo = `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}]`;
+      const deliveryLabel = { shipping: '📦จัดส่ง', pickup: '🏪รับหน้าร้าน', digital: '💻ดิจิทัล', booking: '📅จองบริการ' }[p.delivery_type || 'shipping'] || '📦จัดส่ง';
+      let productInfo = `- ${p.name}: ${p.description || 'ไม่มีรายละเอียด'} | ราคา: ฿${p.price}${p.promotion_price ? ` (โปรโมชั่น: ฿${p.promotion_price})` : ''} | รูป: ${p.image_url ? 'มี' : 'ไม่มี'} | [สต็อกภายใน: ${p.stock}] | การจัดส่ง: ${deliveryLabel}`;
       
       // Add specifications info (detailed product info)
       if (p.specifications) {
