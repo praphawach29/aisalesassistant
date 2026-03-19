@@ -230,9 +230,10 @@ const Index = () => {
               <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-primary" />
             </div>
             
-            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-relaxed sm:leading-relaxed md:leading-relaxed lg:leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
               <span className="text-foreground">เปลี่ยนแชทบอทธรรมดา</span>
-              <br />
+              <br className="hidden sm:block" />
+              <span className="text-foreground sm:hidden"> </span>
               <span className="gradient-text">ให้เป็นพนักงานขายมืออาชีพ</span>
             </h1>
             
