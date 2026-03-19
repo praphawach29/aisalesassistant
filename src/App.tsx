@@ -42,6 +42,7 @@ import EmbedWidget from "./pages/EmbedWidget";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import AdminGuide from "./pages/AdminGuide";
+import TrackOrder from "./pages/TrackOrder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
