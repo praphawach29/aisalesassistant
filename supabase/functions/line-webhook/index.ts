@@ -1766,10 +1766,24 @@ function parseAIResponse(content: string, products: Product[]) {
   // Get promotion products
   const promotionProducts = products.filter(p => p.promotion_price && p.promotion_price < p.price);
 
-  // Parse cart action
+  // Parse cart action - support multiple adds
   let cartAction: CartAction | undefined;
+  let multiCartAdds: CartAction[] | undefined;
   
-  if (cartAddMatch) {
+  if (cartAddMatches.length > 1) {
+    // Multiple CART_ADD commands - store all of them
+    multiCartAdds = cartAddMatches.map(match => {
+      const parts = match[1].split('|');
+      return {
+        type: 'add' as const,
+        productName: parts[0]?.trim(),
+        quantity: parseInt(parts[1]) || 1,
+        variants: parts[2]?.trim() || undefined
+      };
+    });
+    // Also set single cartAction for backward compat
+    cartAction = multiCartAdds[0];
+  } else if (cartAddMatch) {
     const parts = cartAddMatch[1].split('|');
     cartAction = {
       type: 'add',
