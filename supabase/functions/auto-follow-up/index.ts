@@ -227,13 +227,14 @@ serve(async (req) => {
       console.error("Failed to clear stale carts:", deleteError);
     }
 
-    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders, ${clearedCartCount} stale carts cleared`);
+    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders, ${preCleanupWarningCount} pre-cleanup warnings, ${clearedCartCount} stale carts cleared`);
 
     return new Response(
       JSON.stringify({
         success: true,
         abandoned_cart_reminders: abandonedCartCount,
         pending_order_reminders: pendingOrderCount,
+        pre_cleanup_warnings: preCleanupWarningCount,
         stale_carts_cleared: clearedCartCount,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
