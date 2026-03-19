@@ -5,7 +5,7 @@ import { ChatWindow } from './ChatWindow';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
-import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
+import { resolveAvatarUrl } from '@/lib/avatarMap';
 
 interface ChatWidgetProps {
   position?: 'bottom-right' | 'bottom-left';
