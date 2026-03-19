@@ -2882,6 +2882,23 @@ serve(async (req) => {
         console.log('[LINE] Direct cart operation shortcut triggered:', 
           isDirectCartView ? 'view' : directUpdateMatch ? 'update' : directRemoveMatch ? 'remove' : 'clear');
         
+        // Quick typing indicator even for direct cart operations
+        try {
+          const loadingRes = await fetch("https://api.line.me/v2/bot/chat/loading/start", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lineAccessToken}`,
+            },
+            body: JSON.stringify({ chatId: userId, loadingSeconds: 3 }),
+          });
+          if (!loadingRes.ok) {
+            console.log("Typing indicator failed (non-critical):", await loadingRes.text());
+          }
+        } catch (typingError) {
+          console.log("Typing indicator error (non-critical):", typingError);
+        }
+
         // Save user message
         await supabase.from('chat_messages').insert({
           conversation_id: conversation.id,
