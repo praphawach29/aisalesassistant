@@ -164,7 +164,56 @@ serve(async (req) => {
       }
     }
 
-    // === 3. Auto-clear stale carts (older than 1 day) ===
+    // === 3. Pre-cleanup warning (23h-23.5h old = ~30 min before auto-clear) ===
+    let preCleanupWarningCount = 0;
+    const twentyThreeHoursAgo = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+    const twentyThreeAndHalfHoursAgo = new Date(Date.now() - 23.5 * 60 * 60 * 1000).toISOString();
+
+    const { data: soonToExpireCarts } = await supabase
+      .from("shopping_carts")
+      .select("platform_user_id, product_name, price, quantity")
+      .lt("updated_at", twentyThreeHoursAgo)
+      .gt("updated_at", twentyThreeAndHalfHoursAgo);
+
+    if (soonToExpireCarts && soonToExpireCarts.length > 0) {
+      const expiringUserCarts = new Map<string, { products: string[]; total: number }>();
+      for (const item of soonToExpireCarts) {
+        const uid = item.platform_user_id;
+        if (!expiringUserCarts.has(uid)) {
+          expiringUserCarts.set(uid, { products: [], total: 0 });
+        }
+        const cart = expiringUserCarts.get(uid)!;
+        cart.products.push(item.product_name);
+        cart.total += item.price * item.quantity;
+      }
+
+      for (const [userId, cart] of expiringUserCarts) {
+        const productList = cart.products.slice(0, 3).join(", ");
+        const msg = `⏰ ตะกร้าของคุณจะถูกล้างในอีก 30 นาทีค่ะ!\n\n${productList}${cart.products.length > 3 ? ` และอีก ${cart.products.length - 3} รายการ` : ""}\nรวม ฿${cart.total.toLocaleString()}\n\nรีบพิมพ์ "ดูตะกร้า" เพื่อสั่งซื้อก่อนสินค้าหายจากตะกร้านะคะ 🛒💨`;
+
+        const { data: conv } = await supabase
+          .from("chat_conversations")
+          .select("platform")
+          .eq("platform_user_id", userId)
+          .order("last_message_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const platform = conv?.platform || "line";
+
+        if (platform === "line" && lineAccessToken) {
+          await sendLineMessage(userId, [{ type: "text", text: msg }], lineAccessToken);
+          preCleanupWarningCount++;
+        } else if (platform === "facebook" && facebookAccessToken) {
+          await sendFacebookMessage(userId, msg, facebookAccessToken);
+          preCleanupWarningCount++;
+        }
+
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+
+    // === 4. Auto-clear stale carts (older than 1 day) ===
     const oneDayAgoForCleanup = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const { data: deletedCarts, error: deleteError } = await supabase
@@ -178,13 +227,14 @@ serve(async (req) => {
       console.error("Failed to clear stale carts:", deleteError);
     }
 
-    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders, ${clearedCartCount} stale carts cleared`);
+    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders, ${preCleanupWarningCount} pre-cleanup warnings, ${clearedCartCount} stale carts cleared`);
 
     return new Response(
       JSON.stringify({
         success: true,
         abandoned_cart_reminders: abandonedCartCount,
         pending_order_reminders: pendingOrderCount,
+        pre_cleanup_warnings: preCleanupWarningCount,
         stale_carts_cleared: clearedCartCount,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
