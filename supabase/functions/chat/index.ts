@@ -746,6 +746,43 @@ ${customerContext.savedAddresses.map((a, i) => (i + 1) + '. ' + a.label + ': ' +
 ${categoryExpertise || ''}`;
 }
 
+// Booking prompt builder
+function buildBookingPrompt(bookingSettings: any, availableSlots: any[]): string {
+  if (!bookingSettings || !bookingSettings.is_enabled) return '';
+
+  const slotsText = availableSlots.length > 0
+    ? availableSlots.map(s => `- ${s.slot_date} เวลา ${s.start_time}-${s.end_time} (ว่าง ${s.max_bookings - s.current_bookings} ที่)`).join('\n')
+    : 'ไม่มี slot ว่างในขณะนี้';
+
+  return `
+
+## 📅 ระบบจองคิว/นัดหมาย:
+ร้านนี้เปิดให้จองบริการ "${bookingSettings.service_name}" ผ่านแชทได้
+
+### 🕐 ช่วงเวลาที่ว่าง (อัปเดตล่าสุด):
+${slotsText}
+
+${bookingSettings.booking_rules ? `### 📋 กฎการจอง:\n${bookingSettings.booking_rules}` : ''}
+
+### วิธีจัดการจอง:
+1. เมื่อลูกค้าสนใจจอง → แสดงช่วงเวลาที่ว่าง
+2. ถามข้อมูล: ชื่อ, เบอร์โทร, วันเวลาที่ต้องการ
+3. เมื่อข้อมูลครบ → สร้างการจองด้วยคำสั่ง:
+   [CREATE_BOOKING:ชื่อลูกค้า|เบอร์โทร|วันที่(YYYY-MM-DD)|เวลาเริ่ม(HH:MM)|ชื่อบริการ|หมายเหตุ]
+   ตัวอย่าง: [CREATE_BOOKING:สมชาย ใจดี|0812345678|2026-03-25|10:00|${bookingSettings.service_name}|ต้องการล้างรถ SUV]
+4. ${bookingSettings.auto_confirm ? 'การจองจะยืนยันอัตโนมัติทันที' : 'การจองจะรอแอดมินยืนยัน'}
+
+### ตรวจสอบการจอง:
+- เมื่อลูกค้าถามสถานะการจอง: [CHECK_BOOKING:เลขจอง]
+  ตัวอย่าง: [CHECK_BOOKING:BK-20260325-1234]
+
+### ⚠️ กฎสำคัญ:
+- ต้องเสนอเฉพาะเวลาที่ยังว่างเท่านั้น
+- ห้ามรับจองเวลาที่เต็มแล้ว
+- ถ้าไม่มี slot ว่าง แจ้งลูกค้าและแนะนำให้ลองวันอื่น
+`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
