@@ -128,16 +128,16 @@ serve(async (req) => {
     }
 
     // === 2. Pending Order Reminder ===
-    // Orders pending for more than 6 hours (no payment)
+    // Send once around 6-hour mark (6-8 hours old) to avoid duplicate reminders every cron run
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
 
     const { data: pendingOrders } = await supabase
       .from("orders")
       .select("id, order_number, customer_name, customer_line_id, customer_facebook_id, total_amount, platform")
       .eq("status", "pending")
       .lt("created_at", sixHoursAgo)
-      .gt("created_at", twoDaysAgo);
+      .gt("created_at", eightHoursAgo);
 
     if (pendingOrders) {
       for (const order of pendingOrders) {
