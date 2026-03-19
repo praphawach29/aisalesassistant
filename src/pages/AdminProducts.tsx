@@ -59,6 +59,7 @@ interface Product {
   image_url: string | null;
   is_active: boolean;
   variants: ProductVariant[] | null;
+  delivery_type: string;
   created_at: string;
   updated_at: string;
 }
