@@ -1254,14 +1254,17 @@ serve(async (req) => {
     
     let providerConfig = PROVIDER_CONFIGS[provider];
 
-    console.log(`Calling ${provider} AI...`);
+    // Use vision-capable model when image is present
+    const modelOverride = hasImage && provider === 'lovable' ? 'google/gemini-2.5-flash' : providerConfig.model;
+
+    console.log(`Calling ${provider} AI (model: ${modelOverride}, hasImage: ${!!hasImage})...`);
     
     // Build request based on provider
     let requestBody: any;
     if (provider === 'claude') {
       // Claude uses different format
       requestBody = {
-        model: providerConfig.model,
+        model: modelOverride,
         max_tokens: 4096,
         system: systemPrompt,
         messages: messages.map((m: any) => ({
@@ -1272,7 +1275,7 @@ serve(async (req) => {
       };
     } else {
       requestBody = {
-        model: providerConfig.model,
+        model: modelOverride,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
