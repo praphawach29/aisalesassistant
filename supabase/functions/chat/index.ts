@@ -926,7 +926,9 @@ serve(async (req) => {
         settingsResult,
         scrapedResult,
         knowledgeResult,
-        relatedProductsResult
+        relatedProductsResult,
+        bookingSettingsResult,
+        bookingSlotsResult
       ] = await Promise.all([
         needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
         needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
@@ -935,7 +937,9 @@ serve(async (req) => {
         needsSettings ? supabase.from("settings").select("key, value").in("key", ["STORE_NAME", "STORE_PHONE", "STORE_ADDRESS", "STORE_EMAIL", "RETURN_POLICY", "SHIPPING_INFO", "BUSINESS_HOURS", "LINE_ID", "FACEBOOK_PAGE", "INSTAGRAM", "BANK_ACCOUNTS", "PAYMENT_METHODS", "WARRANTY_INFO", "PRIVACY_POLICY", "TERMS_CONDITIONS"]) : Promise.resolve({ data: settingsData }),
         needsScraped ? supabase.from("scraped_content").select("source_name, summary, content").eq("is_active", true) : Promise.resolve({ data: scrapedData }),
         needsKnowledge ? supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true) : Promise.resolve({ data: knowledgeData }),
-        needsRelatedProducts ? supabase.from("related_products").select("product_id, related_product_id") : Promise.resolve({ data: relatedProductsData })
+        needsRelatedProducts ? supabase.from("related_products").select("product_id, related_product_id") : Promise.resolve({ data: relatedProductsData }),
+        needsBookingSettings ? supabase.from("booking_settings").select("*").limit(1).maybeSingle() : Promise.resolve({ data: bookingSettingsData }),
+        needsBookingSlots ? supabase.from("booking_slots").select("*").eq("is_available", true).gte("slot_date", new Date().toISOString().split('T')[0]).order("slot_date").order("start_time").limit(50) : Promise.resolve({ data: bookingSlotsData })
       ]);
 
       // Update cache for fetched data
