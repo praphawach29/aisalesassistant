@@ -134,6 +134,52 @@ function parseOrderCommand(text: string): { cleanText: string; orderData?: Order
   return { cleanText: cleanText.trim(), orderData, checkOrderNumber };
 }
 
+// Parse booking commands from AI response
+interface BookingData {
+  customerName: string;
+  customerPhone: string;
+  bookingDate: string;
+  bookingTime: string;
+  serviceName: string;
+  notes: string;
+}
+
+function parseBookingCommand(text: string): { cleanText: string; bookingData?: BookingData; checkBookingNumber?: string } {
+  let cleanText = text;
+  let bookingData: BookingData | undefined;
+  let checkBookingNumber: string | undefined;
+
+  // Match CHECK_BOOKING command
+  const checkMatch = text.match(/\[CHECK_BOOKING:([^\]]+)\]/);
+  if (checkMatch) {
+    checkBookingNumber = checkMatch[1].trim();
+    cleanText = cleanText.replace(/\[CHECK_BOOKING:[^\]]+\]/g, '');
+  }
+
+  // Match CREATE_BOOKING command
+  const bookingMatch = text.match(/\[CREATE_BOOKING:([^\]]+)\]/);
+  if (bookingMatch) {
+    try {
+      const parts = bookingMatch[1].split('|');
+      if (parts.length >= 5) {
+        bookingData = {
+          customerName: parts[0].trim(),
+          customerPhone: parts[1].trim(),
+          bookingDate: parts[2].trim(),
+          bookingTime: parts[3].trim(),
+          serviceName: parts[4].trim(),
+          notes: parts[5]?.trim() || ''
+        };
+      }
+    } catch (error) {
+      console.error('Error parsing booking command:', error);
+    }
+    cleanText = cleanText.replace(/\[CREATE_BOOKING:[^\]]+\]/g, '');
+  }
+
+  return { cleanText: cleanText.trim(), bookingData, checkBookingNumber };
+}
+
 // Order status labels in Thai
 const ORDER_STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   pending: { label: 'รอยืนยัน', emoji: '⏳' },
