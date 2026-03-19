@@ -554,121 +554,322 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
           return;
         }
       } else if (imageFile && !lastOrderId) {
-        // No order in localStorage, try to find a pending order for this user from database
-        console.log('[WebChat] No lastOrderId, searching for pending orders...');
+        // No pending order - check if user mentioned payment/slip keywords
+        const isPaymentSlip = /สลิป|โอน|จ่าย|ชำระ|payment|slip|transfer/i.test(userMessage);
         
-        const { data: pendingOrder, error: pendingOrderError } = await supabase
-          .from('orders')
-          .select('id, order_number, total_amount')
-          .eq('platform', 'web')
-          .in('status', ['pending', 'confirmed'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        if (pendingOrder && !pendingOrderError) {
-          console.log('[WebChat] Found pending order:', pendingOrder.order_number);
-          // Set this order as the current order
-          setLastOrderId(pendingOrder.id);
-          setLastOrderNumber(pendingOrder.order_number);
-          localStorage.setItem(LAST_ORDER_ID_KEY, pendingOrder.id);
-          localStorage.setItem(LAST_ORDER_NUMBER_KEY, pendingOrder.order_number);
+        if (isPaymentSlip) {
+          // Try to find a pending order for payment slip
+          console.log('[WebChat] No lastOrderId, searching for pending orders...');
           
-          // Now upload the slip
-          const { slipUrl, analysisResult } = await uploadPaymentSlip(imageFile, pendingOrder.id, pendingOrder.total_amount);
-          if (slipUrl) {
-            const slipMessage = userMessage || `ส่งสลิปโอนเงินสำหรับออเดอร์ ${pendingOrder.order_number}`;
-            const userMsg: ChatMessage = {
-              id: crypto.randomUUID(),
-              conversation_id: currentConversationId,
-              role: 'user',
-              content: slipMessage,
-              image_url: slipUrl,
-              created_at: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, userMsg]);
-
-            await supabase.from('chat_messages').insert({
-              conversation_id: currentConversationId,
-              role: 'user',
-              content: slipMessage,
-              image_url: slipUrl
-            });
-
-            let confirmContent = `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${pendingOrder.order_number}\n\n`;
+          const { data: pendingOrder, error: pendingOrderError } = await supabase
+            .from('orders')
+            .select('id, order_number, total_amount')
+            .eq('platform', 'web')
+            .in('status', ['pending', 'confirmed'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (pendingOrder && !pendingOrderError) {
+            console.log('[WebChat] Found pending order:', pendingOrder.order_number);
+            setLastOrderId(pendingOrder.id);
+            setLastOrderNumber(pendingOrder.order_number);
+            localStorage.setItem(LAST_ORDER_ID_KEY, pendingOrder.id);
+            localStorage.setItem(LAST_ORDER_NUMBER_KEY, pendingOrder.order_number);
             
-            if (analysisResult?.success) {
-              confirmContent += `🔍 **ผลการวิเคราะห์อัตโนมัติ:**\n`;
-              if (analysisResult.analyzed_amount) {
-                confirmContent += `💰 ยอดโอน: ฿${analysisResult.analyzed_amount.toLocaleString()}\n`;
-              }
-              if (analysisResult.analyzed_bank) {
-                confirmContent += `🏦 ธนาคาร: ${analysisResult.analyzed_bank}\n`;
-              }
-              confirmContent += `📊 ความมั่นใจ: ${analysisResult.confidence_score}%\n\n`;
+            const { slipUrl, analysisResult } = await uploadPaymentSlip(imageFile, pendingOrder.id, pendingOrder.total_amount);
+            if (slipUrl) {
+              const slipMessage = userMessage || `ส่งสลิปโอนเงินสำหรับออเดอร์ ${pendingOrder.order_number}`;
+              const userMsg: ChatMessage = {
+                id: crypto.randomUUID(),
+                conversation_id: currentConversationId,
+                role: 'user',
+                content: slipMessage,
+                image_url: slipUrl,
+                created_at: new Date().toISOString()
+              };
+              setMessages(prev => [...prev, userMsg]);
+
+              await supabase.from('chat_messages').insert({
+                conversation_id: currentConversationId,
+                role: 'user',
+                content: slipMessage,
+                image_url: slipUrl
+              });
+
+              let confirmContent = `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${pendingOrder.order_number}\n\n`;
               
-              if (analysisResult.auto_verified) {
-                confirmContent += `✅ **ยืนยันการชำระเงินอัตโนมัติสำเร็จ!**\n\nออเดอร์ของคุณได้รับการยืนยันแล้วค่ะ ทางร้านจะจัดส่งสินค้าให้เร็วที่สุดนะคะ 🚚💕`;
+              if (analysisResult?.success) {
+                confirmContent += `🔍 **ผลการวิเคราะห์อัตโนมัติ:**\n`;
+                if (analysisResult.analyzed_amount) {
+                  confirmContent += `💰 ยอดโอน: ฿${analysisResult.analyzed_amount.toLocaleString()}\n`;
+                }
+                if (analysisResult.analyzed_bank) {
+                  confirmContent += `🏦 ธนาคาร: ${analysisResult.analyzed_bank}\n`;
+                }
+                confirmContent += `📊 ความมั่นใจ: ${analysisResult.confidence_score}%\n\n`;
+                
+                if (analysisResult.auto_verified) {
+                  confirmContent += `✅ **ยืนยันการชำระเงินอัตโนมัติสำเร็จ!**\n\nออเดอร์ของคุณได้รับการยืนยันแล้วค่ะ ทางร้านจะจัดส่งสินค้าให้เร็วที่สุดนะคะ 🚚💕`;
+                } else {
+                  confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
+                }
               } else {
                 confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
               }
-            } else {
-              confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
+
+              const confirmMsg: ChatMessage = {
+                id: crypto.randomUUID(),
+                conversation_id: currentConversationId,
+                role: 'assistant',
+                content: confirmContent,
+                created_at: new Date().toISOString()
+              };
+              setMessages(prev => [...prev, confirmMsg]);
+
+              await supabase.from('chat_messages').insert({
+                conversation_id: currentConversationId,
+                role: 'assistant',
+                content: confirmContent
+              });
+
+              setIsLoading(false);
+              return;
             }
+          }
+          
+          // No pending order found for payment slip
+          const userMsgContent = userMessage || 'ส่งสลิปโอนเงิน';
+          const userMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            conversation_id: currentConversationId,
+            role: 'user',
+            content: userMsgContent,
+            created_at: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, userMsg]);
 
-            const confirmMsg: ChatMessage = {
-              id: crypto.randomUUID(),
-              conversation_id: currentConversationId,
-              role: 'assistant',
-              content: confirmContent,
-              created_at: new Date().toISOString()
+          await supabase.from('chat_messages').insert({
+            conversation_id: currentConversationId,
+            role: 'user',
+            content: userMsgContent
+          });
+
+          const promptContent = 'ขออภัยค่ะ ยังไม่มีออเดอร์ที่รอชำระเงินค่ะ 😅\n\nรบกวนสั่งซื้อสินค้าก่อนนะคะ แล้วค่อยส่งสลิปโอนเงินมาได้เลยค่ะ! มีสินค้าอะไรที่สนใจไหมคะ? ✨';
+          const promptMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: promptContent,
+            created_at: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, promptMsg]);
+
+          await supabase.from('chat_messages').insert({
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: promptContent
+          });
+
+          setIsLoading(false);
+          return;
+        }
+        
+        // Not a payment slip - upload image for AI analysis (product search / complaint)
+        console.log('[WebChat] Uploading image for AI analysis (product search/complaint)');
+        
+        const fileExt = imageFile.name.split('.').pop() || 'jpg';
+        const fileName = `${webUserId}/${Date.now()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('chat-images')
+          .upload(fileName, imageFile, { contentType: imageFile.type || 'image/jpeg' });
+        
+        if (uploadError) {
+          console.error('[WebChat] Image upload error:', uploadError);
+          throw new Error('ไม่สามารถอัพโหลดรูปภาพได้');
+        }
+        
+        const { data: { publicUrl: imagePublicUrl } } = supabase.storage
+          .from('chat-images')
+          .getPublicUrl(uploadData.path);
+        
+        console.log('[WebChat] Image uploaded:', imagePublicUrl);
+        
+        // Add user message with image to UI
+        const imgUserMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          conversation_id: currentConversationId,
+          role: 'user',
+          content: userMessage || 'ส่งรูปภาพ',
+          image_url: imagePublicUrl,
+          created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, imgUserMsg]);
+        
+        // Save to database
+        await supabase.from('chat_messages').insert({
+          conversation_id: currentConversationId,
+          role: 'user',
+          content: userMessage || 'ส่งรูปภาพ',
+          image_url: imagePublicUrl
+        });
+        
+        // Update conversation last message
+        await supabase
+          .from('chat_conversations')
+          .update({
+            last_message: userMessage || 'ส่งรูปภาพ',
+            last_message_at: new Date().toISOString()
+          })
+          .eq('id', currentConversationId);
+        
+        // Get all messages for context
+        const { data: allImgMessages } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('conversation_id', currentConversationId)
+          .order('created_at', { ascending: true });
+        
+        // Build messages with image for multimodal AI
+        const aiMessages = allImgMessages?.map(m => {
+          if (m.image_url && m.id === (allImgMessages[allImgMessages.length - 1]?.id)) {
+            // Last message with image - send as multimodal
+            return {
+              role: m.role,
+              content: [
+                { type: 'text', text: m.content || 'ดูรูปภาพนี้' },
+                { type: 'image_url', image_url: { url: m.image_url } }
+              ]
             };
-            setMessages(prev => [...prev, confirmMsg]);
-
-            await supabase.from('chat_messages').insert({
-              conversation_id: currentConversationId,
-              role: 'assistant',
-              content: confirmContent
-            });
-
-            setIsLoading(false);
-            return;
+          }
+          return { role: m.role, content: m.content };
+        }) || [{ role: 'user', content: userMessage || 'ส่งรูปภาพ' }];
+        
+        // Call AI with image
+        const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+        const imgResponse = await fetch(chatUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+          },
+          body: JSON.stringify({
+            messages: aiMessages,
+            conversationId: currentConversationId,
+            webUserId: webUserId,
+            hasImage: true
+          })
+        });
+        
+        if (!imgResponse.ok) {
+          throw new Error('ไม่สามารถวิเคราะห์รูปภาพได้');
+        }
+        
+        // Stream the response
+        const imgReader = imgResponse.body?.getReader();
+        if (!imgReader) throw new Error('No response body');
+        
+        const imgDecoder = new TextDecoder();
+        let imgAssistantContent = '';
+        const imgAssistantMsgId = crypto.randomUUID();
+        
+        setMessages(prev => [...prev, {
+          id: imgAssistantMsgId,
+          conversation_id: currentConversationId,
+          role: 'assistant',
+          content: '',
+          created_at: new Date().toISOString()
+        }]);
+        
+        let imgTextBuffer = '';
+        while (true) {
+          const { done, value } = await imgReader.read();
+          if (done) break;
+          
+          imgTextBuffer += imgDecoder.decode(value, { stream: true });
+          
+          let newlineIndex: number;
+          while ((newlineIndex = imgTextBuffer.indexOf('\n')) !== -1) {
+            let line = imgTextBuffer.slice(0, newlineIndex);
+            imgTextBuffer = imgTextBuffer.slice(newlineIndex + 1);
+            
+            if (line.endsWith('\r')) line = line.slice(0, -1);
+            if (line.startsWith(':') || line.trim() === '') continue;
+            if (!line.startsWith('data: ')) continue;
+            
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === '[DONE]') break;
+            
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                imgAssistantContent += content;
+                setMessages(prev => prev.map(m =>
+                  m.id === imgAssistantMsgId ? { ...m, content: imgAssistantContent } : m
+                ));
+              }
+            } catch {
+              // Incomplete JSON
+            }
           }
         }
         
-        // Still no order found - prompt to create one
-        const userMsgContent = userMessage || 'ส่งสลิปโอนเงิน';
-        const userMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          conversation_id: currentConversationId,
-          role: 'user',
-          content: userMsgContent,
-          created_at: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, userMsg]);
-
+        // Parse complaint command from AI response
+        const complaintMatch = imgAssistantContent.match(/\[CREATE_COMPLAINT:([^\]]+)\]/);
+        if (complaintMatch) {
+          const complaintDescription = complaintMatch[1];
+          const cleanComplaintText = imgAssistantContent.replace(/\[CREATE_COMPLAINT:[^\]]+\]/g, '').trim();
+          imgAssistantContent = cleanComplaintText;
+          
+          // Create admin notification for complaint
+          await supabase.rpc('create_admin_notification', {
+            p_type: 'complaint',
+            p_title: '📸 ลูกค้าร้องเรียนสินค้าชำรุด!',
+            p_message: complaintDescription,
+            p_data: {
+              conversation_id: currentConversationId,
+              image_url: imagePublicUrl,
+              platform: 'web',
+              customer_message: userMessage || 'ส่งรูปสินค้าชำรุด'
+            }
+          });
+          
+          // Also try to send LINE notification to admin
+          try {
+            await supabase.functions.invoke('send-admin-line-notification', {
+              body: {
+                type: 'complaint',
+                title: '📸 ลูกค้าร้องเรียนสินค้าชำรุด!',
+                message: complaintDescription,
+                imageUrl: imagePublicUrl
+              }
+            });
+          } catch (lineErr) {
+            console.warn('[WebChat] Failed to send LINE notification for complaint:', lineErr);
+          }
+          
+          setMessages(prev => prev.map(m =>
+            m.id === imgAssistantMsgId ? { ...m, content: imgAssistantContent } : m
+          ));
+        }
+        
+        // Save assistant message
         await supabase.from('chat_messages').insert({
           conversation_id: currentConversationId,
-          role: 'user',
-          content: userMsgContent
-        });
-
-        const promptContent = 'ขออภัยค่ะ ยังไม่มีออเดอร์ที่รอชำระเงินค่ะ 😅\n\nรบกวนสั่งซื้อสินค้าก่อนนะคะ แล้วค่อยส่งสลิปโอนเงินมาได้เลยค่ะ! มีสินค้าอะไรที่สนใจไหมคะ? ✨';
-        const promptMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          conversation_id: currentConversationId,
           role: 'assistant',
-          content: promptContent,
-          created_at: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, promptMsg]);
-
-        await supabase.from('chat_messages').insert({
-          conversation_id: currentConversationId,
-          role: 'assistant',
-          content: promptContent
+          content: imgAssistantContent
         });
-
+        
+        await supabase
+          .from('chat_conversations')
+          .update({
+            last_message: imgAssistantContent.slice(0, 100),
+            last_message_at: new Date().toISOString()
+          })
+          .eq('id', currentConversationId);
+        
         setIsLoading(false);
         return;
       }
