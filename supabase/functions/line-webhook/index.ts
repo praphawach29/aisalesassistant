@@ -1697,7 +1697,7 @@ function parseAIResponse(content: string, products: Product[]) {
   const cartAddMatch = cartAddMatches.length > 0 ? cartAddMatches[0] : null;
   const cartRemoveMatch = content.match(/\[CART_REMOVE:([^\]]+)\]/);
   const cartUpdateMatch = content.match(/\[CART_UPDATE:([^\]]+)\]/);
-  const cartView = content.includes('[CART_VIEW]');
+  const cartView = content.includes('[CART_VIEW]') || content.trim() === 'CART_VIEW';
   const cartClear = content.includes('[CART_CLEAR]');
   const cartCheckoutMatch = content.match(/\[CART_CHECKOUT:?([^\]]*)\]/);
   const outOfStockMatch = content.match(/\[NOTIFY_OUT_OF_STOCK:([^\]]+)\]/);
