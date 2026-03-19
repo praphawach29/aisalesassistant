@@ -975,6 +975,14 @@ serve(async (req) => {
         relatedProductsData = relatedProductsResult.data || [];
         setCache('related_products', relatedProductsData);
       }
+      if (needsBookingSettings) {
+        bookingSettingsData = bookingSettingsResult.data;
+        setCache('booking_settings', bookingSettingsData, 2 * 60 * 1000);
+      }
+      if (needsBookingSlots) {
+        bookingSlotsData = bookingSlotsResult.data || [];
+        setCache('booking_slots', bookingSlotsData, 60 * 1000); // 1 min cache for slots
+      }
     } else {
       console.log('All data served from cache!');
     }
