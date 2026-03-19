@@ -37,7 +37,8 @@ import {
   Bug,
   BarChart3,
   Lock,
-  Sparkles
+  Sparkles,
+  CalendarCheck
 } from 'lucide-react';
 
 interface AdminLayoutProps {
