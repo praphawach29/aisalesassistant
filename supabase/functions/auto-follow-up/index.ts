@@ -164,13 +164,28 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders`);
+    // === 3. Auto-clear stale carts (older than 1 day) ===
+    const oneDayAgoForCleanup = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: deletedCarts, error: deleteError } = await supabase
+      .from("shopping_carts")
+      .delete()
+      .lt("updated_at", oneDayAgoForCleanup)
+      .select("id");
+
+    const clearedCartCount = deleteError ? 0 : (deletedCarts?.length || 0);
+    if (deleteError) {
+      console.error("Failed to clear stale carts:", deleteError);
+    }
+
+    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders, ${clearedCartCount} stale carts cleared`);
 
     return new Response(
       JSON.stringify({
         success: true,
         abandoned_cart_reminders: abandonedCartCount,
         pending_order_reminders: pendingOrderCount,
+        stale_carts_cleared: clearedCartCount,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
