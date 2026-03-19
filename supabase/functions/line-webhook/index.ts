@@ -2740,6 +2740,123 @@ serve(async (req) => {
         continue;
       }
 
+      // ============= Direct Cart Add Shortcut (from Flex "เพิ่มลงตะกร้า" button) =============
+      const directCartAddMatch = userMessage.match(/^เพิ่มลงตะกร้า\s*(.+)$/);
+      if (directCartAddMatch) {
+        const productName = directCartAddMatch[1].trim();
+        console.log('[LINE] Direct cart add shortcut triggered for:', productName);
+
+        // Save user message
+        await supabase.from('chat_messages').insert({
+          conversation_id: conversation.id,
+          role: 'user',
+          content: userMessage
+        });
+
+        // Fetch products to find match
+        const { data: allProducts } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true);
+
+        let matchedProduct = allProducts?.find(p => p.name.toLowerCase() === productName.toLowerCase());
+        if (!matchedProduct) {
+          matchedProduct = allProducts?.find(p =>
+            p.name.toLowerCase().includes(productName.toLowerCase()) ||
+            productName.toLowerCase().includes(p.name.toLowerCase())
+          );
+        }
+
+        if (matchedProduct) {
+          const price = matchedProduct.promotion_price || matchedProduct.price;
+          const hasVariants = matchedProduct.variants && Array.isArray(matchedProduct.variants) && matchedProduct.variants.length > 0;
+
+          // Check stock
+          if (matchedProduct.stock < 1) {
+            const outMsg = `ขออภัยค่ะ สินค้า "${matchedProduct.name}" สินค้าหมดค่ะ 😢`;
+            await supabase.from('chat_messages').insert({ conversation_id: conversation.id, role: 'assistant', content: outMsg });
+            await fetch("https://api.line.me/v2/bot/message/reply", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${lineAccessToken}` },
+              body: JSON.stringify({ replyToken, messages: [{ type: "text", text: outMsg }] }),
+            });
+            continue;
+          }
+
+          // Check if item already in cart (same product, no variants yet)
+          const { data: existingItem } = await supabase
+            .from('shopping_carts')
+            .select('*')
+            .eq('platform_user_id', userId)
+            .eq('product_id', matchedProduct.id)
+            .maybeSingle();
+
+          if (existingItem) {
+            await supabase.from('shopping_carts')
+              .update({ quantity: existingItem.quantity + 1, updated_at: new Date().toISOString() })
+              .eq('id', existingItem.id);
+          } else {
+            await supabase.from('shopping_carts').insert({
+              platform_user_id: userId,
+              conversation_id: conversation.id,
+              product_id: matchedProduct.id,
+              product_name: matchedProduct.name,
+              quantity: 1,
+              price: price,
+              variants: null
+            });
+          }
+
+          // Get updated cart
+          const { data: cartAfterAdd } = await supabase
+            .from('shopping_carts')
+            .select('*')
+            .eq('platform_user_id', userId);
+
+          const cartCount = cartAfterAdd?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
+          const totalAmount = cartAfterAdd?.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) || 0;
+
+          const cartMessages: any[] = [];
+
+          // Confirmation text
+          let confirmText = `✅ เพิ่ม "${matchedProduct.name}" ลงตะกร้าแล้วค่ะ! (ตะกร้ามี ${cartCount} ชิ้น)`;
+          if (hasVariants) {
+            // Build variant info string
+            const variantOptions = (matchedProduct.variants as any[]).map((v: any) => {
+              const name = v.name || v.label || '';
+              const options = (v.options || v.values || []).join(', ');
+              return `${name}: ${options}`;
+            }).join(' | ');
+            confirmText += `\n\n⚠️ สินค้านี้มีตัวเลือก (${variantOptions})\nกรุณาแจ้งตัวเลือกที่ต้องการด้วยนะคะ 😊`;
+          }
+          cartMessages.push({ type: "text", text: confirmText });
+
+          // Show cart flex
+          if (cartAfterAdd && cartAfterAdd.length > 0) {
+            cartMessages.push({
+              type: "flex",
+              altText: "ตะกร้าสินค้า",
+              contents: buildCartSummaryFlex(cartAfterAdd as CartItem[], totalAmount)
+            });
+          }
+
+          const botContent = confirmText;
+          await supabase.from('chat_messages').insert({ conversation_id: conversation.id, role: 'assistant', content: botContent });
+          await supabase.from('chat_conversations').update({
+            last_message: userMessage,
+            last_message_at: new Date().toISOString()
+          }).eq('id', conversation.id);
+
+          await fetch("https://api.line.me/v2/bot/message/reply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${lineAccessToken}` },
+            body: JSON.stringify({ replyToken, messages: cartMessages.slice(0, 5) }),
+          });
+          continue;
+        }
+        // If product not found, fall through to AI
+      }
+
       // ============= Direct Cart Operations Shortcut (skip AI) =============
       const cartViewKeywords = ['ดูตะกร้า', 'ตะกร้าของฉัน', 'ตะกร้า', 'cart', 'view cart'];
       const isDirectCartView = cartViewKeywords.some(kw => userMessage.trim().toLowerCase() === kw.toLowerCase());
