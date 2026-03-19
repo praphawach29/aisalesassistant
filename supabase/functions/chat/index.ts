@@ -1180,8 +1180,11 @@ serve(async (req) => {
       console.log("Category expertise loaded for message");
     }
 
+    // Build booking prompt if enabled
+    const bookingPrompt = buildBookingPrompt(bookingSettingsData, bookingSlotsData || []);
+
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext, categoryExpertise);
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext, categoryExpertise) + bookingPrompt;
     
     console.log("Is first message:", isFirstMessage);
 
