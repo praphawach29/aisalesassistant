@@ -168,6 +168,7 @@ export default function AdminProducts() {
       image_url: product.image_url || '',
       is_active: product.is_active,
       variants: (product.variants as ProductVariant[]) || [],
+      delivery_type: product.delivery_type || 'shipping',
     });
     setIsDialogOpen(true);
   };
