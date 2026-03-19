@@ -109,12 +109,12 @@ export default function TrackOrder() {
     }
   };
 
-  // Auto-search if URL has order number
-  useState(() => {
+  useEffect(() => {
     if (orderNumber) {
       handleSearch(orderNumber);
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentIndex = order ? getStatusIndex(order.status) : -1;
   const isCancelled = order?.status === "cancelled";
