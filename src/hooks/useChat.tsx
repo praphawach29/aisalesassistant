@@ -251,7 +251,7 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
 
     const { error } = await supabase
       .from('chat_conversations')
-      .insert({ id: newId, platform });
+      .insert({ id: newId, platform, platform_user_id: webUserId });
 
     if (error) {
       console.error('Error creating conversation:', error);
