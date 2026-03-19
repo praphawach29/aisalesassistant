@@ -1033,7 +1033,7 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
             slot_id: matchingSlot?.id || null,
             status,
             conversation_id: conversationId || null,
-          })
+          } as any)
           .select('booking_number')
           .single();
 
