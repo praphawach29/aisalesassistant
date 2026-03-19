@@ -485,75 +485,96 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
         }
       }
 
-      // Handle payment slip upload
-      if (imageFile && lastOrderId) {
-        const { slipUrl, analysisResult } = await uploadPaymentSlip(imageFile, lastOrderId);
-        if (slipUrl) {
-          // Add user message about slip
-          const slipMessage = userMessage || `ส่งสลิปโอนเงินสำหรับออเดอร์ ${lastOrderNumber}`;
-          const userMsg: ChatMessage = {
-            id: crypto.randomUUID(),
-            conversation_id: currentConversationId,
-            role: 'user',
-            content: slipMessage,
-            image_url: slipUrl,
-            created_at: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, userMsg]);
-
-          // Save to database with image_url
-          await supabase.from('chat_messages').insert({
-            conversation_id: currentConversationId,
-            role: 'user',
-            content: slipMessage,
-            image_url: slipUrl
-          });
-
-          // Build confirmation message based on AI analysis
-          let confirmContent = `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${lastOrderNumber}\n\n`;
+      // Handle image upload - determine if it's a payment slip or general image
+      if (imageFile) {
+        let pendingPaymentOrder: { id: string; order_number: string; total_amount: number } | null = null;
+        
+        // Check if lastOrderId has an order actually awaiting payment (pending or confirmed)
+        if (lastOrderId) {
+          const { data: orderCheck } = await supabase
+            .from('orders')
+            .select('id, order_number, total_amount, status')
+            .eq('id', lastOrderId)
+            .in('status', ['pending', 'confirmed'])
+            .maybeSingle();
           
-          if (analysisResult?.success) {
-            confirmContent += `🔍 **ผลการวิเคราะห์อัตโนมัติ:**\n`;
-            if (analysisResult.analyzed_amount) {
-              confirmContent += `💰 ยอดโอน: ฿${analysisResult.analyzed_amount.toLocaleString()}\n`;
-            }
-            if (analysisResult.analyzed_bank) {
-              confirmContent += `🏦 ธนาคาร: ${analysisResult.analyzed_bank}\n`;
-            }
-            if (analysisResult.analyzed_date) {
-              confirmContent += `📅 วันที่: ${analysisResult.analyzed_date}\n`;
-            }
-            confirmContent += `📊 ความมั่นใจ: ${analysisResult.confidence_score}%\n\n`;
+          if (orderCheck) {
+            pendingPaymentOrder = { id: orderCheck.id, order_number: orderCheck.order_number, total_amount: orderCheck.total_amount };
+          } else {
+            console.log('[WebChat] lastOrderId exists but order is not awaiting payment, clearing');
+            // Clear stale order references
+            setLastOrderId(null);
+            setLastOrderNumber(null);
+            localStorage.removeItem(LAST_ORDER_ID_KEY);
+            localStorage.removeItem(LAST_ORDER_NUMBER_KEY);
+          }
+        }
+
+        if (pendingPaymentOrder) {
+          // There IS a pending order awaiting payment → treat as payment slip
+          const { slipUrl, analysisResult } = await uploadPaymentSlip(imageFile, pendingPaymentOrder.id, pendingPaymentOrder.total_amount);
+          if (slipUrl) {
+            const slipMessage = userMessage || `ส่งสลิปโอนเงินสำหรับออเดอร์ ${pendingPaymentOrder.order_number}`;
+            const userMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              conversation_id: currentConversationId,
+              role: 'user',
+              content: slipMessage,
+              image_url: slipUrl,
+              created_at: new Date().toISOString()
+            };
+            setMessages(prev => [...prev, userMsg]);
+
+            await supabase.from('chat_messages').insert({
+              conversation_id: currentConversationId,
+              role: 'user',
+              content: slipMessage,
+              image_url: slipUrl
+            });
+
+            let confirmContent = `ได้รับสลิปโอนเงินเรียบร้อยแล้วค่ะ! 📸✨\n\nออเดอร์: ${pendingPaymentOrder.order_number}\n\n`;
             
-            if (analysisResult.auto_verified) {
-              confirmContent += `✅ **ยืนยันการชำระเงินอัตโนมัติสำเร็จ!**\n\nออเดอร์ของคุณได้รับการยืนยันแล้วค่ะ ทางร้านจะจัดส่งสินค้าให้เร็วที่สุดนะคะ 🚚💕`;
+            if (analysisResult?.success) {
+              confirmContent += `🔍 **ผลการวิเคราะห์อัตโนมัติ:**\n`;
+              if (analysisResult.analyzed_amount) {
+                confirmContent += `💰 ยอดโอน: ฿${analysisResult.analyzed_amount.toLocaleString()}\n`;
+              }
+              if (analysisResult.analyzed_bank) {
+                confirmContent += `🏦 ธนาคาร: ${analysisResult.analyzed_bank}\n`;
+              }
+              if (analysisResult.analyzed_date) {
+                confirmContent += `📅 วันที่: ${analysisResult.analyzed_date}\n`;
+              }
+              confirmContent += `📊 ความมั่นใจ: ${analysisResult.confidence_score}%\n\n`;
+              
+              if (analysisResult.auto_verified) {
+                confirmContent += `✅ **ยืนยันการชำระเงินอัตโนมัติสำเร็จ!**\n\nออเดอร์ของคุณได้รับการยืนยันแล้วค่ะ ทางร้านจะจัดส่งสินค้าให้เร็วที่สุดนะคะ 🚚💕`;
+              } else {
+                confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
+              }
             } else {
               confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
             }
-          } else {
-            confirmContent += `⏳ ทางร้านจะตรวจสอบและยืนยันการชำระเงินให้เร็วที่สุดนะคะ ขอบคุณมากค่ะ! 🙏💕`;
+
+            const confirmMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              conversation_id: currentConversationId,
+              role: 'assistant',
+              content: confirmContent,
+              created_at: new Date().toISOString()
+            };
+            setMessages(prev => [...prev, confirmMsg]);
+
+            await supabase.from('chat_messages').insert({
+              conversation_id: currentConversationId,
+              role: 'assistant',
+              content: confirmMsg.content
+            });
+
+            setIsLoading(false);
+            return;
           }
-
-          const confirmMsg: ChatMessage = {
-            id: crypto.randomUUID(),
-            conversation_id: currentConversationId,
-            role: 'assistant',
-            content: confirmContent,
-            created_at: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, confirmMsg]);
-
-          // Save confirmation to database
-          await supabase.from('chat_messages').insert({
-            conversation_id: currentConversationId,
-            role: 'assistant',
-            content: confirmMsg.content
-          });
-
-          setIsLoading(false);
-          return;
-        }
-      } else if (imageFile && !lastOrderId) {
+        } else {
         // No pending order - check if user mentioned payment/slip keywords
         const isPaymentSlip = /สลิป|โอน|จ่าย|ชำระ|payment|slip|transfer/i.test(userMessage);
         
