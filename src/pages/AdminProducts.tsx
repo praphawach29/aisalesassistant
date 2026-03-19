@@ -818,14 +818,21 @@ export default function AdminProducts() {
                         )}
                       </div>
                       
-                      {/* Stock & Category */}
+                      {/* Stock & Category & Delivery */}
                       <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
                         <span className={product.stock <= 5 ? (product.stock === 0 ? 'text-destructive' : 'text-orange-500') : ''}>
                           สต็อก: {product.stock}
                         </span>
-                        {product.category && (
-                          <span className="truncate max-w-[60%]">{product.category}</span>
-                        )}
+                        <div className="flex items-center gap-1 truncate max-w-[60%]">
+                          {product.delivery_type && product.delivery_type !== 'shipping' && (
+                            <Badge variant="outline" className="text-[8px] sm:text-[10px] px-1 py-0">
+                              {deliveryTypeOptions.find(o => o.value === product.delivery_type)?.label || product.delivery_type}
+                            </Badge>
+                          )}
+                          {product.category && (
+                            <span className="truncate">{product.category}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
