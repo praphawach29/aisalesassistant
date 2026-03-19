@@ -471,6 +471,28 @@ export default function AdminProducts() {
               </div>
 
               <div className="space-y-1.5">
+                <Label className="text-sm">ประเภทการจัดส่ง</Label>
+                <Select
+                  value={formData.delivery_type}
+                  onValueChange={(value) => setFormData({ ...formData, delivery_type: value })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {deliveryTypeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center gap-2">
+                          <span>{opt.label}</span>
+                          <span className="text-xs text-muted-foreground">- {opt.desc}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label className="text-sm">รูปภาพสินค้า</Label>
                 
                 {formData.image_url ? (
