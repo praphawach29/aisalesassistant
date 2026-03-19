@@ -587,7 +587,7 @@ const Index = () => {
             <span className={`inline-block px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-3 sm:mb-4 ${contactRef.isInView ? 'animate-fade-down' : ''}`}>
               เริ่มต้นวันนี้
             </span>
-            <h2 className={`text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 ${contactRef.isInView ? 'animate-fade-up' : ''}`}>
+            <h2 className={`text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight ${contactRef.isInView ? 'animate-fade-up' : ''}`}>
               พร้อมเพิ่มยอดขายด้วย AI?
             </h2>
             <p className={`text-muted-foreground text-sm sm:text-lg mb-8 sm:mb-12 ${contactRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
