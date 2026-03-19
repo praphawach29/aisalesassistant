@@ -946,7 +946,10 @@ function buildProductCarousel(products: Product[]) {
 
 // ============= Cart Message Builders =============
 function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
-  const itemContents: any[] = cartItems.map((item, index) => ({
+  const itemContents: any[] = cartItems.map((item, index) => {
+    const unitPrice = item.price;
+    const lineTotal = item.price * item.quantity;
+    return {
     type: "box",
     layout: "vertical",
     contents: [
@@ -964,7 +967,7 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
           },
           {
             type: "text",
-            text: `฿${(item.price * item.quantity).toLocaleString()}`,
+            text: `฿${lineTotal.toLocaleString()}`,
             size: "sm",
             color: "#E74C3C",
             flex: 2,
@@ -972,6 +975,13 @@ function buildCartSummaryFlex(cartItems: CartItem[], totalAmount: number) {
             weight: "bold"
           }
         ]
+      },
+      {
+        type: "text",
+        text: `${item.quantity} ชิ้น × ฿${unitPrice.toLocaleString()} = ฿${lineTotal.toLocaleString()}`,
+        size: "xs",
+        color: "#999999",
+        margin: "xs"
       },
       {
         type: "box",
