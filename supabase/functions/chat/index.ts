@@ -810,7 +810,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationId, webUserId, isAdminMessage, adminUserId } = await req.json();
+    const { messages, conversationId, webUserId, isAdminMessage, adminUserId, hasImage } = await req.json();
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
