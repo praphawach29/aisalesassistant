@@ -205,7 +205,7 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
   const displayContent = cleanContent(message.content);
 
   // Use provided avatar URL or fallback to default female avatar
-  const botAvatar = botAvatarUrl || avatarWoman1;
+  const botAvatar = resolveAvatarUrl(botAvatarUrl);
 
   return (
     <div className={cn(
