@@ -78,6 +78,13 @@ interface ProductFormData {
   delivery_type: string;
 }
 
+const deliveryTypeOptions = [
+  { value: 'shipping', label: '📦 จัดส่ง', desc: 'ต้องระบุที่อยู่จัดส่ง' },
+  { value: 'pickup', label: '🏪 รับหน้าร้าน', desc: 'ไม่ต้องจัดส่ง' },
+  { value: 'digital', label: '💻 สินค้าดิจิทัล', desc: 'ส่งทางออนไลน์' },
+  { value: 'booking', label: '📅 จองบริการ', desc: 'ใช้ระบบจองคิว' },
+];
+
 const initialFormData: ProductFormData = {
   name: '',
   description: '',
@@ -89,6 +96,7 @@ const initialFormData: ProductFormData = {
   image_url: '',
   is_active: true,
   variants: [],
+  delivery_type: 'shipping',
 };
 
 export default function AdminProducts() {
