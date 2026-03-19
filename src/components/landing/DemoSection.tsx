@@ -5,7 +5,7 @@ import { useInView } from '@/hooks/useInView';
 import { 
   Store, Coffee, Stethoscope, Sparkles, Scissors, Dumbbell, 
   GraduationCap, Car, PawPrint, Building2, Bot, User,
-  ShoppingCart, CreditCard, MessageCircle
+  ShoppingCart, CreditCard, MessageCircle, CalendarCheck
 } from 'lucide-react';
 
 interface DemoBusinessType {
