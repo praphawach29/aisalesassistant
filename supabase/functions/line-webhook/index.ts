@@ -1689,8 +1689,9 @@ function parseAIResponse(content: string, products: Product[]) {
   const showPromotions = content.includes('[SHOW_PROMOTIONS]');
   const productMatch = content.match(/\[PRODUCT:([^\]]+)\]/);
   
-  // Cart commands
-  const cartAddMatch = content.match(/\[CART_ADD:([^\]]+)\]/);
+  // Cart commands - support multiple CART_ADD commands
+  const cartAddMatches = [...content.matchAll(/\[CART_ADD:([^\]]+)\]/g)];
+  const cartAddMatch = cartAddMatches.length > 0 ? cartAddMatches[0] : null;
   const cartRemoveMatch = content.match(/\[CART_REMOVE:([^\]]+)\]/);
   const cartUpdateMatch = content.match(/\[CART_UPDATE:([^\]]+)\]/);
   const cartView = content.includes('[CART_VIEW]');
