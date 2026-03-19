@@ -35,7 +35,7 @@ export function ChatWidget({
     fetchAvatarUrl();
   }, []);
 
-  const botAvatar = botAvatarUrl || avatarWoman1;
+  const botAvatar = resolveAvatarUrl(botAvatarUrl);
 
   const positionClasses = {
     'bottom-right': 'right-4 bottom-4',
