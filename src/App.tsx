@@ -37,6 +37,7 @@ import AdminErrorLogs from "./pages/AdminErrorLogs";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import WidgetDemo from "./pages/WidgetDemo";
 import AdminSubscription from "./pages/AdminSubscription";
+import AdminBookings from "./pages/AdminBookings";
 import Embed from "./pages/Embed";
 import EmbedWidget from "./pages/EmbedWidget";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
