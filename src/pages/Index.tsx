@@ -200,6 +200,7 @@ const Index = () => {
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">ฟีเจอร์</a>
+            <a href="#demo" className="text-sm text-muted-foreground hover:text-foreground transition-colors">ทดลองเล่น</a>
             <a href="#use-cases" className="text-sm text-muted-foreground hover:text-foreground transition-colors">เหมาะกับใคร</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">ราคา</a>
             <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">คำถามที่พบบ่อย</a>
