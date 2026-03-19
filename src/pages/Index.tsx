@@ -496,9 +496,7 @@ const Index = () => {
                   ทำไมต้อง SellMate AI
                 </span>
                 <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 sm:mb-6 leading-tight">
-                  เพิ่มยอดขาย
-                  <br />
-                  <span className="gradient-text">ลดต้นทุน ทำงานน้อยลง</span>
+                  เพิ่มยอดขาย<br className="hidden sm:block" /><span className="sm:hidden"> </span><span className="gradient-text">ลดต้นทุน ทำงานน้อยลง</span>
                 </h2>
                 <p className="text-muted-foreground text-sm sm:text-lg mb-6 sm:mb-10 leading-relaxed">
                   ให้ AI ทำงานแทนคุณ ตอบแชท รับออเดอร์ ตรวจสลิป ตลอด 24 ชั่วโมง คุณมีเวลาโฟกัสเรื่องสำคัญของธุรกิจ
