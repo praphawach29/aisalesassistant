@@ -575,9 +575,9 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
             return;
           }
         } else {
-        // No pending order - check if user mentioned payment/slip keywords
-        const isPaymentSlip = /สลิป|โอน|จ่าย|ชำระ|payment|slip|transfer/i.test(userMessage);
-        
+          // No pending payment order - check if user mentioned payment/slip keywords
+          const isPaymentSlip = /สลิป|โอน|จ่าย|ชำระ|payment|slip|transfer/i.test(userMessage);
+
         if (isPaymentSlip) {
           // Try to find a pending order for payment slip
           console.log('[WebChat] No lastOrderId, searching for pending orders...');
