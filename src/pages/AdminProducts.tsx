@@ -75,6 +75,7 @@ interface ProductFormData {
   image_url: string;
   is_active: boolean;
   variants: ProductVariant[];
+  delivery_type: string;
 }
 
 const initialFormData: ProductFormData = {
