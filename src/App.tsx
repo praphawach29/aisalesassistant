@@ -87,6 +87,7 @@ const App = () => (
               <Route path="/admin/error-logs" element={<AdminErrorLogs />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/admin/subscription" element={<AdminSubscription />} />
+              <Route path="/admin/bookings" element={<AdminBookings />} />
               <Route path="/widget-demo" element={<WidgetDemo />} />
               <Route path="/embed" element={<Embed />} />
               <Route path="/embed-widget" element={<EmbedWidget />} />

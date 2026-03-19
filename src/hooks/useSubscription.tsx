@@ -53,6 +53,7 @@ export const FEATURE_PAGE_MAP: Record<string, string[]> = {
   '/admin/error-logs': ['error_logs'],
   '/admin/product-faqs': ['product_faqs'],
   '/admin/related-products': ['related_products'],
+  '/admin/bookings': ['booking_system'],
 };
 
 interface SubscriptionContextType {
