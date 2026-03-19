@@ -237,10 +237,8 @@ const Index = () => {
               <span className="gradient-text">ให้เป็นพนักงานขายมืออาชีพ</span>
             </h1>
             
-            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-loose sm:leading-loose px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
-              SellMate AI ช่วยตอบแชท แนะนำสินค้า รับออเดอร์ และตรวจสลิปอัตโนมัติ 24 ชม.
-              <br className="hidden sm:block" />
-              เชื่อมต่อ LINE · Facebook · เว็บไซต์ พร้อมใช้งานทันที
+            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
+              SellMate AI ช่วยตอบแชท แนะนำสินค้า รับออเดอร์ และตรวจสลิปอัตโนมัติ 24 ชม. เชื่อมต่อ LINE · Facebook · เว็บไซต์ พร้อมใช้งานทันที
             </p>
 
             <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-8 ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
