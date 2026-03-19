@@ -286,6 +286,149 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_settings: {
+        Row: {
+          auto_confirm: boolean
+          booking_rules: string | null
+          business_hours: Json
+          created_at: string
+          id: string
+          is_enabled: boolean
+          max_advance_days: number
+          service_name: string
+          slot_duration_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          auto_confirm?: boolean
+          booking_rules?: string | null
+          business_hours?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_advance_days?: number
+          service_name?: string
+          slot_duration_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_confirm?: boolean
+          booking_rules?: string | null
+          business_hours?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          max_advance_days?: number
+          service_name?: string
+          slot_duration_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      booking_slots: {
+        Row: {
+          created_at: string
+          current_bookings: number
+          end_time: string
+          id: string
+          is_available: boolean
+          max_bookings: number
+          note: string | null
+          slot_date: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_bookings?: number
+          end_time: string
+          id?: string
+          is_available?: boolean
+          max_bookings?: number
+          note?: string | null
+          slot_date: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_bookings?: number
+          end_time?: string
+          id?: string
+          is_available?: boolean
+          max_bookings?: number
+          note?: string | null
+          slot_date?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bookings: {
+        Row: {
+          booking_date: string
+          booking_number: string
+          booking_time: string
+          conversation_id: string | null
+          created_at: string
+          customer_facebook_id: string | null
+          customer_line_id: string | null
+          customer_name: string
+          customer_phone: string
+          id: string
+          notes: string | null
+          platform: string
+          service_name: string
+          slot_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          booking_date: string
+          booking_number: string
+          booking_time: string
+          conversation_id?: string | null
+          created_at?: string
+          customer_facebook_id?: string | null
+          customer_line_id?: string | null
+          customer_name: string
+          customer_phone: string
+          id?: string
+          notes?: string | null
+          platform?: string
+          service_name?: string
+          slot_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          booking_date?: string
+          booking_number?: string
+          booking_time?: string
+          conversation_id?: string | null
+          created_at?: string
+          customer_facebook_id?: string | null
+          customer_line_id?: string | null
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          notes?: string | null
+          platform?: string
+          service_name?: string
+          slot_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "booking_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broadcast_messages: {
         Row: {
           completed_at: string | null
