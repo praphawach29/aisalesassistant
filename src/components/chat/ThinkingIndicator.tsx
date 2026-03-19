@@ -1,12 +1,11 @@
-import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
+import { resolveAvatarUrl } from '@/lib/avatarMap';
 
 interface ThinkingIndicatorProps {
   botAvatarUrl?: string | null;
 }
 
 export function ThinkingIndicator({ botAvatarUrl }: ThinkingIndicatorProps) {
-  // Use provided avatar URL or fallback to default female avatar (same as ChatBubble)
-  const botAvatar = botAvatarUrl || avatarWoman1;
+  const botAvatar = resolveAvatarUrl(botAvatarUrl);
 
   return (
     <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">

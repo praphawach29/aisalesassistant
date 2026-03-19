@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import avatarWoman1 from '@/assets/avatars/avatar-woman-1.png';
+import { resolveAvatarUrl } from '@/lib/avatarMap';
 import {
   Dialog,
   DialogContent,
@@ -205,7 +205,7 @@ export function ChatBubble({ message, products, onSelectProduct, botAvatarUrl }:
   const displayContent = cleanContent(message.content);
 
   // Use provided avatar URL or fallback to default female avatar
-  const botAvatar = botAvatarUrl || avatarWoman1;
+  const botAvatar = resolveAvatarUrl(botAvatarUrl);
 
   return (
     <div className={cn(
