@@ -3104,7 +3104,7 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       console.log("AI response:", aiContent);
 
       // Parse AI response
-      const { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction, outOfStockNotification, createOrder, createMultiOrder, addressAction } = parseAIResponse(aiContent, productList);
+      const { text, showProducts, showPromotions, specificProduct, promotionProducts, cartAction, multiCartAdds, outOfStockNotification, createOrder, createMultiOrder, addressAction } = parseAIResponse(aiContent, productList);
 
       // Handle out of stock notification - create admin notification
       if (outOfStockNotification) {
