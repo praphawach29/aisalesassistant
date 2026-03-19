@@ -3413,34 +3413,49 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       // Build LINE messages
       const lineMessages: any[] = [];
       
-      // Fetch payment settings for order confirmation (only use primary payment method)
+      // Fetch payment settings for order confirmation
       let bankInfo: { bankName: string; accountNumber: string; accountName: string } | undefined;
       let promptpayId: string | undefined;
       let isCOD = false;
+      
+      // Detect payment method from conversation context (user message + AI response)
+      const codPatterns = /เก็บเงินปลายทาง|เก็บปลายทาง|COD|cod|ปลายทาง|Cash on Delivery/i;
+      const transferPatterns = /โอนเงิน|โอน|PromptPay|promptpay|พร้อมเพย์|QR/i;
+      
+      // Check user message and AI response for payment method choice
+      const userChoseCOD = codPatterns.test(userMessage) || codPatterns.test(aiContent);
+      const userChoseTransfer = transferPatterns.test(userMessage) || transferPatterns.test(aiContent);
+      
       const { data: paymentSettings } = await supabase
         .from('settings')
         .select('key, value')
         .in('key', ['primary_payment_method', 'bank_name', 'bank_account_number', 'bank_account_name', 'promptpay_id']);
       
       if (paymentSettings && paymentSettings.length > 0) {
-        const primaryPaymentMethod = paymentSettings.find(s => s.key === 'primary_payment_method')?.value || 'promptpay';
+        // Priority: customer's choice > store's primary method
+        let effectiveMethod: string;
+        if (userChoseCOD && !userChoseTransfer) {
+          effectiveMethod = 'cod';
+          console.log('[LINE] Customer chose COD payment');
+        } else if (userChoseTransfer && !userChoseCOD) {
+          effectiveMethod = paymentSettings.find(s => s.key === 'promptpay_id')?.value ? 'promptpay' : 'bank';
+          console.log('[LINE] Customer chose transfer payment');
+        } else {
+          effectiveMethod = paymentSettings.find(s => s.key === 'primary_payment_method')?.value || 'promptpay';
+          console.log(`[LINE] Using store primary payment method: ${effectiveMethod}`);
+        }
         
-        if (primaryPaymentMethod === 'cod') {
+        if (effectiveMethod === 'cod') {
           isCOD = true;
-          // Don't set bankInfo or promptpayId for COD
-        } else if (primaryPaymentMethod === 'bank') {
+        } else if (effectiveMethod === 'bank') {
           const bankName = paymentSettings.find(s => s.key === 'bank_name')?.value;
           const accountNumber = paymentSettings.find(s => s.key === 'bank_account_number')?.value;
           const accountName = paymentSettings.find(s => s.key === 'bank_account_name')?.value;
-          
           if (bankName && accountNumber && accountName) {
             bankInfo = { bankName, accountNumber, accountName };
           }
-          // Don't set promptpayId when using bank
         } else {
-          // Default to PromptPay
           promptpayId = paymentSettings.find(s => s.key === 'promptpay_id')?.value;
-          // Don't set bankInfo when using promptpay
         }
       }
 
