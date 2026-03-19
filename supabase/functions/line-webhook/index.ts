@@ -2711,12 +2711,20 @@ serve(async (req) => {
         continue;
       }
 
-      // ============= Direct Cart View Shortcut (skip AI) =============
+      // ============= Direct Cart Operations Shortcut (skip AI) =============
       const cartViewKeywords = ['ดูตะกร้า', 'ตะกร้าของฉัน', 'ตะกร้า', 'cart', 'view cart'];
       const isDirectCartView = cartViewKeywords.some(kw => userMessage.trim().toLowerCase() === kw.toLowerCase());
       
-      if (isDirectCartView) {
-        console.log('[LINE] Direct cart view shortcut triggered');
+      // Direct cart update: "เปลี่ยนจำนวน X เป็น Y ชิ้น"
+      const directUpdateMatch = userMessage.match(/เปลี่ยนจำนวน\s*(.+?)\s*เป็น\s*(\d+)\s*ชิ้น/);
+      // Direct cart remove: "ลบ X ออกจากตะกร้า"
+      const directRemoveMatch = userMessage.match(/ลบ\s*(.+?)\s*ออกจากตะกร้า/);
+      // Direct cart clear: "ล้างตะกร้า"
+      const isDirectCartClear = ['ล้างตะกร้า', 'clear cart'].some(kw => userMessage.trim().toLowerCase() === kw.toLowerCase());
+
+      if (isDirectCartView || directUpdateMatch || directRemoveMatch || isDirectCartClear) {
+        console.log('[LINE] Direct cart operation shortcut triggered:', 
+          isDirectCartView ? 'view' : directUpdateMatch ? 'update' : directRemoveMatch ? 'remove' : 'clear');
         
         // Save user message
         await supabase.from('chat_messages').insert({
@@ -2725,33 +2733,106 @@ serve(async (req) => {
           content: userMessage
         });
 
-        // Get cart items
-        const { data: cartItems } = await supabase
+        let actionResultText = '';
+
+        // Handle cart update
+        if (directUpdateMatch) {
+          const productName = directUpdateMatch[1].trim();
+          const newQuantity = parseInt(directUpdateMatch[2]);
+
+          const { data: cartItems } = await supabase
+            .from('shopping_carts')
+            .select('*')
+            .eq('platform_user_id', userId);
+
+          const itemToUpdate = cartItems?.find(item =>
+            item.product_name.toLowerCase().includes(productName.toLowerCase()) ||
+            productName.toLowerCase().includes(item.product_name.toLowerCase())
+          );
+
+          if (itemToUpdate) {
+            if (newQuantity <= 0) {
+              await supabase.from('shopping_carts').delete().eq('id', itemToUpdate.id);
+              actionResultText = `🗑️ ลบ "${itemToUpdate.product_name}" ออกจากตะกร้าแล้วค่ะ!`;
+            } else {
+              await supabase.from('shopping_carts')
+                .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+                .eq('id', itemToUpdate.id);
+              actionResultText = `✅ เปลี่ยนจำนวน "${itemToUpdate.product_name}" เป็น ${newQuantity} ชิ้นแล้วค่ะ!`;
+            }
+          } else {
+            actionResultText = `ไม่พบสินค้า "${productName}" ในตะกร้าค่ะ`;
+          }
+        }
+
+        // Handle cart remove
+        if (directRemoveMatch) {
+          const productName = directRemoveMatch[1].trim();
+
+          const { data: cartItems } = await supabase
+            .from('shopping_carts')
+            .select('*')
+            .eq('platform_user_id', userId);
+
+          const itemToRemove = cartItems?.find(item =>
+            item.product_name.toLowerCase().includes(productName.toLowerCase()) ||
+            productName.toLowerCase().includes(item.product_name.toLowerCase())
+          );
+
+          if (itemToRemove) {
+            await supabase.from('shopping_carts').delete().eq('id', itemToRemove.id);
+            actionResultText = `🗑️ ลบ "${itemToRemove.product_name}" ออกจากตะกร้าแล้วค่ะ!`;
+          } else {
+            actionResultText = `ไม่พบสินค้า "${productName}" ในตะกร้าค่ะ`;
+          }
+        }
+
+        // Handle cart clear
+        if (isDirectCartClear) {
+          await supabase.from('shopping_carts').delete().eq('platform_user_id', userId);
+          actionResultText = '🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ!';
+        }
+
+        // Now fetch updated cart and show it
+        const { data: updatedCartItems } = await supabase
           .from('shopping_carts')
           .select('*')
           .eq('platform_user_id', userId);
 
         const cartMessages: any[] = [];
-        if (cartItems && cartItems.length > 0) {
-          const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+        
+        // Add action result text if there was an action (not just viewing)
+        if (actionResultText) {
+          // Don't send separate text - include info in the flex or show empty cart message
+        }
+
+        if (updatedCartItems && updatedCartItems.length > 0) {
+          const totalAmount = updatedCartItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+          if (actionResultText) {
+            cartMessages.push({ type: "text", text: actionResultText });
+          }
           cartMessages.push({
             type: "flex",
             altText: "ตะกร้าสินค้า",
-            contents: buildCartSummaryFlex(cartItems as CartItem[], totalAmount)
+            contents: buildCartSummaryFlex(updatedCartItems as CartItem[], totalAmount)
           });
         } else {
-          cartMessages.push({ type: "text", text: "ตะกร้าของคุณยังว่างเปล่าค่ะ 🛒\n\nพิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าได้เลยค่ะ" });
+          if (actionResultText) {
+            cartMessages.push({ type: "text", text: actionResultText + "\n\nตะกร้าว่างเปล่าแล้ว พิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าได้เลยค่ะ 🛍️" });
+          } else {
+            cartMessages.push({ type: "text", text: "ตะกร้าของคุณยังว่างเปล่าค่ะ 🛒\n\nพิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าได้เลยค่ะ" });
+          }
         }
 
         // Save bot response
         await supabase.from('chat_messages').insert({
           conversation_id: conversation.id,
           role: 'assistant',
-          content: cartItems && cartItems.length > 0 ? `แสดงตะกร้าสินค้า (${cartItems.length} รายการ)` : 'ตะกร้าว่างเปล่า'
+          content: actionResultText || (updatedCartItems && updatedCartItems.length > 0 ? `แสดงตะกร้าสินค้า (${updatedCartItems.length} รายการ)` : 'ตะกร้าว่างเปล่า')
         });
 
         await supabase.from('chat_conversations').update({
-          last_message: 'ดูตะกร้า',
+          last_message: userMessage,
           last_message_at: new Date().toISOString()
         }).eq('id', conversation.id);
 
@@ -2761,7 +2842,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${lineAccessToken}`,
           },
-          body: JSON.stringify({ replyToken, messages: cartMessages }),
+          body: JSON.stringify({ replyToken, messages: cartMessages.slice(0, 5) }),
         });
         continue;
       }
