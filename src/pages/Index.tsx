@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { useInView } from '@/hooks/useInView';
 import { Link } from 'react-router-dom';
+import DemoSection from '@/components/landing/DemoSection';
 
 const Index = () => {
   const heroRef = useInView();
