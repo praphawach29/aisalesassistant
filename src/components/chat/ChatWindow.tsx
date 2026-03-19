@@ -9,6 +9,7 @@ import { RotateCcw, ShoppingBag, MessageCircle, Package, RefreshCw, ClipboardLis
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from './ProductCarousel';
 import { VariantSelectDialog } from './VariantSelectDialog';
+import { resolveAvatarUrl } from '@/lib/avatarMap';
 
 interface AISettings {
   ai_name: string;
