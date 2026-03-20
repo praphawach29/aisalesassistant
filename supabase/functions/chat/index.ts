@@ -983,7 +983,8 @@ serve(async (req) => {
         knowledgeResult,
         relatedProductsResult,
         bookingSettingsResult,
-        bookingSlotsResult
+        bookingSlotsResult,
+        couponsResult
       ] = await Promise.all([
         needsAiSettings ? supabase.from("ai_settings").select("*").eq("is_active", true).maybeSingle() : Promise.resolve({ data: aiSettingsData }),
         needsProducts ? supabase.from("products").select("*").eq("is_active", true) : Promise.resolve({ data: products }),
@@ -994,7 +995,8 @@ serve(async (req) => {
         needsKnowledge ? supabase.from("knowledge_base").select("title, summary, original_content, category").eq("is_active", true) : Promise.resolve({ data: knowledgeData }),
         needsRelatedProducts ? supabase.from("related_products").select("product_id, related_product_id") : Promise.resolve({ data: relatedProductsData }),
         needsBookingSettings ? supabase.from("booking_settings").select("*").limit(1).maybeSingle() : Promise.resolve({ data: bookingSettingsData }),
-        needsBookingSlots ? supabase.from("booking_slots").select("*").eq("is_available", true).gte("slot_date", new Date().toISOString().split('T')[0]).order("slot_date").order("start_time").limit(50) : Promise.resolve({ data: bookingSlotsData })
+        needsBookingSlots ? supabase.from("booking_slots").select("*").eq("is_available", true).gte("slot_date", new Date().toISOString().split('T')[0]).order("slot_date").order("start_time").limit(50) : Promise.resolve({ data: bookingSlotsData }),
+        needsCoupons ? supabase.from("coupons").select("code, name, description, discount_type, discount_value, min_order_amount, valid_until").eq("is_active", true) : Promise.resolve({ data: couponsData })
       ]);
 
       // Update cache for fetched data
