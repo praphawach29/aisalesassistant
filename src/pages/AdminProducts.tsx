@@ -254,6 +254,10 @@ export default function AdminProducts() {
 
     setIsSaving(true);
 
+    // Set image_url to primary image
+    const primaryImage = formData.product_images.find(img => img.is_primary);
+    const mainImageUrl = primaryImage?.image_url || formData.product_images[0]?.image_url || formData.image_url.trim() || null;
+
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
@@ -262,35 +266,50 @@ export default function AdminProducts() {
       promotion_price: formData.promotion_price ? Number(formData.promotion_price) : null,
       stock: Number(formData.stock) || 0,
       category: formData.category.trim() || null,
-      image_url: formData.image_url.trim() || null,
+      image_url: mainImageUrl,
       is_active: formData.is_active,
       variants: formData.variants.length > 0 ? JSON.parse(JSON.stringify(formData.variants)) : [],
       delivery_type: formData.delivery_type,
     };
 
     try {
+      let productId: string;
+
       if (selectedProduct) {
-        // Update existing product
         const { error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', selectedProduct.id);
-
         if (error) throw error;
-        toast.success('อัพเดทสินค้าสำเร็จ');
+        productId = selectedProduct.id;
       } else {
-        // Create new product
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
-          .insert(productData);
-
+          .insert(productData)
+          .select('id')
+          .single();
         if (error) throw error;
-        toast.success('เพิ่มสินค้าสำเร็จ');
+        productId = data.id;
       }
 
-      // Invalidate edge function cache
+      // Sync product_images table
+      // Delete existing images for this product
+      await supabase.from('product_images').delete().eq('product_id', productId);
+
+      // Insert new images
+      if (formData.product_images.length > 0) {
+        const imagesToInsert = formData.product_images.map((img, i) => ({
+          product_id: productId,
+          image_url: img.image_url,
+          sort_order: i,
+          is_primary: img.is_primary,
+        }));
+        const { error: imgError } = await supabase.from('product_images').insert(imagesToInsert);
+        if (imgError) console.error('Error saving images:', imgError);
+      }
+
+      toast.success(selectedProduct ? 'อัพเดทสินค้าสำเร็จ' : 'เพิ่มสินค้าสำเร็จ');
       await invalidateCache(['products']);
-      
       setIsDialogOpen(false);
       fetchProducts();
     } catch (error) {
