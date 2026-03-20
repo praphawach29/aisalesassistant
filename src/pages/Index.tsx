@@ -262,6 +262,17 @@ const Index = () => {
               </div>
             </div>
 
+            {/* Hero image - mobile */}
+            <div className={`relative lg:hidden flex justify-center mt-6 ${heroRef.isInView ? 'animate-scale-up animate-stagger-3' : 'opacity-0'}`}>
+              <img 
+                src={heroAiChatbot} 
+                alt="AI Chatbot ผู้ช่วยขายอัจฉริยะ" 
+                className="w-52 sm:w-64 drop-shadow-xl"
+                loading="eager"
+              />
+            </div>
+
+            {/* Hero image - desktop */}
             <div className={`relative hidden lg:block ${heroRef.isInView ? 'animate-scale-up animate-stagger-2' : 'opacity-0'}`}>
               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/15 rounded-full blur-[80px]" />
               <img 
