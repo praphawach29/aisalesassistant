@@ -152,6 +152,7 @@ export default function DemoSection() {
   const [visibleCount, setVisibleCount] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const currentDemo = demoBusinessTypes.find(d => d.id === activeDemo)!;
   // Total messages: 1 greeting + conversation messages
@@ -184,9 +185,11 @@ export default function DemoSection() {
     return () => clearTimeout(timer);
   }, [activeDemo]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll within chat container only (not the page)
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [visibleCount, isTyping]);
 
   // Build flat message list: greeting + conversation
@@ -263,7 +266,7 @@ export default function DemoSection() {
             </div>
 
             {/* Chat Messages */}
-            <CardContent className="p-4 space-y-3 bg-muted/30 min-h-[320px] max-h-[400px] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth">
+            <CardContent ref={chatContainerRef} className="p-4 space-y-3 bg-muted/30 min-h-[100px] overflow-hidden transition-all duration-500 ease-out">
               {allMessages.slice(0, visibleCount).map((msg, i) => (
                 <div
                   key={`${activeDemo}-${i}`}
