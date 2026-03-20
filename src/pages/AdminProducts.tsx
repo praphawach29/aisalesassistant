@@ -135,17 +135,22 @@ export default function AdminProducts() {
     
     const { data, error } = await supabase
       .from('products')
-      .select('*')
+      .select('*, product_images(*)')
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching products:', error);
       toast.error('ไม่สามารถโหลดข้อมูลสินค้าได้');
     } else {
-      // Cast variants from Json to ProductVariant[]
       const productsWithVariants = (data || []).map(p => ({
         ...p,
-        variants: (p.variants as unknown as ProductVariant[]) || []
+        variants: (p.variants as unknown as ProductVariant[]) || [],
+        product_images: ((p as any).product_images || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((img: any) => ({
+          id: img.id,
+          image_url: img.image_url,
+          sort_order: img.sort_order,
+          is_primary: img.is_primary,
+        })) as ProductImage[],
       }));
       setProducts(productsWithVariants);
     }
