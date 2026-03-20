@@ -294,7 +294,7 @@ async function getCategoryExpertise(
   }
 }
 
-function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean, scrapedContent: string, customerContext?: CustomerContext, categoryExpertise?: string): string {
+function buildDynamicPrompt(settings: AISettings, productCatalog: string, faqList: string, storeSettings: StoreSettings, isFirstMessage: boolean, scrapedContent: string, customerContext?: CustomerContext, categoryExpertise?: string, couponList?: string): string {
   const { ai_name, gender, personality, formality_level, use_emoji, response_length, greeting_message, closing_message, custom_rules } = settings;
 
   // Gender-specific particles
