@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useInView } from '@/hooks/useInView';
@@ -149,8 +149,56 @@ const demoBusinessTypes: DemoBusinessType[] = [
 export default function DemoSection() {
   const [activeDemo, setActiveDemo] = useState('online-shop');
   const sectionRef = useInView();
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   
   const currentDemo = demoBusinessTypes.find(d => d.id === activeDemo)!;
+  // Total messages: 1 greeting + conversation messages
+  const totalMessages = 1 + currentDemo.conversation.length;
+
+  // Reset and animate messages when demo changes
+  useEffect(() => {
+    setVisibleCount(0);
+    setIsTyping(true);
+
+    let current = 0;
+    const showNext = () => {
+      current++;
+      setIsTyping(false);
+      setVisibleCount(current);
+
+      if (current < 1 + currentDemo.conversation.length) {
+        // Show typing before next bot message
+        const nextMsg = current === 0 ? { role: 'bot' } : currentDemo.conversation[current - 1];
+        const delay = nextMsg?.role === 'user' ? 600 : 800;
+        
+        setTimeout(() => {
+          setIsTyping(true);
+          setTimeout(showNext, nextMsg?.role === 'user' ? 500 : 1200);
+        }, delay);
+      }
+    };
+
+    const timer = setTimeout(showNext, 1000);
+    return () => clearTimeout(timer);
+  }, [activeDemo]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [visibleCount, isTyping]);
+
+  // Build flat message list: greeting + conversation
+  const allMessages = [
+    { role: 'bot' as const, text: currentDemo.greeting },
+    ...currentDemo.conversation,
+  ];
+
+  const handleSelectDemo = (id: string) => {
+    if (id === activeDemo) return;
+    setActiveDemo(id);
+  };
 
   return (
     <section id="demo" className="py-16 sm:py-24 relative">
@@ -178,7 +226,7 @@ export default function DemoSection() {
             return (
               <button
                 key={biz.id}
-                onClick={() => setActiveDemo(biz.id)}
+                onClick={() => handleSelectDemo(biz.id)}
                 className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
@@ -204,7 +252,9 @@ export default function DemoSection() {
                 <p className="text-primary-foreground font-semibold text-sm">{currentDemo.aiName}</p>
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-primary-foreground/80 text-xs">ออนไลน์อยู่ค่ะ</span>
+                  <span className="text-primary-foreground/80 text-xs">
+                    {isTyping ? 'กำลังพิมพ์...' : 'ออนไลน์อยู่ค่ะ'}
+                  </span>
                 </div>
               </div>
               <Badge className="ml-auto bg-primary-foreground/20 text-primary-foreground border-none text-[10px]">
@@ -213,23 +263,12 @@ export default function DemoSection() {
             </div>
 
             {/* Chat Messages */}
-            <CardContent className="p-4 space-y-3 bg-muted/30 min-h-[320px]">
-              {/* Greeting */}
-              <div className="flex gap-2 items-end">
-                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Bot className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <div className="bg-card rounded-2xl rounded-bl-md px-3.5 py-2.5 max-w-[85%] shadow-sm border border-border/50">
-                  <p className="text-foreground text-sm whitespace-pre-line">{currentDemo.greeting}</p>
-                </div>
-              </div>
-
-              {/* Conversation */}
-              {currentDemo.conversation.map((msg, i) => (
+            <CardContent className="p-4 space-y-3 bg-muted/30 min-h-[320px] max-h-[400px] overflow-y-auto scroll-smooth">
+              {allMessages.slice(0, visibleCount).map((msg, i) => (
                 <div
                   key={`${activeDemo}-${i}`}
                   className={`flex gap-2 items-end ${msg.role === 'user' ? 'justify-end' : ''}`}
-                  style={{ animation: `fadeIn 0.3s ease-out ${(i + 1) * 0.15}s both` }}
+                  style={{ animation: 'fadeIn 0.3s ease-out both' }}
                 >
                   {msg.role === 'bot' && (
                     <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -256,21 +295,22 @@ export default function DemoSection() {
               ))}
 
               {/* Typing Indicator */}
-              <div
-                className="flex gap-2 items-end"
-                style={{ animation: `fadeIn 0.3s ease-out ${(currentDemo.conversation.length + 1) * 0.15}s both` }}
-              >
-                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Bot className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <div className="bg-card rounded-2xl rounded-bl-md px-4 py-3 shadow-sm border border-border/50">
-                  <div className="flex items-center gap-1">
-                    <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              {isTyping && (
+                <div className="flex gap-2 items-end" style={{ animation: 'fadeIn 0.2s ease-out both' }}>
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Bot className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <div className="bg-card rounded-2xl rounded-bl-md px-4 py-3 shadow-sm border border-border/50">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '0.6s' }} />
+                      <span className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '0.6s' }} />
+                      <span className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '300ms', animationDuration: '0.6s' }} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              <div ref={chatEndRef} />
             </CardContent>
 
             {/* Features Tags */}
