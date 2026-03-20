@@ -540,29 +540,32 @@ const Index = () => {
               
               <div className={`relative ${benefitsRef.isInView ? 'animate-fade-left' : 'opacity-0'}`}>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/20 rounded-2xl sm:rounded-[2rem] blur-2xl sm:blur-3xl" />
-                <Card className="relative glass gradient-border overflow-hidden">
-                  <CardContent className="p-6 sm:p-10">
-                    <div className="text-center">
-                      <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center mx-auto mb-4 sm:mb-8 shadow-xl shadow-primary/30 animate-float">
-                        <Zap className="w-8 h-8 sm:w-12 sm:h-12 text-primary-foreground" />
-                      </div>
-                      <h3 className="text-lg sm:text-2xl font-bold text-foreground mb-2 sm:mb-4">เพิ่มยอดขาย</h3>
-                      <p className="text-4xl sm:text-6xl font-bold gradient-text mb-2 sm:mb-4">+35%</p>
-                      <p className="text-muted-foreground text-sm sm:text-lg">โดยเฉลี่ยจากร้านค้าที่ใช้ระบบ</p>
-                      
-                      <div className="grid grid-cols-2 gap-4 mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-border/50">
+                <div className="relative">
+                  <img 
+                    src={benefitsDashboard} 
+                    alt="AI Dashboard จัดการร้านค้าอัจฉริยะ" 
+                    className="w-full rounded-2xl sm:rounded-[2rem] drop-shadow-2xl"
+                    loading="lazy"
+                  />
+                  <Card className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 glass gradient-border overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <p className="text-2xl sm:text-3xl font-bold text-foreground">60%</p>
-                          <p className="text-muted-foreground text-xs sm:text-sm">ลดค่าใช้จ่ายแชท</p>
+                          <p className="text-xl sm:text-2xl font-bold gradient-text">+35%</p>
+                          <p className="text-muted-foreground text-[10px] sm:text-xs">เพิ่มยอดขาย</p>
                         </div>
                         <div>
-                          <p className="text-2xl sm:text-3xl font-bold text-foreground">24/7</p>
-                          <p className="text-muted-foreground text-xs sm:text-sm">ตอบลูกค้าตลอด</p>
+                          <p className="text-xl sm:text-2xl font-bold text-foreground">60%</p>
+                          <p className="text-muted-foreground text-[10px] sm:text-xs">ลดค่าใช้จ่าย</p>
+                        </div>
+                        <div>
+                          <p className="text-xl sm:text-2xl font-bold text-foreground">24/7</p>
+                          <p className="text-muted-foreground text-[10px] sm:text-xs">ตอบลูกค้าตลอด</p>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </div>
           </div>
