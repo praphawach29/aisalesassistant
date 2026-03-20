@@ -63,20 +63,6 @@ const AI_PROVIDERS: AIProvider[] = [
     requiresApiKey: true,
   },
   {
-    id: 'gemini',
-    name: 'Google Gemini',
-    description: 'Gemini Pro จาก Google',
-    characteristics: [
-      'ตอบเร็ว ประสิทธิภาพสูง',
-      'เข้าใจบริบทการสนทนาดี',
-      'รองรับภาษาไทยได้ดี',
-      'เหมาะกับการใช้งานหลากหลาย',
-    ],
-    icon: <Zap className="w-5 h-5" />,
-    color: 'bg-gradient-to-r from-blue-500 to-cyan-500',
-    requiresApiKey: true,
-  },
-  {
     id: 'deepseek',
     name: 'DeepSeek',
     description: 'DeepSeek-V2 โมเดลจากจีน',
