@@ -179,6 +179,7 @@ export default function AdminProducts() {
       is_active: product.is_active,
       variants: (product.variants as ProductVariant[]) || [],
       delivery_type: product.delivery_type || 'shipping',
+      product_images: product.product_images || [],
     });
     setIsDialogOpen(true);
   };
