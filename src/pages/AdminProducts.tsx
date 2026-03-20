@@ -522,66 +522,11 @@ export default function AdminProducts() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-sm">รูปภาพสินค้า</Label>
-                
-                {formData.image_url ? (
-                  <div className="relative inline-block">
-                    <img 
-                      src={formData.image_url} 
-                      alt="Product preview" 
-                      className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute -top-2 -right-2 w-6 h-6"
-                      onClick={removeImage}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <label className="cursor-pointer">
-                      <div className="flex items-center justify-center gap-2 px-4 py-6 sm:py-8 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
-                        {isUploading ? (
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <Upload className="w-5 h-5 text-muted-foreground" />
-                            <span className="text-xs sm:text-sm text-muted-foreground">คลิกเพื่ออัพโหลดรูป</span>
-                          </>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={isUploading}
-                        className="hidden"
-                      />
-                    </label>
-                    <span className="text-xs text-muted-foreground text-center">
-                      JPG, PNG, WEBP (ไม่เกิน 5MB)
-                    </span>
-                  </div>
-                )}
-
-                {/* Alternative: URL input */}
-                <div className="pt-2">
-                  <Label htmlFor="image_url" className="text-xs text-muted-foreground">หรือกรอก URL</Label>
-                  <Input
-                    id="image_url"
-                    type="url"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                    placeholder="https://example.com/image.jpg"
-                    className="mt-1 h-9"
-                  />
-                </div>
-              </div>
+              <ProductImageManager
+                images={formData.product_images}
+                onChange={(images) => setFormData({ ...formData, product_images: images })}
+                maxImages={3}
+              />
 
               {/* Product Variants Section */}
               <div className="space-y-2">
