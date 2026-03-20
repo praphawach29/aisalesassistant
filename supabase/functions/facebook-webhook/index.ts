@@ -2926,7 +2926,43 @@ ${quantityMatches.map((m: string) => `- "${m}"`).join('\n')}
               .delete()
               .eq("conversation_id", conversation.id);
 
-            responseMessage = "🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ";
+            // Auto-cancel pending orders without payment slips
+            let cancelledCount = 0;
+            const { data: pendingOrders } = await supabase
+              .from('orders')
+              .select('id, order_number')
+              .eq('customer_facebook_id', recipientId)
+              .eq('status', 'pending');
+
+            if (pendingOrders && pendingOrders.length > 0) {
+              for (const po of pendingOrders) {
+                const { data: slips } = await supabase
+                  .from('payment_slips')
+                  .select('id')
+                  .eq('order_id', po.id)
+                  .limit(1);
+
+                if (!slips || slips.length === 0) {
+                  await supabase
+                    .from('orders')
+                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                    .eq('id', po.id);
+
+                  await supabase
+                    .from('follow_up_tracking')
+                    .delete()
+                    .eq('reference_id', po.id);
+
+                  cancelledCount++;
+                }
+              }
+            }
+
+            let clearMsg = "🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ";
+            if (cancelledCount > 0) {
+              clearMsg += `\n\n📦 ยกเลิกออเดอร์ที่รอชำระเงิน ${cancelledCount} รายการแล้วค่ะ`;
+            }
+            responseMessage = clearMsg;
           } else if (cartAction.type === 'checkout' && cartAction.customerName && cartAction.customerAddress && cartAction.customerPhone) {
             const { data: cartItems } = await supabase
               .from("shopping_carts")
