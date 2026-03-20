@@ -967,6 +967,7 @@ serve(async (req) => {
     if (needsScraped) cacheMisses.push('scraped'); else cacheHits.push('scraped');
     if (needsKnowledge) cacheMisses.push('knowledge'); else cacheHits.push('knowledge');
     if (needsRelatedProducts) cacheMisses.push('related_products'); else cacheHits.push('related_products');
+    if (needsCoupons) cacheMisses.push('coupons'); else cacheHits.push('coupons');
 
     if (cacheMisses.length > 0) {
       console.log(`Cache miss: ${cacheMisses.join(', ')} | Cache hit: ${cacheHits.join(', ')}`);
