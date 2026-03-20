@@ -189,55 +189,7 @@ export default function AdminProducts() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB');
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      // Generate unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `products/${fileName}`;
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
-
-      setFormData({ ...formData, image_url: publicUrl });
-      toast.success('อัพโหลดรูปภาพสำเร็จ');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const removeImage = () => {
-    setFormData({ ...formData, image_url: '' });
-  };
+  // Legacy single-image functions removed - now using ProductImageManager
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
