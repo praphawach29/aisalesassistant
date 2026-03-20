@@ -830,6 +830,36 @@ export type Database = {
         }
         Relationships: []
       }
+      follow_up_tracking: {
+        Row: {
+          created_at: string
+          follow_up_count: number
+          follow_up_type: string
+          id: string
+          last_sent_at: string
+          platform_user_id: string
+          reference_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          follow_up_count?: number
+          follow_up_type: string
+          id?: string
+          last_sent_at?: string
+          platform_user_id: string
+          reference_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          follow_up_count?: number
+          follow_up_type?: string
+          id?: string
+          last_sent_at?: string
+          platform_user_id?: string
+          reference_id?: string | null
+        }
+        Relationships: []
+      }
       knowledge_base: {
         Row: {
           category: string | null
@@ -1507,6 +1537,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cleanup_follow_up_tracking: { Args: never; Returns: undefined }
       cleanup_rate_limits: { Args: never; Returns: undefined }
       create_admin_notification: {
         Args: {
