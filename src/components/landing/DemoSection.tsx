@@ -183,9 +183,11 @@ export default function DemoSection() {
     return () => clearTimeout(timer);
   }, [activeDemo]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll within chat container only (not the page)
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [visibleCount, isTyping]);
 
   // Build flat message list: greeting + conversation
