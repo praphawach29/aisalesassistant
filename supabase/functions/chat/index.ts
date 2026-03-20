@@ -1246,8 +1246,20 @@ serve(async (req) => {
     // Build booking prompt if enabled
     const bookingPrompt = buildBookingPrompt(bookingSettingsData, bookingSlotsData || []);
 
+    // Build coupon list for prompt
+    const couponList = couponsData.length > 0 ? couponsData.map((c: any) => {
+      const now = new Date();
+      const validUntil = c.valid_until ? new Date(c.valid_until) : null;
+      if (validUntil && validUntil < now) return null; // Skip expired
+      const discountText = c.discount_type === 'percentage' ? `ลด ${c.discount_value}%` : `ลด ฿${c.discount_value}`;
+      let info = `- โค้ด: ${c.code} | ${c.name} | ${discountText}`;
+      if (c.min_order_amount) info += ` | ขั้นต่ำ ฿${c.min_order_amount}`;
+      if (validUntil) info += ` | หมดอายุ: ${validUntil.toLocaleDateString('th-TH')}`;
+      return info;
+    }).filter(Boolean).join('\n') : '';
+
     // Build dynamic system prompt
-    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext, categoryExpertise) + bookingPrompt;
+    const systemPrompt = buildDynamicPrompt(aiSettings, productCatalog, faqList, storeSettings, isFirstMessage, combinedExternalContent, customerContext, categoryExpertise, couponList) + bookingPrompt;
     
     console.log("Is first message:", isFirstMessage);
 
