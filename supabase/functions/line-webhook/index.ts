@@ -879,7 +879,7 @@ function buildProductFlexMessage(product: Product) {
     contents: [
       {
         type: "image",
-        url: product.image_url,
+        url: formatImageUrlForLine(product.image_url),
         size: "full",
         aspectRatio: "1:1",
         aspectMode: "cover"
