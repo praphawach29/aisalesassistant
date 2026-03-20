@@ -4248,23 +4248,12 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       // Add product display if needed (only if no cart action and no order creation handled)
       if (!cartAction && !createOrder && !createMultiOrder) {
         if (specificProduct) {
-          // Send product image as standalone Image Message first (more visible on LINE)
-          if (specificProduct.image_url) {
-            const imgMsg = buildImageMessage(specificProduct.image_url, specificProduct.name);
-            if (imgMsg) lineMessages.push(imgMsg);
-          }
           lineMessages.push({
             type: "flex",
             altText: specificProduct.name,
             contents: buildProductFlexMessage(specificProduct)
           });
         } else if (showPromotions && promotionProducts.length > 0) {
-          // Send first promotion product image as preview
-          const firstPromo = promotionProducts.find(p => p.image_url);
-          if (firstPromo?.image_url) {
-            const imgMsg = buildImageMessage(firstPromo.image_url, 'สินค้าโปรโมชั่น');
-            if (imgMsg) lineMessages.push(imgMsg);
-          }
           lineMessages.push(buildProductCarousel(promotionProducts));
         } else if (showProducts && productList.length > 0) {
           lineMessages.push(buildProductCarousel(productList));

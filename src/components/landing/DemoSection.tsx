@@ -4,9 +4,25 @@ import { Badge } from '@/components/ui/badge';
 import { useInView } from '@/hooks/useInView';
 import { 
   Store, Coffee, Stethoscope, Sparkles, Scissors, Dumbbell, 
-  GraduationCap, Car, PawPrint, Building2, Bot, User,
-  ShoppingCart, CreditCard, MessageCircle, CalendarCheck, BellRing
+  GraduationCap, Car, PawPrint, Bot, User,
+  ShoppingCart, CreditCard, MessageCircle, CalendarCheck, BellRing,
+  Tag, Package
 } from 'lucide-react';
+
+interface ProductCard {
+  name: string;
+  price: number;
+  promoPrice?: number;
+  image: string;
+  category?: string;
+  stock?: string;
+}
+
+interface DemoMessage {
+  role: 'user' | 'bot';
+  text: string;
+  productCard?: ProductCard;
+}
 
 interface DemoBusinessType {
   id: string;
@@ -14,7 +30,7 @@ interface DemoBusinessType {
   icon: React.ComponentType<any>;
   aiName: string;
   greeting: string;
-  conversation: { role: 'user' | 'bot'; text: string }[];
+  conversation: DemoMessage[];
   products: string[];
 }
 
@@ -27,8 +43,15 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: '🔔 สวัสดีค่ะคุณสมชาย! เห็นว่ามีออเดอร์ ORD-20260319-0042 ยังไม่ได้ชำระเงินค่ะ 🛒',
     conversation: [
       { role: 'bot', text: '📦 ออเดอร์ของคุณค่ะ:\n• เสื้อยืด Oversize สีขาว L x2 = ฿780\n\n💳 โอนเข้าบัญชี:\nกสิกร 088-xxx-xxxx\nชื่อ ร้าน SellMate\n\nส่งสลิปมาได้เลยนะคะ! 😊' },
-      { role: 'user', text: 'โอ ลืมไปเลย เดี๋ยวโอนนะ' },
-      { role: 'bot', text: 'ไม่เป็นไรค่ะ ✨ รอสลิปอยู่นะคะ!\n\nพอส่งสลิปมา ระบบจะตรวจสอบอัตโนมัติ และยืนยันออเดอร์ให้ทันทีค่ะ 🚀' },
+      { role: 'user', text: 'มีเสื้อรุ่นใหม่มาไหม' },
+      { role: 'bot', text: '✨ มาใหม่เลยค่ะ! เสื้อยืด Premium Cotton รุ่นล่าสุด 👇', productCard: {
+        name: 'เสื้อยืด Premium Cotton',
+        price: 590,
+        promoPrice: 450,
+        image: '👕',
+        category: 'เสื้อผ้า',
+        stock: 'พร้อมส่ง'
+      }},
     ],
     products: ['เสื้อยืด Cotton', 'กางเกงยีนส์', 'รองเท้าผ้าใบ'],
   },
@@ -40,7 +63,14 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีค่ะ! ☕ ยินดีต้อนรับสู่ร้านค่ะ วันนี้อยากดื่มอะไรดีคะ?',
     conversation: [
       { role: 'user', text: 'มีเมนูอะไรแนะนำบ้าง' },
-      { role: 'bot', text: '☕ เมนูแนะนำวันนี้ค่ะ!\n\n1. Dirty Latte ฿85 ⭐ ขายดี!\n2. Matcha Oat Milk ฿95\n3. เค้กส้มนุ่ม ฿120\n\nทุกเมนูใช้เมล็ดกาแฟ Specialty Grade ค่ะ' },
+      { role: 'bot', text: '☕ เมนูแนะนำวันนี้ค่ะ!', productCard: {
+        name: 'Dirty Latte',
+        price: 95,
+        promoPrice: 85,
+        image: '☕',
+        category: 'เครื่องดื่ม',
+        stock: 'พร้อมเสิร์ฟ'
+      }},
       { role: 'user', text: 'เอา Dirty Latte 1 แก้ว กับเค้กส้ม' },
       { role: 'bot', text: '✅ รับออเดอร์แล้วค่ะ!\n☕ Dirty Latte x1 = ฿85\n🍰 เค้กส้มนุ่ม x1 = ฿120\n💰 รวม ฿205\n\nรับที่ร้านหรือส่ง Delivery คะ?' },
     ],
@@ -54,7 +84,14 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีค่ะ! 🏥 ยินดีให้คำปรึกษาค่ะ มีอะไรให้ช่วยมั้ยคะ?',
     conversation: [
       { role: 'user', text: 'อยากทำเลเซอร์หน้าใส ราคาเท่าไหร่' },
-      { role: 'bot', text: '✨ เลเซอร์หน้าใสค่ะ!\n\n• Q-Switch Laser ฿1,500/ครั้ง\n• Picosecond Laser ฿3,500/ครั้ง ⭐แนะนำ\n\nPico ได้ผลเร็วกว่า แนะนำทำ 3-5 ครั้ง ห่างกัน 2-4 สัปดาห์ค่ะ' },
+      { role: 'bot', text: '✨ เลเซอร์หน้าใสค่ะ! แนะนำ Pico ค่ะ 👇', productCard: {
+        name: 'Picosecond Laser',
+        price: 4500,
+        promoPrice: 3500,
+        image: '✨',
+        category: 'เลเซอร์',
+        stock: 'คิวว่าง'
+      }},
       { role: 'user', text: 'จองคิว Pico วันเสาร์ได้ไหม' },
       { role: 'bot', text: '📅 เสาร์นี้ยังว่างค่ะ! ช่วงเวลาที่เลือกได้:\n• 10:00 น.\n• 13:00 น.\n• 15:00 น.\n\nส่งชื่อ-เบอร์โทร เพื่อจองคิวเลยนะคะ 💕' },
     ],
@@ -68,7 +105,14 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีค่ะ! 🧖‍♀️ พร้อมให้บริการค่ะ ต้องการนวดหรือทรีตเมนต์อะไรคะ?',
     conversation: [
       { role: 'user', text: 'มีแพ็กเกจนวดอะไรบ้าง' },
-      { role: 'bot', text: '🧖‍♀️ แพ็กเกจยอดนิยมค่ะ!\n\n1. นวดไทย 60 นาที ฿500\n2. นวดน้ำมันอโรมา 90 นาที ฿800 ⭐\n3. แพ็กเกจ Royal Spa 2 ชม. ฿1,500\n   (นวด+สครับ+มาส์กหน้า)\n\nสนใจแพ็กเกจไหนคะ?' },
+      { role: 'bot', text: '🧖‍♀️ แพ็กเกจยอดนิยมค่ะ!', productCard: {
+        name: 'Royal Spa Package',
+        price: 1800,
+        promoPrice: 1500,
+        image: '👑',
+        category: 'แพ็กเกจ',
+        stock: 'คิวว่าง'
+      }},
       { role: 'user', text: 'เอา Royal Spa วันอาทิตย์บ่ายโมง' },
       { role: 'bot', text: '✅ จองแล้วค่ะ!\n👑 Royal Spa Package\n📅 อาทิตย์ 13:00 น.\n💰 ฿1,500\n\nส่งชื่อ-เบอร์โทรมาได้เลยค่ะ ✨' },
     ],
@@ -82,9 +126,16 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีค่ะ! ✂️ ต้องการทำผมแบบไหนดีคะวันนี้?',
     conversation: [
       { role: 'user', text: 'อยากจองคิวทำสี Balayage ค่ะ' },
-      { role: 'bot', text: '🎨 Balayage เริ่มต้น ฿2,500 ค่ะ\nใช้เวลาประมาณ 3-4 ชม.\n\n📅 คิวว่างสัปดาห์นี้:\n• พฤ 14:00 น.\n• ศ 10:00, 14:00 น.\n• ส 10:00 น.\n\nสนใจวันไหนคะ?' },
+      { role: 'bot', text: '🎨 แนะนำ Balayage รุ่นใหม่ค่ะ!', productCard: {
+        name: 'Balayage Premium',
+        price: 3500,
+        promoPrice: 2500,
+        image: '💇‍♀️',
+        category: 'ทำสีผม',
+        stock: 'คิวว่าง'
+      }},
       { role: 'user', text: 'เอาวันเสาร์ 10 โมงค่ะ' },
-      { role: 'bot', text: '✅ จองคิวสำเร็จแล้วค่ะ!\n📋 BK-0012\n💇‍♀️ Balayage\n📅 เสาร์ 10:00 น.\n💰 ฿2,500\n\nส่งชื่อ-เบอร์โทรมายืนยันได้เลยนะคะ ✨' },
+      { role: 'bot', text: '✅ จองคิวสำเร็จแล้วค่ะ!\n📋 BK-0012\n💇‍♀️ Balayage Premium\n📅 เสาร์ 10:00 น.\n💰 ฿2,500\n\nส่งชื่อ-เบอร์โทรมายืนยันได้เลยนะคะ ✨' },
     ],
     products: ['ตัดผม', 'ทำสี Balayage', 'ทรีตเมนต์เคราติน'],
   },
@@ -96,7 +147,14 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีครับ! 💪 พร้อมช่วยแนะนำคอร์สออกกำลังกายครับ!',
     conversation: [
       { role: 'user', text: 'อยากจอง Personal Training ครับ' },
-      { role: 'bot', text: '🏋️ Personal Training 4 ครั้ง ฿4,000\n(เฉลี่ย ฿1,000/ครั้ง)\n\n📅 ตารางเทรนเนอร์ว่าง:\n• จ-ศ: 7:00-21:00\n• ส-อา: 9:00-18:00\n\nสนใจวันไหนครับ?' },
+      { role: 'bot', text: '🏋️ แนะนำคอร์สนี้ครับ!', productCard: {
+        name: 'Personal Training 4 ครั้ง',
+        price: 5000,
+        promoPrice: 4000,
+        image: '🏋️',
+        category: 'คอร์สออกกำลังกาย',
+        stock: 'เหลือ 3 ที่'
+      }},
       { role: 'user', text: 'จันทร์หน้า 18:00 ครับ' },
       { role: 'bot', text: '✅ จองสำเร็จครับ!\n📋 BK-0045\n🏋️ Personal Training\n📅 จันทร์ 18:00 น.\n👤 เทรนเนอร์ โค้ชบอส\n\nส่งชื่อ-เบอร์โทร เพื่อยืนยันได้เลยครับ 🔥' },
     ],
@@ -110,7 +168,14 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีค่ะ! 📚 สนใจคอร์สเรียนอะไรดีคะ?',
     conversation: [
       { role: 'user', text: 'มีคอร์สคณิต ม.6 ไหมครับ' },
-      { role: 'bot', text: '📐 คอร์สคณิต ม.6 มีค่ะ!\n\n1. คณิตพื้นฐาน 10 ชม. ฿3,500\n2. คณิต PAT1 เข้มข้น 20 ชม. ฿6,000 ⭐\n3. ติวเดี่ยว 1:1 ชม.ละ ฿500\n\nทุกคอร์สมีเอกสาร+ข้อสอบเก่าให้ค่ะ' },
+      { role: 'bot', text: '📐 คอร์สคณิตยอดนิยมค่ะ!', productCard: {
+        name: 'คณิต PAT1 เข้มข้น',
+        price: 7500,
+        promoPrice: 6000,
+        image: '📐',
+        category: 'คอร์สเรียน',
+        stock: 'เหลือ 5 ที่'
+      }},
       { role: 'user', text: 'จอง PAT1 เริ่มเสาร์หน้าได้ไหม' },
       { role: 'bot', text: '✅ จองคอร์สสำเร็จค่ะ!\n📋 BK-0078\n📐 คณิต PAT1 เข้มข้น\n📅 เริ่ม เสาร์หน้า 09:00-12:00\n💰 ฿6,000 (แบ่งจ่ายได้ 2 งวด)\n\nส่งชื่อ-เบอร์โทรมาได้เลยค่ะ 🎓' },
     ],
@@ -124,7 +189,14 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีค่ะ! 🐾 มีอะไรให้ช่วยดูแลน้องหมาน้องแมวคะ?',
     conversation: [
       { role: 'user', text: 'อยากพาน้องแมวมาฉีดวัคซีนค่ะ' },
-      { role: 'bot', text: '💉 วัคซีนแมวค่ะ!\n\n• วัคซีนรวม 3 โรค ฿650\n• วัคซีนพิษสุนัขบ้า ฿350\n• แพ็กเกจรวม ฿900 ⭐ ประหยัด ฿100\n\n📅 คิวว่างสัปดาห์นี้:\n• พุธ 10:00, 14:00\n• เสาร์ 10:00-16:00' },
+      { role: 'bot', text: '💉 แพ็กเกจวัคซีนแนะนำค่ะ!', productCard: {
+        name: 'วัคซีนแพ็กเกจรวม',
+        price: 1000,
+        promoPrice: 900,
+        image: '🐱',
+        category: 'บริการสัตว์เลี้ยง',
+        stock: 'คิวว่าง'
+      }},
       { role: 'user', text: 'เอาแพ็กเกจรวม วันเสาร์บ่ายโมง' },
       { role: 'bot', text: '✅ จองคิวสำเร็จค่ะ!\n📋 BK-0091\n🐱 วัคซีนแพ็กเกจรวม\n📅 เสาร์ 13:00 น.\n💰 ฿900\n\nอย่าลืมนำสมุดวัคซีนมาด้วยนะคะ 🐾' },
     ],
@@ -138,13 +210,77 @@ const demoBusinessTypes: DemoBusinessType[] = [
     greeting: 'สวัสดีครับ! 🚗 มีอะไรให้ช่วยดูแลรถครับ?',
     conversation: [
       { role: 'user', text: 'อยากจองคิวเปลี่ยนถ่ายน้ำมันเครื่องครับ' },
-      { role: 'bot', text: '🔧 บริการเปลี่ยนถ่ายน้ำมันเครื่องครับ!\n\n• น้ำมันสังเคราะห์ ฿1,500\n• น้ำมันกึ่งสังเคราะห์ ฿900\n• เช็คระยะ+เปลี่ยนถ่าย ฿2,200 ⭐\n\n📅 คิวว่าง:\n• พรุ่งนี้ 09:00, 13:00\n• มะรืน 09:00-16:00' },
+      { role: 'bot', text: '🔧 แพ็กเกจแนะนำครับ!', productCard: {
+        name: 'เช็คระยะ+เปลี่ยนถ่าย',
+        price: 2800,
+        promoPrice: 2200,
+        image: '🚗',
+        category: 'บริการรถยนต์',
+        stock: 'คิวว่าง'
+      }},
       { role: 'user', text: 'เอาเช็คระยะพร้อมเปลี่ยน พรุ่งนี้เช้าครับ' },
       { role: 'bot', text: '✅ จองคิวสำเร็จครับ!\n📋 BK-0103\n🚗 เช็คระยะ+เปลี่ยนถ่ายน้ำมัน\n📅 พรุ่งนี้ 09:00 น.\n💰 ฿2,200\n⏰ ใช้เวลาประมาณ 1.5-2 ชม.\n\nนำรถมาจอดหน้าอู่ได้เลยครับ 🔧' },
     ],
     products: ['เปลี่ยนถ่ายน้ำมัน', 'เช็คระยะ', 'ซ่อมช่วงล่าง'],
   },
 ];
+
+// Flex Message-style Product Card component
+function DemoProductCard({ product }: { product: ProductCard }) {
+  const discount = product.promoPrice && product.price > 0
+    ? Math.round(((product.price - product.promoPrice) / product.price) * 100)
+    : 0;
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-border/60 bg-card shadow-sm max-w-[240px] text-left" style={{ animation: 'fadeIn 0.3s ease-out both' }}>
+      {/* Hero image area */}
+      <div className="relative bg-gradient-to-br from-primary/10 to-accent/10 h-24 flex items-center justify-center">
+        <span className="text-4xl">{product.image}</span>
+        {discount > 0 && (
+          <span className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+            🔥 ลด {discount}%
+          </span>
+        )}
+        {product.stock && (
+          <span className="absolute top-2 right-2 bg-card/90 text-[10px] font-medium px-1.5 py-0.5 rounded-md text-green-600 border border-green-200">
+            ✅ {product.stock}
+          </span>
+        )}
+      </div>
+      {/* Content */}
+      <div className="p-3 space-y-2">
+        {product.category && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Tag className="w-2.5 h-2.5" />
+            {product.category}
+          </span>
+        )}
+        <p className="text-sm font-semibold text-foreground leading-tight">{product.name}</p>
+        <div className="flex items-baseline gap-2">
+          {product.promoPrice ? (
+            <>
+              <span className="text-base font-bold text-destructive">฿{product.promoPrice.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground line-through">฿{product.price.toLocaleString()}</span>
+            </>
+          ) : (
+            <span className="text-base font-bold text-foreground">฿{product.price.toLocaleString()}</span>
+          )}
+        </div>
+        {/* Action buttons mimicking Flex Message */}
+        <div className="flex gap-1.5 pt-1">
+          <button className="flex-1 flex items-center justify-center gap-1 bg-primary text-primary-foreground text-[11px] font-medium py-1.5 rounded-lg hover:opacity-90 transition-opacity">
+            <ShoppingCart className="w-3 h-3" />
+            สั่งซื้อ
+          </button>
+          <button className="flex-1 flex items-center justify-center gap-1 bg-muted text-foreground text-[11px] font-medium py-1.5 rounded-lg hover:bg-muted/80 transition-colors">
+            <Package className="w-3 h-3" />
+            ดูเพิ่มเติม
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function DemoSection() {
   const [activeDemo, setActiveDemo] = useState('online-shop');
@@ -155,10 +291,7 @@ export default function DemoSection() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const currentDemo = demoBusinessTypes.find(d => d.id === activeDemo)!;
-  // Total messages: 1 greeting + conversation messages
-  const totalMessages = 1 + currentDemo.conversation.length;
 
-  // Reset and animate messages when demo changes
   useEffect(() => {
     setVisibleCount(0);
     setIsTyping(true);
@@ -170,7 +303,6 @@ export default function DemoSection() {
       setVisibleCount(current);
 
       if (current < 1 + currentDemo.conversation.length) {
-        // Show typing before next bot message
         const nextMsg = current === 0 ? { role: 'bot' } : currentDemo.conversation[current - 1];
         const delay = nextMsg?.role === 'user' ? 600 : 800;
         
@@ -185,15 +317,13 @@ export default function DemoSection() {
     return () => clearTimeout(timer);
   }, [activeDemo]);
 
-  // Auto-scroll within chat container only (not the page)
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [visibleCount, isTyping]);
 
-  // Build flat message list: greeting + conversation
-  const allMessages = [
+  const allMessages: DemoMessage[] = [
     { role: 'bot' as const, text: currentDemo.greeting },
     ...currentDemo.conversation,
   ];
@@ -268,30 +398,38 @@ export default function DemoSection() {
             {/* Chat Messages */}
             <CardContent ref={chatContainerRef} className="p-4 space-y-3 bg-muted/30 min-h-[100px] overflow-hidden transition-all duration-500 ease-out">
               {allMessages.slice(0, visibleCount).map((msg, i) => (
-                <div
-                  key={`${activeDemo}-${i}`}
-                  className={`flex gap-2 items-end ${msg.role === 'user' ? 'justify-end' : ''}`}
-                  style={{ animation: 'fadeIn 0.3s ease-out both' }}
-                >
-                  {msg.role === 'bot' && (
-                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <Bot className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                  )}
+                <div key={`${activeDemo}-${i}`}>
                   <div
-                    className={`rounded-2xl px-3.5 py-2.5 max-w-[85%] shadow-sm ${
-                      msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-br-md'
-                        : 'bg-card rounded-bl-md border border-border/50'
-                    }`}
+                    className={`flex gap-2 items-end ${msg.role === 'user' ? 'justify-end' : ''}`}
+                    style={{ animation: 'fadeIn 0.3s ease-out both' }}
                   >
-                    <p className={`text-sm whitespace-pre-line ${msg.role === 'user' ? '' : 'text-foreground'}`}>
-                      {msg.text}
-                    </p>
+                    {msg.role === 'bot' && (
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Bot className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                    )}
+                    <div
+                      className={`rounded-2xl px-3.5 py-2.5 max-w-[85%] shadow-sm ${
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-br-md'
+                          : 'bg-card rounded-bl-md border border-border/50'
+                      }`}
+                    >
+                      <p className={`text-sm whitespace-pre-line ${msg.role === 'user' ? '' : 'text-foreground'}`}>
+                        {msg.text}
+                      </p>
+                    </div>
+                    {msg.role === 'user' && (
+                      <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
-                  {msg.role === 'user' && (
-                    <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                      <User className="w-3.5 h-3.5 text-muted-foreground" />
+                  {/* Product Card (Flex Message style) */}
+                  {msg.productCard && msg.role === 'bot' && (
+                    <div className="flex gap-2 items-end mt-2" style={{ animation: 'fadeIn 0.4s ease-out 0.2s both' }}>
+                      <div className="w-7 shrink-0" />
+                      <DemoProductCard product={msg.productCard} />
                     </div>
                   )}
                 </div>
