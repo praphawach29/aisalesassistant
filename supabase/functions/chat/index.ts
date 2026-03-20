@@ -955,6 +955,7 @@ serve(async (req) => {
     const needsRelatedProducts = !relatedProductsData;
     const needsBookingSettings = !bookingSettingsData;
     const needsBookingSlots = !bookingSlotsData;
+    const needsCoupons = !couponsData;
 
     const cacheHits = [];
     const cacheMisses = [];
