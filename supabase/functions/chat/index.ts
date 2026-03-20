@@ -942,6 +942,7 @@ serve(async (req) => {
     let relatedProductsData = getCached<any[]>('related_products');
     let bookingSettingsData = getCached<any>('booking_settings');
     let bookingSlotsData = getCached<any[]>('booking_slots');
+    let couponsData = getCached<any[]>('coupons');
 
     // Check what needs to be fetched
     const needsAiSettings = !aiSettingsData;
