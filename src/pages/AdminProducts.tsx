@@ -39,7 +39,6 @@ import {
   RefreshCw,
   ImageIcon,
   Search,
-  Upload,
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
