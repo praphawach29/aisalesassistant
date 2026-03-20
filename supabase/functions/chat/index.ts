@@ -1071,6 +1071,7 @@ serve(async (req) => {
     knowledgeData = knowledgeData || [];
     settingsData = settingsData || [];
     relatedProductsData = relatedProductsData || [];
+    couponsData = couponsData || [];
 
     // Build product FAQs map
     const productFaqsMap = new Map<string, Array<{question: string, answer: string}>>();
