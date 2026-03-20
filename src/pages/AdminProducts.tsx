@@ -101,6 +101,7 @@ const initialFormData: ProductFormData = {
   is_active: true,
   variants: [],
   delivery_type: 'shipping',
+  product_images: [],
 };
 
 export default function AdminProducts() {
