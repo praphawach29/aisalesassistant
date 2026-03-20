@@ -9,6 +9,9 @@ import { ChatWidget } from '@/components/chat/ChatWidget';
 import { useInView } from '@/hooks/useInView';
 import { Link } from 'react-router-dom';
 import DemoSection from '@/components/landing/DemoSection';
+import heroAiChatbot from '@/assets/hero-ai-chatbot.png';
+import featuresMultichannel from '@/assets/features-multichannel.png';
+import benefitsDashboard from '@/assets/benefits-dashboard.png';
 
 const Index = () => {
   const heroRef = useInView();
@@ -223,38 +226,61 @@ const Index = () => {
         <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--foreground)/0.03)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground)/0.03)_1px,transparent_1px)] bg-[size:40px_40px] sm:bg-[size:50px_50px] md:bg-[size:60px_60px]" />
         
         <div ref={heroRef.ref} className="container mx-auto px-4 py-16 sm:py-20 relative z-10">
-          <div className={`max-w-5xl mx-auto text-center ${heroRef.isInView ? '' : 'opacity-0'}`}>
-            <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full glass text-primary text-xs sm:text-sm font-medium mb-6 sm:mb-8 ${heroRef.isInView ? 'animate-fade-down' : ''}`}>
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>AI ผู้ช่วยขายอัจฉริยะ สำหรับทุกธุรกิจ</span>
-              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-primary" />
-            </div>
-            
-            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
-              <span className="text-foreground">เปลี่ยนแชทบอทธรรมดา</span>
-              <br className="hidden sm:block" />
-              <span className="text-foreground sm:hidden"> </span>
-              <span className="gradient-text">ให้เป็นพนักงานขายมืออาชีพ</span>
-            </h1>
-            
-            <p className={`text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
-              SellMate AI ช่วยตอบแชท แนะนำสินค้า รับออเดอร์ และตรวจสลิปอัตโนมัติ 24 ชม. เชื่อมต่อ LINE · Facebook · เว็บไซต์ พร้อมใช้งานทันที
-            </p>
+          <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className={`text-center lg:text-left ${heroRef.isInView ? '' : 'opacity-0'}`}>
+              <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full glass text-primary text-xs sm:text-sm font-medium mb-6 sm:mb-8 ${heroRef.isInView ? 'animate-fade-down' : ''}`}>
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>AI ผู้ช่วยขายอัจฉริยะ สำหรับทุกธุรกิจ</span>
+                <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-primary" />
+              </div>
+              
+              <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 sm:mb-8 leading-tight tracking-tight ${heroRef.isInView ? 'animate-fade-up' : ''}`}>
+                <span className="text-foreground">เปลี่ยนแชทบอทธรรมดา</span>
+                <br className="hidden sm:block" />
+                <span className="text-foreground sm:hidden"> </span>
+                <span className="gradient-text">ให้เป็นพนักงานขายมืออาชีพ</span>
+              </h1>
+              
+              <p className={`text-base sm:text-lg md:text-xl text-muted-foreground mb-8 sm:mb-10 leading-relaxed px-2 sm:px-0 ${heroRef.isInView ? 'animate-fade-up animate-stagger-1' : ''}`}>
+                SellMate AI ช่วยตอบแชท แนะนำสินค้า รับออเดอร์ และตรวจสลิปอัตโนมัติ 24 ชม. เชื่อมต่อ LINE · Facebook · เว็บไซต์ พร้อมใช้งานทันที
+              </p>
 
-            <div className={`flex flex-col sm:flex-row gap-4 justify-center mb-8 ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
-              <a href="#pricing" className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-base sm:text-lg shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:scale-105 transition-all duration-300">
-                <Rocket className="w-5 h-5" />
-                เริ่มต้นใช้งาน
-              </a>
-              <a href="#contact" className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl glass text-foreground font-semibold text-base sm:text-lg hover:bg-card hover:shadow-xl transition-all duration-300">
-                <Phone className="w-5 h-5" />
-                ติดต่อทีมขาย
-              </a>
+              <div className={`flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6 ${heroRef.isInView ? 'animate-fade-up animate-stagger-2' : ''}`}>
+                <a href="#pricing" className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-base sm:text-lg shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:scale-105 transition-all duration-300">
+                  <Rocket className="w-5 h-5" />
+                  เริ่มต้นใช้งาน
+                </a>
+                <a href="#contact" className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl glass text-foreground font-semibold text-base sm:text-lg hover:bg-card hover:shadow-xl transition-all duration-300">
+                  <Phone className="w-5 h-5" />
+                  ติดต่อทีมขาย
+                </a>
+              </div>
+
+              <div className={`inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-full bg-primary/10 border border-primary/20 ${heroRef.isInView ? 'animate-fade-up animate-stagger-3' : ''}`}>
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-muted-foreground text-xs sm:text-sm md:text-base">ลองคุยกับ AI ได้เลย — คลิกไอคอนแชทด้านล่างขวา</span>
+              </div>
             </div>
 
-            <div className={`inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-full bg-primary/10 border border-primary/20 ${heroRef.isInView ? 'animate-fade-up animate-stagger-3' : ''}`}>
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-muted-foreground text-xs sm:text-sm md:text-base">ลองคุยกับ AI ได้เลย — คลิกไอคอนแชทด้านล่างขวา</span>
+            {/* Hero image - mobile */}
+            <div className={`relative lg:hidden flex justify-center mt-6 ${heroRef.isInView ? 'animate-scale-up animate-stagger-3' : 'opacity-0'}`}>
+              <img 
+                src={heroAiChatbot} 
+                alt="AI Chatbot ผู้ช่วยขายอัจฉริยะ" 
+                className="w-52 sm:w-64 drop-shadow-xl"
+                loading="eager"
+              />
+            </div>
+
+            {/* Hero image - desktop */}
+            <div className={`relative hidden lg:block ${heroRef.isInView ? 'animate-scale-up animate-stagger-2' : 'opacity-0'}`}>
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/15 rounded-full blur-[80px]" />
+              <img 
+                src={heroAiChatbot} 
+                alt="AI Chatbot ผู้ช่วยขายอัจฉริยะ" 
+                className="relative w-full max-w-lg mx-auto animate-float drop-shadow-2xl"
+                loading="eager"
+              />
             </div>
           </div>
         </div>
@@ -301,6 +327,12 @@ const Index = () => {
             <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto px-2">
               ระบบ AI พร้อมเครื่องมือบริหารจัดการร้านค้าแบบครบวงจร
             </p>
+            <img 
+              src={featuresMultichannel} 
+              alt="เชื่อมต่อทุกแพลตฟอร์ม LINE Facebook เว็บไซต์" 
+              className="mx-auto mt-6 sm:mt-8 w-48 sm:w-64 md:w-72 drop-shadow-lg"
+              loading="lazy"
+            />
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
@@ -519,29 +551,32 @@ const Index = () => {
               
               <div className={`relative ${benefitsRef.isInView ? 'animate-fade-left' : 'opacity-0'}`}>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/20 rounded-2xl sm:rounded-[2rem] blur-2xl sm:blur-3xl" />
-                <Card className="relative glass gradient-border overflow-hidden">
-                  <CardContent className="p-6 sm:p-10">
-                    <div className="text-center">
-                      <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center mx-auto mb-4 sm:mb-8 shadow-xl shadow-primary/30 animate-float">
-                        <Zap className="w-8 h-8 sm:w-12 sm:h-12 text-primary-foreground" />
-                      </div>
-                      <h3 className="text-lg sm:text-2xl font-bold text-foreground mb-2 sm:mb-4">เพิ่มยอดขาย</h3>
-                      <p className="text-4xl sm:text-6xl font-bold gradient-text mb-2 sm:mb-4">+35%</p>
-                      <p className="text-muted-foreground text-sm sm:text-lg">โดยเฉลี่ยจากร้านค้าที่ใช้ระบบ</p>
-                      
-                      <div className="grid grid-cols-2 gap-4 mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-border/50">
+                <div className="relative">
+                  <img 
+                    src={benefitsDashboard} 
+                    alt="AI Dashboard จัดการร้านค้าอัจฉริยะ" 
+                    className="w-full rounded-2xl sm:rounded-[2rem] drop-shadow-2xl"
+                    loading="lazy"
+                  />
+                  <Card className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 glass gradient-border overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <p className="text-2xl sm:text-3xl font-bold text-foreground">60%</p>
-                          <p className="text-muted-foreground text-xs sm:text-sm">ลดค่าใช้จ่ายแชท</p>
+                          <p className="text-xl sm:text-2xl font-bold gradient-text">+35%</p>
+                          <p className="text-muted-foreground text-[10px] sm:text-xs">เพิ่มยอดขาย</p>
                         </div>
                         <div>
-                          <p className="text-2xl sm:text-3xl font-bold text-foreground">24/7</p>
-                          <p className="text-muted-foreground text-xs sm:text-sm">ตอบลูกค้าตลอด</p>
+                          <p className="text-xl sm:text-2xl font-bold text-foreground">60%</p>
+                          <p className="text-muted-foreground text-[10px] sm:text-xs">ลดค่าใช้จ่าย</p>
+                        </div>
+                        <div>
+                          <p className="text-xl sm:text-2xl font-bold text-foreground">24/7</p>
+                          <p className="text-muted-foreground text-[10px] sm:text-xs">ตอบลูกค้าตลอด</p>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </div>
           </div>
