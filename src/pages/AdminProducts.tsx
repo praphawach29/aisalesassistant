@@ -64,6 +64,7 @@ interface Product {
   delivery_type: string;
   created_at: string;
   updated_at: string;
+  product_images?: ProductImage[];
 }
 
 interface ProductFormData {
