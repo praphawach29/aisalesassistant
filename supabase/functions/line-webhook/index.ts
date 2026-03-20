@@ -3780,7 +3780,45 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
             .delete()
             .eq('platform_user_id', userId);
 
-          lineMessages.push({ type: "text", text: "🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ!\n\nพิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าใหม่ได้เลยค่ะ" });
+          // Auto-cancel pending orders without payment slips
+          let cancelledCount = 0;
+          const { data: pendingOrders } = await supabase
+            .from('orders')
+            .select('id, order_number')
+            .eq('customer_line_id', userId)
+            .eq('status', 'pending');
+
+          if (pendingOrders && pendingOrders.length > 0) {
+            for (const po of pendingOrders) {
+              const { data: slips } = await supabase
+                .from('payment_slips')
+                .select('id')
+                .eq('order_id', po.id)
+                .limit(1);
+
+              if (!slips || slips.length === 0) {
+                await supabase
+                  .from('orders')
+                  .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                  .eq('id', po.id);
+
+                // Clean up follow-up tracking
+                await supabase
+                  .from('follow_up_tracking')
+                  .delete()
+                  .eq('reference_id', po.id);
+
+                cancelledCount++;
+              }
+            }
+          }
+
+          let clearMsg = "🗑️ ล้างตะกร้าเรียบร้อยแล้วค่ะ!";
+          if (cancelledCount > 0) {
+            clearMsg += `\n\n📦 ยกเลิกออเดอร์ที่รอชำระเงิน ${cancelledCount} รายการแล้วค่ะ`;
+          }
+          clearMsg += "\n\nพิมพ์ \"ดูสินค้า\" เพื่อเลือกสินค้าใหม่ได้เลยค่ะ";
+          lineMessages.push({ type: "text", text: clearMsg });
         } else if (cartAction.type === 'checkout') {
           // Get cart items
           const { data: cartItems } = await supabase
