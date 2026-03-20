@@ -10,6 +10,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ENCRYPTION_KEY = Deno.env.get("ENCRYPTION_KEY") || "";
 
+const MAX_FOLLOW_UPS = 2; // จำกัดการติดตามสูงสุด 2 ครั้งต่อลูกค้า
+
 async function getKey(): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyData = encoder.encode(ENCRYPTION_KEY.padEnd(32, "0").slice(0, 32));
@@ -62,6 +64,44 @@ async function sendFacebookMessage(userId: string, message: string, accessToken:
   }
 }
 
+// Check if follow-up limit reached, and increment count
+async function canSendFollowUp(
+  supabase: any,
+  platformUserId: string,
+  followUpType: string,
+  referenceId: string
+): Promise<boolean> {
+  // Check existing tracking record
+  const { data: existing } = await supabase
+    .from("follow_up_tracking")
+    .select("id, follow_up_count")
+    .eq("platform_user_id", platformUserId)
+    .eq("follow_up_type", followUpType)
+    .eq("reference_id", referenceId)
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.follow_up_count >= MAX_FOLLOW_UPS) {
+      return false; // Already reached limit
+    }
+    // Increment count
+    await supabase
+      .from("follow_up_tracking")
+      .update({ follow_up_count: existing.follow_up_count + 1, last_sent_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    return true;
+  }
+
+  // Create new tracking record
+  await supabase.from("follow_up_tracking").insert({
+    platform_user_id: platformUserId,
+    follow_up_type: followUpType,
+    reference_id: referenceId,
+    follow_up_count: 1,
+  });
+  return true;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -75,9 +115,12 @@ serve(async (req) => {
 
     let abandonedCartCount = 0;
     let pendingOrderCount = 0;
+    let skippedByLimit = 0;
+
+    // Cleanup old tracking records
+    await supabase.rpc("cleanup_follow_up_tracking");
 
     // === 1. Abandoned Cart Follow-up ===
-    // Carts older than 2 hours with no order
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -88,7 +131,6 @@ serve(async (req) => {
       .gt("updated_at", oneDayAgo);
 
     if (abandonedCarts && abandonedCarts.length > 0) {
-      // Group by user
       const userCarts = new Map<string, { products: string[]; total: number }>();
       for (const item of abandonedCarts) {
         const uid = item.platform_user_id;
@@ -101,10 +143,16 @@ serve(async (req) => {
       }
 
       for (const [userId, cart] of userCarts) {
+        // Check follow-up limit
+        const canSend = await canSendFollowUp(supabase, userId, "abandoned_cart", userId);
+        if (!canSend) {
+          skippedByLimit++;
+          continue;
+        }
+
         const productList = cart.products.slice(0, 3).join(", ");
         const msg = `🛒 สินค้าของคุณยังอยู่ในตะกร้านะคะ!\n\n${productList}${cart.products.length > 3 ? ` และอีก ${cart.products.length - 3} รายการ` : ""}\nรวม ฿${cart.total.toLocaleString()}\n\nพิมพ์ "ดูตะกร้า" เพื่อดำเนินการสั่งซื้อต่อค่ะ 💕`;
 
-        // Determine platform from conversation
         const { data: conv } = await supabase
           .from("chat_conversations")
           .select("platform")
@@ -128,16 +176,16 @@ serve(async (req) => {
     }
 
     // === 2. Pending Order Reminder ===
-    // Send once around 6-hour mark (6-8 hours old) to avoid duplicate reminders every cron run
-    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-    const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+    // Check orders pending for more than 4 hours (wider window for 2-attempt coverage)
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
     const { data: pendingOrders } = await supabase
       .from("orders")
       .select("id, order_number, customer_name, customer_line_id, customer_facebook_id, total_amount, platform")
       .eq("status", "pending")
-      .lt("created_at", sixHoursAgo)
-      .gt("created_at", eightHoursAgo);
+      .lt("created_at", fourHoursAgo)
+      .gt("created_at", twoDaysAgo);
 
     if (pendingOrders) {
       for (const order of pendingOrders) {
@@ -148,7 +196,17 @@ serve(async (req) => {
           .eq("order_id", order.id)
           .limit(1);
 
-        if (slips && slips.length > 0) continue; // Already has payment slip
+        if (slips && slips.length > 0) continue;
+
+        // Check follow-up limit per order
+        const userId = order.customer_line_id || order.customer_facebook_id;
+        if (!userId) continue;
+
+        const canSend = await canSendFollowUp(supabase, userId, "pending_order", order.id);
+        if (!canSend) {
+          skippedByLimit++;
+          continue;
+        }
 
         const msg = `📦 ออเดอร์ ${order.order_number}\n\nสวัสดีค่ะ คุณ${order.customer_name} ออเดอร์ของคุณยอดรวม ฿${order.total_amount.toLocaleString()} ยังรอการชำระเงินอยู่นะคะ\n\nส่งสลิปโอนเงินมาได้เลยค่ะ เราจะตรวจสอบให้ทันที ✨`;
 
@@ -164,7 +222,7 @@ serve(async (req) => {
       }
     }
 
-    // === 3. Pre-cleanup warning (23h-23.5h old = ~30 min before auto-clear) ===
+    // === 3. Pre-cleanup warning (23h-23.5h old) ===
     let preCleanupWarningCount = 0;
     const twentyThreeHoursAgo = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
     const twentyThreeAndHalfHoursAgo = new Date(Date.now() - 23.5 * 60 * 60 * 1000).toISOString();
@@ -223,19 +281,18 @@ serve(async (req) => {
       .select("id");
 
     const clearedCartCount = deleteError ? 0 : (deletedCarts?.length || 0);
-    if (deleteError) {
-      console.error("Failed to clear stale carts:", deleteError);
-    }
 
-    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders, ${preCleanupWarningCount} pre-cleanup warnings, ${clearedCartCount} stale carts cleared`);
+    console.log(`Auto follow-up: ${abandonedCartCount} abandoned carts, ${pendingOrderCount} pending orders, ${preCleanupWarningCount} pre-cleanup warnings, ${clearedCartCount} stale carts cleared, ${skippedByLimit} skipped (limit reached)`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        max_follow_ups: MAX_FOLLOW_UPS,
         abandoned_cart_reminders: abandonedCartCount,
         pending_order_reminders: pendingOrderCount,
         pre_cleanup_warnings: preCleanupWarningCount,
         stale_carts_cleared: clearedCartCount,
+        skipped_by_limit: skippedByLimit,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
