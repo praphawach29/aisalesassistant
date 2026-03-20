@@ -263,7 +263,7 @@ export default function DemoSection() {
             </div>
 
             {/* Chat Messages */}
-            <CardContent className="p-4 space-y-3 bg-muted/30 min-h-[320px] max-h-[400px] overflow-y-auto scroll-smooth">
+            <CardContent className="p-4 space-y-3 bg-muted/30 min-h-[320px] max-h-[400px] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth">
               {allMessages.slice(0, visibleCount).map((msg, i) => (
                 <div
                   key={`${activeDemo}-${i}`}
