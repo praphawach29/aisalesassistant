@@ -79,6 +79,7 @@ interface ProductFormData {
   is_active: boolean;
   variants: ProductVariant[];
   delivery_type: string;
+  product_images: ProductImage[];
 }
 
 const deliveryTypeOptions = [
