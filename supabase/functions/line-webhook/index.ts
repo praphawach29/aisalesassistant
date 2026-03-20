@@ -641,6 +641,39 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 ${custom_rules ? `## ⚠️ กฎพิเศษ:\n${custom_rules.split(',').map((rule: string) => `- ${rule.trim()}`).join('\n')}` : ''}`;
 }
 
+// ============= Image URL Formatter for LINE =============
+function formatImageUrlForLine(imageUrl: string): string {
+  if (!imageUrl) return '';
+  // LINE requires HTTPS URLs for images
+  // Use wsrv.nl proxy to ensure compatibility and proper formatting
+  try {
+    const url = new URL(imageUrl);
+    // If already a well-known CDN with HTTPS, use directly
+    if (url.protocol === 'https:' && (
+      url.hostname.includes('supabase.co') ||
+      url.hostname.includes('wsrv.nl') ||
+      url.hostname.includes('cloudinary.com') ||
+      url.hostname.includes('imgur.com')
+    )) {
+      return imageUrl;
+    }
+    // For other URLs, proxy through wsrv.nl for reliability
+    return `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}&w=1024&h=1024&fit=contain&output=jpg`;
+  } catch {
+    return imageUrl;
+  }
+}
+
+function buildImageMessage(imageUrl: string, altText: string = 'รูปสินค้า'): any {
+  const formattedUrl = formatImageUrlForLine(imageUrl);
+  if (!formattedUrl) return null;
+  return {
+    type: "image",
+    originalContentUrl: formattedUrl,
+    previewImageUrl: `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}&w=240&h=240&fit=cover&output=jpg`
+  };
+}
+
 // ============= LINE Message Builders =============
 function buildProductFlexMessage(product: Product) {
   const displayPrice = product.promotion_price || product.price;
