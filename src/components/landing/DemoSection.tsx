@@ -152,8 +152,7 @@ export default function DemoSection() {
   const [visibleCount, setVisibleCount] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  
-  const currentDemo = demoBusinessTypes.find(d => d.id === activeDemo)!;
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   // Total messages: 1 greeting + conversation messages
   const totalMessages = 1 + currentDemo.conversation.length;
 
