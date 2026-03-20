@@ -9,6 +9,9 @@ import { ChatWidget } from '@/components/chat/ChatWidget';
 import { useInView } from '@/hooks/useInView';
 import { Link } from 'react-router-dom';
 import DemoSection from '@/components/landing/DemoSection';
+import heroAiChatbot from '@/assets/hero-ai-chatbot.png';
+import featuresMultichannel from '@/assets/features-multichannel.png';
+import benefitsDashboard from '@/assets/benefits-dashboard.png';
 
 const Index = () => {
   const heroRef = useInView();
