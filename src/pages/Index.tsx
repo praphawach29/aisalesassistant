@@ -316,6 +316,12 @@ const Index = () => {
             <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto px-2">
               ระบบ AI พร้อมเครื่องมือบริหารจัดการร้านค้าแบบครบวงจร
             </p>
+            <img 
+              src={featuresMultichannel} 
+              alt="เชื่อมต่อทุกแพลตฟอร์ม LINE Facebook เว็บไซต์" 
+              className="mx-auto mt-6 sm:mt-8 w-48 sm:w-64 md:w-72 drop-shadow-lg"
+              loading="lazy"
+            />
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
