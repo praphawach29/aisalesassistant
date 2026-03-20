@@ -15,9 +15,18 @@ import {
   ImageIcon,
   CheckCircle,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface ProductImage {
+  id: string;
+  image_url: string;
+  sort_order: number;
+  is_primary: boolean;
+}
 
 interface Product {
   id: string;
@@ -35,6 +44,8 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -47,23 +58,31 @@ export default function ProductDetail() {
   const fetchProduct = async (productId: string) => {
     setIsLoading(true);
     
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', productId)
-      .eq('is_active', true)
-      .maybeSingle();
+    const [productRes, imagesRes] = await Promise.all([
+      supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .eq('is_active', true)
+        .maybeSingle(),
+      supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', productId)
+        .order('sort_order', { ascending: true }),
+    ]);
 
-    if (error) {
-      console.error('Error fetching product:', error);
+    if (productRes.error) {
+      console.error('Error fetching product:', productRes.error);
       toast.error('ไม่สามารถโหลดข้อมูลสินค้าได้');
       setNotFound(true);
-    } else if (!data) {
+    } else if (!productRes.data) {
       setNotFound(true);
     } else {
-      setProduct(data);
-      // Update page title for SEO
-      document.title = `${data.name} | AI Sales Assistant`;
+      setProduct(productRes.data);
+      const images = (imagesRes.data || []) as ProductImage[];
+      setProductImages(images);
+      document.title = `${productRes.data.name} | AI Sales Assistant`;
     }
     
     setIsLoading(false);
@@ -71,18 +90,10 @@ export default function ProductDetail() {
 
   const handleShare = async () => {
     const url = window.location.href;
-    
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: product?.name,
-          text: `ดูสินค้า: ${product?.name}`,
-          url: url,
-        });
-      } catch (error) {
-        // User cancelled or share failed
-        copyToClipboard(url);
-      }
+        await navigator.share({ title: product?.name, text: `ดูสินค้า: ${product?.name}`, url });
+      } catch { copyToClipboard(url); }
     } else {
       copyToClipboard(url);
     }
@@ -94,9 +105,13 @@ export default function ProductDetail() {
   };
 
   const handleOrderViaChat = () => {
-    // Navigate to chat with product pre-filled
     navigate(`/?product=${encodeURIComponent(product?.name || '')}`);
   };
+
+  // Build the list of images to show (product_images first, fallback to image_url)
+  const allImages = productImages.length > 0
+    ? productImages.map(img => img.image_url)
+    : product?.image_url ? [product.image_url] : [];
 
   if (isLoading) {
     return (
@@ -115,9 +130,7 @@ export default function ProductDetail() {
               <Package className="w-8 h-8 text-muted-foreground" />
             </div>
             <h1 className="text-xl font-semibold mb-2">ไม่พบสินค้า</h1>
-            <p className="text-muted-foreground mb-6">
-              สินค้านี้อาจถูกลบหรือไม่มีในระบบแล้ว
-            </p>
+            <p className="text-muted-foreground mb-6">สินค้านี้อาจถูกลบหรือไม่มีในระบบแล้ว</p>
             <Link to="/">
               <Button className="gap-2">
                 <ArrowLeft className="w-4 h-4" />
@@ -132,8 +145,7 @@ export default function ProductDetail() {
 
   const hasPromotion = product.promotion_price && product.promotion_price < product.price;
   const discountPercent = hasPromotion 
-    ? Math.round((1 - product.promotion_price! / product.price) * 100)
-    : 0;
+    ? Math.round((1 - product.promotion_price! / product.price) * 100) : 0;
   const finalPrice = hasPromotion ? product.promotion_price! : product.price;
   const isInStock = product.stock > 0;
 
@@ -157,21 +169,62 @@ export default function ProductDetail() {
 
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Product Image */}
+          {/* Product Images */}
           <div className="relative">
-            <div className="aspect-square rounded-2xl overflow-hidden bg-muted shadow-lg">
-              {product.image_url ? (
+            <div className="aspect-square rounded-2xl overflow-hidden bg-muted shadow-lg relative">
+              {allImages.length > 0 ? (
                 <img
-                  src={product.image_url}
+                  src={allImages[activeImageIndex]}
                   alt={product.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-opacity duration-300"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <ImageIcon className="w-24 h-24 text-muted-foreground/30" />
                 </div>
               )}
+
+              {/* Navigation arrows */}
+              {allImages.length > 1 && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background shadow-md"
+                    onClick={() => setActiveImageIndex(i => i === 0 ? allImages.length - 1 : i - 1)}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 hover:bg-background shadow-md"
+                    onClick={() => setActiveImageIndex(i => i === allImages.length - 1 ? 0 : i + 1)}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
             </div>
+
+            {/* Thumbnail strip */}
+            {allImages.length > 1 && (
+              <div className="flex gap-2 mt-3 justify-center">
+                {allImages.map((url, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveImageIndex(index)}
+                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                      index === activeImageIndex
+                        ? 'border-primary ring-1 ring-primary/30'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <img src={url} alt={`${product.name} ${index + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
             
             {/* Badges */}
             <div className="absolute top-4 left-4 flex flex-col gap-2">
@@ -181,41 +234,26 @@ export default function ProductDetail() {
                 </Badge>
               )}
               {!isInStock && (
-                <Badge variant="secondary" className="text-sm px-3 py-1">
-                  สินค้าหมด
-                </Badge>
+                <Badge variant="secondary" className="text-sm px-3 py-1">สินค้าหมด</Badge>
               )}
             </div>
           </div>
 
           {/* Product Info */}
           <div className="flex flex-col">
-            {/* Category */}
             {product.category && (
               <div className="flex items-center gap-2 text-muted-foreground mb-2">
                 <Tag className="w-4 h-4" />
                 <span className="text-sm">{product.category}</span>
               </div>
             )}
-
-            {/* Name */}
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
-              {product.name}
-            </h1>
-
-            {/* Price */}
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">{product.name}</h1>
             <div className="flex items-baseline gap-3 mb-6">
-              <span className="text-3xl font-bold text-primary">
-                ฿{finalPrice.toLocaleString()}
-              </span>
+              <span className="text-3xl font-bold text-primary">฿{finalPrice.toLocaleString()}</span>
               {hasPromotion && (
-                <span className="text-xl text-muted-foreground line-through">
-                  ฿{product.price.toLocaleString()}
-                </span>
+                <span className="text-xl text-muted-foreground line-through">฿{product.price.toLocaleString()}</span>
               )}
             </div>
-
-            {/* Stock Status */}
             <div className="flex items-center gap-2 mb-6">
               {isInStock ? (
                 <>
@@ -229,67 +267,36 @@ export default function ProductDetail() {
                 </>
               )}
             </div>
-
             <Separator className="my-4" />
-
-            {/* Description */}
             {product.description && (
               <div className="mb-6">
                 <h2 className="font-semibold text-lg mb-2">รายละเอียดสินค้า</h2>
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {product.description}
-                </p>
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{product.description}</p>
               </div>
             )}
-
-            {/* Action Buttons */}
             <div className="flex flex-col gap-3 mt-auto">
-              <Button 
-                size="lg" 
-                className="w-full gap-2 text-base"
-                disabled={!isInStock}
-                onClick={handleOrderViaChat}
-              >
+              <Button size="lg" className="w-full gap-2 text-base" disabled={!isInStock} onClick={handleOrderViaChat}>
                 <ShoppingCart className="w-5 h-5" />
                 {isInStock ? 'สั่งซื้อสินค้านี้' : 'สินค้าหมด'}
               </Button>
-              
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="w-full gap-2 text-base"
-                onClick={handleOrderViaChat}
-              >
+              <Button variant="outline" size="lg" className="w-full gap-2 text-base" onClick={handleOrderViaChat}>
                 <MessageCircle className="w-5 h-5" />
                 สอบถามเพิ่มเติม
               </Button>
             </div>
-
-            {/* Share Link */}
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground mb-2">แชร์ลิงค์สินค้านี้:</p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs bg-background px-3 py-2 rounded border truncate">
-                  {window.location.href}
-                </code>
-                <Button 
-                  variant="secondary" 
-                  size="sm"
-                  onClick={() => copyToClipboard(window.location.href)}
-                >
-                  คัดลอก
-                </Button>
+                <code className="flex-1 text-xs bg-background px-3 py-2 rounded border truncate">{window.location.href}</code>
+                <Button variant="secondary" size="sm" onClick={() => copyToClipboard(window.location.href)}>คัดลอก</Button>
               </div>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="border-t mt-12 py-6 text-center text-sm text-muted-foreground">
-        <Link to="/" className="hover:text-primary transition-colors">
-          กลับไปหน้า Chatbot
-        </Link>
+        <Link to="/" className="hover:text-primary transition-colors">กลับไปหน้า Chatbot</Link>
       </footer>
     </div>
   );

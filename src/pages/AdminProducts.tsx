@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCacheInvalidation } from '@/hooks/useCacheInvalidation';
 import { supabase } from '@/integrations/supabase/client';
+import { ProductImageManager, type ProductImage } from '@/components/admin/ProductImageManager';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,6 @@ import {
   RefreshCw,
   ImageIcon,
   Search,
-  Upload,
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -63,6 +63,7 @@ interface Product {
   delivery_type: string;
   created_at: string;
   updated_at: string;
+  product_images?: ProductImage[];
 }
 
 interface ProductFormData {
@@ -77,6 +78,7 @@ interface ProductFormData {
   is_active: boolean;
   variants: ProductVariant[];
   delivery_type: string;
+  product_images: ProductImage[];
 }
 
 const deliveryTypeOptions = [
@@ -98,6 +100,7 @@ const initialFormData: ProductFormData = {
   is_active: true,
   variants: [],
   delivery_type: 'shipping',
+  product_images: [],
 };
 
 export default function AdminProducts() {
@@ -112,7 +115,7 @@ export default function AdminProducts() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploading] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -131,17 +134,22 @@ export default function AdminProducts() {
     
     const { data, error } = await supabase
       .from('products')
-      .select('*')
+      .select('*, product_images(*)')
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching products:', error);
       toast.error('ไม่สามารถโหลดข้อมูลสินค้าได้');
     } else {
-      // Cast variants from Json to ProductVariant[]
       const productsWithVariants = (data || []).map(p => ({
         ...p,
-        variants: (p.variants as unknown as ProductVariant[]) || []
+        variants: (p.variants as unknown as ProductVariant[]) || [],
+        product_images: ((p as any).product_images || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((img: any) => ({
+          id: img.id,
+          image_url: img.image_url,
+          sort_order: img.sort_order,
+          is_primary: img.is_primary,
+        })) as ProductImage[],
       }));
       setProducts(productsWithVariants);
     }
@@ -170,6 +178,7 @@ export default function AdminProducts() {
       is_active: product.is_active,
       variants: (product.variants as ProductVariant[]) || [],
       delivery_type: product.delivery_type || 'shipping',
+      product_images: product.product_images || [],
     });
     setIsDialogOpen(true);
   };
@@ -179,55 +188,7 @@ export default function AdminProducts() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('ขนาดไฟล์ต้องไม่เกิน 5MB');
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      // Generate unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `products/${fileName}`;
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
-
-      setFormData({ ...formData, image_url: publicUrl });
-      toast.success('อัพโหลดรูปภาพสำเร็จ');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัพโหลดรูปภาพ');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const removeImage = () => {
-    setFormData({ ...formData, image_url: '' });
-  };
+  // Legacy single-image functions removed - now using ProductImageManager
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +205,10 @@ export default function AdminProducts() {
 
     setIsSaving(true);
 
+    // Set image_url to primary image
+    const primaryImage = formData.product_images.find(img => img.is_primary);
+    const mainImageUrl = primaryImage?.image_url || formData.product_images[0]?.image_url || formData.image_url.trim() || null;
+
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim() || null,
@@ -252,35 +217,50 @@ export default function AdminProducts() {
       promotion_price: formData.promotion_price ? Number(formData.promotion_price) : null,
       stock: Number(formData.stock) || 0,
       category: formData.category.trim() || null,
-      image_url: formData.image_url.trim() || null,
+      image_url: mainImageUrl,
       is_active: formData.is_active,
       variants: formData.variants.length > 0 ? JSON.parse(JSON.stringify(formData.variants)) : [],
       delivery_type: formData.delivery_type,
     };
 
     try {
+      let productId: string;
+
       if (selectedProduct) {
-        // Update existing product
         const { error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', selectedProduct.id);
-
         if (error) throw error;
-        toast.success('อัพเดทสินค้าสำเร็จ');
+        productId = selectedProduct.id;
       } else {
-        // Create new product
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
-          .insert(productData);
-
+          .insert(productData)
+          .select('id')
+          .single();
         if (error) throw error;
-        toast.success('เพิ่มสินค้าสำเร็จ');
+        productId = data.id;
       }
 
-      // Invalidate edge function cache
+      // Sync product_images table
+      // Delete existing images for this product
+      await supabase.from('product_images').delete().eq('product_id', productId);
+
+      // Insert new images
+      if (formData.product_images.length > 0) {
+        const imagesToInsert = formData.product_images.map((img, i) => ({
+          product_id: productId,
+          image_url: img.image_url,
+          sort_order: i,
+          is_primary: img.is_primary,
+        }));
+        const { error: imgError } = await supabase.from('product_images').insert(imagesToInsert);
+        if (imgError) console.error('Error saving images:', imgError);
+      }
+
+      toast.success(selectedProduct ? 'อัพเดทสินค้าสำเร็จ' : 'เพิ่มสินค้าสำเร็จ');
       await invalidateCache(['products']);
-      
       setIsDialogOpen(false);
       fetchProducts();
     } catch (error) {
@@ -493,66 +473,11 @@ export default function AdminProducts() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-sm">รูปภาพสินค้า</Label>
-                
-                {formData.image_url ? (
-                  <div className="relative inline-block">
-                    <img 
-                      src={formData.image_url} 
-                      alt="Product preview" 
-                      className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute -top-2 -right-2 w-6 h-6"
-                      onClick={removeImage}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <label className="cursor-pointer">
-                      <div className="flex items-center justify-center gap-2 px-4 py-6 sm:py-8 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
-                        {isUploading ? (
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <Upload className="w-5 h-5 text-muted-foreground" />
-                            <span className="text-xs sm:text-sm text-muted-foreground">คลิกเพื่ออัพโหลดรูป</span>
-                          </>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={isUploading}
-                        className="hidden"
-                      />
-                    </label>
-                    <span className="text-xs text-muted-foreground text-center">
-                      JPG, PNG, WEBP (ไม่เกิน 5MB)
-                    </span>
-                  </div>
-                )}
-
-                {/* Alternative: URL input */}
-                <div className="pt-2">
-                  <Label htmlFor="image_url" className="text-xs text-muted-foreground">หรือกรอก URL</Label>
-                  <Input
-                    id="image_url"
-                    type="url"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                    placeholder="https://example.com/image.jpg"
-                    className="mt-1 h-9"
-                  />
-                </div>
-              </div>
+              <ProductImageManager
+                images={formData.product_images}
+                onChange={(images) => setFormData({ ...formData, product_images: images })}
+                maxImages={3}
+              />
 
               {/* Product Variants Section */}
               <div className="space-y-2">
