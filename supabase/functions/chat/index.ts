@@ -1040,6 +1040,10 @@ serve(async (req) => {
         bookingSlotsData = bookingSlotsResult.data || [];
         setCache('booking_slots', bookingSlotsData, 60 * 1000); // 1 min cache for slots
       }
+      if (needsCoupons) {
+        couponsData = couponsResult.data || [];
+        setCache('coupons', couponsData);
+      }
     } else {
       console.log('All data served from cache!');
     }
