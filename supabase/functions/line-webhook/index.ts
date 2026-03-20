@@ -641,6 +641,39 @@ ${closing_message ? `## 🙏 ข้อความขอบคุณ/ปิด�
 ${custom_rules ? `## ⚠️ กฎพิเศษ:\n${custom_rules.split(',').map((rule: string) => `- ${rule.trim()}`).join('\n')}` : ''}`;
 }
 
+// ============= Image URL Formatter for LINE =============
+function formatImageUrlForLine(imageUrl: string): string {
+  if (!imageUrl) return '';
+  // LINE requires HTTPS URLs for images
+  // Use wsrv.nl proxy to ensure compatibility and proper formatting
+  try {
+    const url = new URL(imageUrl);
+    // If already a well-known CDN with HTTPS, use directly
+    if (url.protocol === 'https:' && (
+      url.hostname.includes('supabase.co') ||
+      url.hostname.includes('wsrv.nl') ||
+      url.hostname.includes('cloudinary.com') ||
+      url.hostname.includes('imgur.com')
+    )) {
+      return imageUrl;
+    }
+    // For other URLs, proxy through wsrv.nl for reliability
+    return `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}&w=1024&h=1024&fit=contain&output=jpg`;
+  } catch {
+    return imageUrl;
+  }
+}
+
+function buildImageMessage(imageUrl: string, altText: string = 'รูปสินค้า'): any {
+  const formattedUrl = formatImageUrlForLine(imageUrl);
+  if (!formattedUrl) return null;
+  return {
+    type: "image",
+    originalContentUrl: formattedUrl,
+    previewImageUrl: `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}&w=240&h=240&fit=cover&output=jpg`
+  };
+}
+
 // ============= LINE Message Builders =============
 function buildProductFlexMessage(product: Product) {
   const displayPrice = product.promotion_price || product.price;
@@ -846,7 +879,7 @@ function buildProductFlexMessage(product: Product) {
     contents: [
       {
         type: "image",
-        url: product.image_url,
+        url: formatImageUrlForLine(product.image_url),
         size: "full",
         aspectRatio: "1:1",
         aspectMode: "cover"
@@ -4215,13 +4248,23 @@ ${customerContext.customerPhone ? `📞 ${customerContext.customerPhone}` : ''}
       // Add product display if needed (only if no cart action and no order creation handled)
       if (!cartAction && !createOrder && !createMultiOrder) {
         if (specificProduct) {
+          // Send product image as standalone Image Message first (more visible on LINE)
+          if (specificProduct.image_url) {
+            const imgMsg = buildImageMessage(specificProduct.image_url, specificProduct.name);
+            if (imgMsg) lineMessages.push(imgMsg);
+          }
           lineMessages.push({
             type: "flex",
             altText: specificProduct.name,
             contents: buildProductFlexMessage(specificProduct)
           });
         } else if (showPromotions && promotionProducts.length > 0) {
-          // Show promotion products carousel
+          // Send first promotion product image as preview
+          const firstPromo = promotionProducts.find(p => p.image_url);
+          if (firstPromo?.image_url) {
+            const imgMsg = buildImageMessage(firstPromo.image_url, 'สินค้าโปรโมชั่น');
+            if (imgMsg) lineMessages.push(imgMsg);
+          }
           lineMessages.push(buildProductCarousel(promotionProducts));
         } else if (showProducts && productList.length > 0) {
           lineMessages.push(buildProductCarousel(productList));
