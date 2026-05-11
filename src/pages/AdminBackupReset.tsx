@@ -189,24 +189,42 @@ export default function AdminBackupReset() {
   };
 
   const fetchCounts = async () => {
-    const newCounts: Record<string, number> = {};
-    
-    for (const section of dataSections) {
-      let totalCount = 0;
-      for (const table of section.tables) {
-        try {
-          const { count } = await supabase
-            .from(table as any)
-            .select('*', { count: 'exact', head: true });
-          totalCount += count || 0;
-        } catch (error) {
-          console.error(`Error counting ${table}:`, error);
+    try {
+      // Use server-side backup-export function for counts
+      const { data, error } = await supabase.functions.invoke('backup-export', {
+        body: { action: 'get_counts' },
+      });
+      if (error) throw error;
+      if (data?.counts) {
+        const newCounts: Record<string, number> = {};
+        for (const section of dataSections) {
+          newCounts[section.id] = section.tables.reduce(
+            (sum, table) => sum + (data.counts[table] || 0),
+            0
+          );
         }
+        setCounts(newCounts);
       }
-      newCounts[section.id] = totalCount;
+    } catch (error) {
+      console.error('Error fetching counts via edge function, falling back:', error);
+      // Fallback to direct queries
+      const newCounts: Record<string, number> = {};
+      for (const section of dataSections) {
+        let totalCount = 0;
+        for (const table of section.tables) {
+          try {
+            const { count } = await supabase
+              .from(table as any)
+              .select('*', { count: 'exact', head: true });
+            totalCount += count || 0;
+          } catch (err) {
+            console.error(`Error counting ${table}:`, err);
+          }
+        }
+        newCounts[section.id] = totalCount;
+      }
+      setCounts(newCounts);
     }
-    
-    setCounts(newCounts);
   };
 
   const handleBackup = async (section: DataSection) => {

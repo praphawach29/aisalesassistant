@@ -55,81 +55,84 @@ const AdminAnalytics = () => {
   const startDate = startOfDay(subDays(new Date(), parseInt(dateRange)));
   const endDate = endOfDay(new Date());
 
-  const { data: analyticsEvents, isLoading } = useQuery({
-    queryKey: ['analytics-events', dateRange],
+  // Use server-side RPC for aggregated stats (efficient)
+  const { data: summaryData, isLoading: summaryLoading } = useQuery({
+    queryKey: ['analytics-summary', dateRange],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('analytics_events')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: true });
-
+      const { data, error } = await supabase.rpc('get_analytics_summary', {
+        p_start_date: startDate.toISOString(),
+        p_end_date: endDate.toISOString(),
+      });
       if (error) throw error;
-      return data as AnalyticsEvent[];
+      return data as Record<string, unknown>;
     }
   });
 
-  // Calculate stats
+  const { data: trendRaw, isLoading: trendLoading } = useQuery({
+    queryKey: ['analytics-trend', dateRange],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_analytics_daily_trend', {
+        p_start_date: startDate.toISOString(),
+        p_end_date: endDate.toISOString(),
+      });
+      if (error) throw error;
+      return data as Array<{ date: string; page_views: number; product_views: number; orders: number; chats: number }>;
+    }
+  });
+
+  // Fetch raw events for top pages (minimal fields only)
+  const { data: pageEvents } = useQuery({
+    queryKey: ['analytics-pages', dateRange],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('analytics_events')
+        .select('page_url, device_type, event_type')
+        .eq('event_type', 'page_view')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const isLoading = summaryLoading || trendLoading;
+
   const stats = {
-    pageViews: analyticsEvents?.filter(e => e.event_type === 'page_view').length || 0,
-    productViews: analyticsEvents?.filter(e => e.event_type === 'product_view').length || 0,
-    addToCarts: analyticsEvents?.filter(e => e.event_type === 'add_to_cart').length || 0,
-    ordersCompleted: analyticsEvents?.filter(e => e.event_type === 'order_complete').length || 0,
-    chatStarted: analyticsEvents?.filter(e => e.event_type === 'chat_started').length || 0,
-    chatMessages: analyticsEvents?.filter(e => e.event_type === 'chat_message').length || 0,
-    uniqueSessions: new Set(analyticsEvents?.map(e => e.session_id)).size || 0,
+    pageViews: (summaryData?.page_views as number) || 0,
+    productViews: (summaryData?.product_views as number) || 0,
+    addToCarts: (summaryData?.add_to_cart as number) || 0,
+    ordersCompleted: (summaryData?.orders_completed as number) || 0,
+    chatStarted: (summaryData?.chats_started as number) || 0,
+    chatMessages: (summaryData?.chat_messages as number) || 0,
+    uniqueSessions: (summaryData?.unique_sessions as number) || 0,
   };
 
-  // Calculate daily trends
-  const dailyTrends = analyticsEvents?.reduce((acc, event) => {
-    const date = format(new Date(event.created_at), 'MM/dd');
-    if (!acc[date]) {
-      acc[date] = { date, pageViews: 0, productViews: 0, orders: 0, chats: 0 };
-    }
-    if (event.event_type === 'page_view') acc[date].pageViews++;
-    if (event.event_type === 'product_view') acc[date].productViews++;
-    if (event.event_type === 'order_complete') acc[date].orders++;
-    if (event.event_type === 'chat_started') acc[date].chats++;
-    return acc;
-  }, {} as Record<string, { date: string; pageViews: number; productViews: number; orders: number; chats: number }>) || {};
-
-  const trendData = Object.values(dailyTrends);
-
-  // Device type distribution
-  const deviceDistribution = analyticsEvents?.reduce((acc, event) => {
-    const device = event.device_type || 'unknown';
-    acc[device] = (acc[device] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>) || {};
-
-  const deviceData = Object.entries(deviceDistribution).map(([name, value]) => ({
-    name: name === 'mobile' ? 'มือถือ' : name === 'tablet' ? 'แท็บเล็ต' : name === 'desktop' ? 'คอมพิวเตอร์' : 'ไม่ทราบ',
-    value
+  const trendData = (trendRaw || []).map(d => ({
+    date: format(new Date(d.date), 'MM/dd'),
+    pageViews: d.page_views,
+    productViews: d.product_views,
+    orders: d.orders,
+    chats: d.chats,
   }));
 
-  // Event type distribution
-  const eventDistribution = analyticsEvents?.reduce((acc, event) => {
-    acc[event.event_type] = (acc[event.event_type] || 0) + 1;
+  // Device type distribution from summary RPC
+  const deviceDistribution = (summaryData?.by_device as Record<string, number>) || {};
+  const deviceData = Object.entries(deviceDistribution).map(([name, value]) => ({
+    name: name === 'mobile' ? 'มือถือ' : name === 'tablet' ? 'แท็บเล็ต' : name === 'desktop' ? 'คอมพิวเตอร์' : 'ไม่ทราบ',
+    value: value as number,
+  }));
+
+  // Event type distribution from platform data
+  const platformDistribution = (summaryData?.by_platform as Record<string, number>) || {};
+  const eventData = Object.entries(platformDistribution)
+    .map(([name, value]) => ({ name, value: value as number }));
+
+  // Top pages from lightweight fetch
+  const pageDistribution = (pageEvents || []).reduce((acc, event) => {
+    const page = event.page_url || '/';
+    acc[page] = (acc[page] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>) || {};
-
-  const eventData = Object.entries(eventDistribution)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-    .map(([name, value]) => ({
-      name: name.replace(/_/g, ' '),
-      value
-    }));
-
-  // Top pages
-  const pageDistribution = analyticsEvents
-    ?.filter(e => e.event_type === 'page_view' && e.page_url)
-    .reduce((acc, event) => {
-      const page = event.page_url || '/';
-      acc[page] = (acc[page] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>) || {};
+  }, {} as Record<string, number>);
 
   const topPages = Object.entries(pageDistribution)
     .sort((a, b) => b[1] - a[1])

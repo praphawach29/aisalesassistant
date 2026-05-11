@@ -395,11 +395,11 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
         }
       }
 
-      await supabase.from('admin_notifications').insert({
-        type: analysisResult?.auto_verified ? 'payment_verified' : 'new_payment_slip',
-        title: notificationTitle,
-        message: notificationMessage,
-        data: {
+      await supabase.rpc('create_admin_notification', {
+        p_type: analysisResult?.auto_verified ? 'payment_verified' : 'new_payment_slip',
+        p_title: notificationTitle,
+        p_message: notificationMessage,
+        p_data: {
           order_id: orderId,
           order_number: orderData?.order_number,
           customer_name: orderData?.customer_name,

@@ -44,52 +44,21 @@ const AdminAPIUsage = () => {
   const endDate = endOfDay(new Date());
   const days = differenceInDays(endDate, startDate) || 1;
 
-  // Fetch AI chat messages (assistant role = API call)
-  const { data: chatMessages, isLoading: loadingChats } = useQuery({
-    queryKey: ['api-usage-chats', dateRange],
+  // Use server-side RPC for aggregated API usage stats
+  const { data: usageData, isLoading: loadingChats } = useQuery({
+    queryKey: ['api-usage-stats', dateRange],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('id, role, created_at, conversation_id')
-        .eq('role', 'assistant')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: true });
+      const { data, error } = await supabase.rpc('get_api_usage_stats', {
+        p_start_date: startDate.toISOString(),
+        p_end_date: endDate.toISOString(),
+      });
       if (error) throw error;
-      return data || [];
-    }
-  });
-
-  // Fetch conversations for platform breakdown
-  const { data: conversations } = useQuery({
-    queryKey: ['api-usage-conversations', dateRange],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('chat_conversations')
-        .select('id, platform, created_at')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-      if (error) throw error;
-      return data || [];
-    }
-  });
-
-  // Fetch subscription for quota
-  const { data: subscription } = useQuery({
-    queryKey: ['api-usage-subscription'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('store_subscription')
-        .select('*, subscription_plans(*)')
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      return data as Record<string, unknown>;
     }
   });
 
   const stats = useMemo(() => {
-    const totalMessages = chatMessages?.length || 0;
+    const totalMessages = (usageData?.total_messages as number) || 0;
     const totalCostUSD = totalMessages * COST_PER_MESSAGE_USD;
     const totalCostTHB = totalMessages * COST_PER_MESSAGE_THB;
     const avgPerDay = totalMessages / days;
@@ -97,47 +66,36 @@ const AdminAPIUsage = () => {
     const projectedMonthlyCostTHB = projectedMonthly * COST_PER_MESSAGE_THB;
 
     return { totalMessages, totalCostUSD, totalCostTHB, avgPerDay, projectedMonthly, projectedMonthlyCostTHB };
-  }, [chatMessages, days]);
+  }, [usageData, days]);
 
-  // Daily usage chart data
+  // Daily usage chart data from RPC
   const dailyData = useMemo(() => {
-    if (!chatMessages) return [];
-    const grouped: Record<string, { date: string; messages: number; cost: number }> = {};
-    chatMessages.forEach(msg => {
-      const date = format(new Date(msg.created_at), 'MM/dd');
-      if (!grouped[date]) grouped[date] = { date, messages: 0, cost: 0 };
-      grouped[date].messages++;
-      grouped[date].cost = grouped[date].messages * COST_PER_MESSAGE_THB;
-    });
-    return Object.values(grouped);
-  }, [chatMessages]);
+    const raw = (usageData?.daily_usage as Array<{ date: string; messages: number }>) || [];
+    return raw.map(d => ({
+      date: format(new Date(d.date), 'MM/dd'),
+      messages: d.messages,
+      cost: d.messages * COST_PER_MESSAGE_THB,
+    }));
+  }, [usageData]);
 
-  // Platform breakdown
+  // Platform breakdown from RPC
   const platformData = useMemo(() => {
-    if (!chatMessages || !conversations) return [];
-    const convMap = new Map(conversations.map(c => [c.id, c.platform]));
-    const counts: Record<string, number> = {};
-    chatMessages.forEach(msg => {
-      const platform = convMap.get(msg.conversation_id) || 'unknown';
-      counts[platform] = (counts[platform] || 0) + 1;
-    });
+    const raw = (usageData?.by_platform as Record<string, number>) || {};
     const labels: Record<string, string> = { web: 'เว็บ', line: 'LINE', facebook: 'Facebook', unknown: 'อื่นๆ' };
-    return Object.entries(counts).map(([k, v]) => ({ name: labels[k] || k, messages: v, cost: v * COST_PER_MESSAGE_THB }));
-  }, [chatMessages, conversations]);
+    return Object.entries(raw).map(([k, v]) => ({
+      name: labels[k] || k,
+      messages: v,
+      cost: v * COST_PER_MESSAGE_THB,
+    }));
+  }, [usageData]);
 
-  // Hourly distribution
+  // Hourly distribution (empty - not available from RPC, show empty)
   const hourlyData = useMemo(() => {
-    if (!chatMessages) return [];
-    const hours = Array.from({ length: 24 }, (_, i) => ({ hour: `${i.toString().padStart(2, '0')}:00`, messages: 0 }));
-    chatMessages.forEach(msg => {
-      const h = new Date(msg.created_at).getHours();
-      hours[h].messages++;
-    });
-    return hours;
-  }, [chatMessages]);
+    return Array.from({ length: 24 }, (_, i) => ({ hour: `${i.toString().padStart(2, '0')}:00`, messages: 0 }));
+  }, []);
 
-  const quotaUsed = subscription?.messages_used || 0;
-  const quotaLimit = (subscription?.subscription_plans as any)?.max_messages_per_month || null;
+  const quotaUsed = (usageData?.quota_used as number) || 0;
+  const quotaLimit = (usageData?.quota_limit as number) || null;
   const quotaPercent = quotaLimit ? (quotaUsed / quotaLimit) * 100 : 0;
 
   const isLoading = loadingChats;

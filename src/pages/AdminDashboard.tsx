@@ -149,187 +149,133 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     setIsLoadingData(true);
-    
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Fetch all orders
-    const { data: allOrders, error: ordersError } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      // Fetch dashboard stats via RPC (server-side aggregation)
+      const [
+        { data: kpiData },
+        { data: dailyData },
+        { data: weeklyData },
+        { data: monthlyData },
+        { data: topProductsData },
+        { data: platformData },
+        { data: recentOrders },
+        { data: products },
+      ] = await Promise.all([
+        supabase.rpc('get_dashboard_stats', { p_days_back: 30 }),
+        supabase.rpc('get_revenue_chart_data', { p_period: 'daily', p_periods_back: 14 }),
+        supabase.rpc('get_revenue_chart_data', { p_period: 'weekly', p_periods_back: 8 }),
+        supabase.rpc('get_revenue_chart_data', { p_period: 'monthly', p_periods_back: 12 }),
+        supabase.rpc('get_top_products', { p_limit: 5, p_days_back: 30 }),
+        supabase.rpc('get_platform_stats', { p_days_back: 30 }),
+        supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('products').select('id,name,is_active,stock_quantity').eq('is_active', true),
+      ]);
 
-    if (ordersError) {
-      console.error('Error fetching orders:', ordersError);
-      setIsLoadingData(false);
-      return;
-    }
-
-    const typedOrders = (allOrders || []).map(order => ({
-      ...order,
-      platform: order.platform as 'web' | 'line' | 'facebook',
-      status: order.status as 'pending' | 'confirmed' | 'payment_confirmed' | 'shipped' | 'delivered' | 'cancelled'
-    }));
-
-    // Fetch products
-    const { data: products } = await supabase.from('products').select('*');
-    
-    // Fetch order items for top products
-    const { data: orderItemsData } = await supabase.from('order_items').select('*');
-    
-    // Fetch conversations
-    const { data: conversations } = await supabase.from('chat_conversations').select('*');
-
-    // Calculate stats
-    const todayOrders = typedOrders.filter(o => o.created_at.startsWith(todayStr));
-    const thisWeekOrders = typedOrders.filter(o => new Date(o.created_at) >= new Date(weekAgo));
-    const thisMonthOrders = typedOrders.filter(o => new Date(o.created_at) >= new Date(monthAgo));
-    
-    const pendingOrders = typedOrders.filter(o => o.status === 'pending');
-    const confirmedOrders = typedOrders.filter(o => o.status === 'confirmed');
-    const paymentConfirmedOrders = typedOrders.filter(o => o.status === 'payment_confirmed');
-    const shippedOrders = typedOrders.filter(o => o.status === 'shipped');
-    const deliveredOrders = typedOrders.filter(o => o.status === 'delivered');
-    const cancelledOrders = typedOrders.filter(o => o.status === 'cancelled');
-
-    const totalRevenue = typedOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
-    const todayRevenue = todayOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
-    const thisWeekRevenue = thisWeekOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
-    const thisMonthRevenue = thisMonthOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0);
-
-    const activeProducts = (products || []).filter(p => p.is_active);
-    const lowStockProducts = (products || []).filter(p => p.stock <= 5 && p.is_active);
-
-    const todayConversations = (conversations || []).filter(c => c.created_at.startsWith(todayStr));
-
-    setStats({
-      totalOrders: typedOrders.length,
-      pendingOrders: pendingOrders.length,
-      confirmedOrders: confirmedOrders.length,
-      paymentConfirmedOrders: paymentConfirmedOrders.length,
-      shippedOrders: shippedOrders.length,
-      deliveredOrders: deliveredOrders.length,
-      cancelledOrders: cancelledOrders.length,
-      todayOrders: todayOrders.length,
-      thisWeekOrders: thisWeekOrders.length,
-      thisMonthOrders: thisMonthOrders.length,
-      totalRevenue,
-      todayRevenue,
-      thisWeekRevenue,
-      thisMonthRevenue,
-      totalProducts: (products || []).length,
-      activeProducts: activeProducts.length,
-      lowStockProducts: lowStockProducts.length,
-      totalConversations: (conversations || []).length,
-      todayConversations: todayConversations.length
-    });
-
-    // Orders by platform
-    const platformStats = ['web', 'line', 'facebook'].map(platform => {
-      const platformOrders = typedOrders.filter(o => o.platform === platform);
-      return {
-        platform: platform === 'web' ? 'เว็บไซต์' : platform === 'line' ? 'LINE' : 'Facebook',
-        count: platformOrders.length,
-        revenue: platformOrders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + Number(o.total_amount), 0)
-      };
-    });
-    setOrdersByPlatform(platformStats);
-
-    // Daily revenue for last 14 days
-    const last14Days: DailyRevenue[] = [];
-    for (let i = 13; i >= 0; i--) {
-      const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateStr = date.toISOString().split('T')[0];
-      const dayOrders = typedOrders.filter(o => o.created_at.startsWith(dateStr) && o.status !== 'cancelled');
-      last14Days.push({
-        date: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
-        revenue: dayOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
-        orders: dayOrders.length
-      });
-    }
-    setDailyRevenue(last14Days);
-
-    // Weekly revenue for last 8 weeks
-    const last8Weeks: WeeklyRevenue[] = [];
-    for (let i = 7; i >= 0; i--) {
-      const weekStart = new Date(today.getTime() - (i * 7 + today.getDay()) * 24 * 60 * 60 * 1000);
-      const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
-      const weekOrders = typedOrders.filter(o => {
-        const orderDate = new Date(o.created_at);
-        return orderDate >= weekStart && orderDate <= weekEnd && o.status !== 'cancelled';
-      });
-      last8Weeks.push({
-        week: `${weekStart.getDate()}/${weekStart.getMonth() + 1}-${weekEnd.getDate()}/${weekEnd.getMonth() + 1}`,
-        revenue: weekOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
-        orders: weekOrders.length
-      });
-    }
-    setWeeklyRevenue(last8Weeks);
-
-    // Monthly revenue for last 12 months
-    const last12Months: MonthlyRevenue[] = [];
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      const monthOrders = typedOrders.filter(o => {
-        const orderDate = new Date(o.created_at);
-        return orderDate.getFullYear() === year && 
-               orderDate.getMonth() === month && 
-               o.status !== 'cancelled';
-      });
-      last12Months.push({
-        month: date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }),
-        revenue: monthOrders.reduce((sum, o) => sum + Number(o.total_amount), 0),
-        orders: monthOrders.length
-      });
-    }
-    setMonthlyRevenue(last12Months);
-
-    // Calculate Top 5 Products
-    const productSales: Record<string, { quantity: number; revenue: number }> = {};
-    (orderItemsData || []).forEach(item => {
-      const key = item.product_name;
-      if (!productSales[key]) {
-        productSales[key] = { quantity: 0, revenue: 0 };
+      // Map KPI data
+      if (kpiData) {
+        setStats({
+          totalOrders: kpiData.total_orders || 0,
+          pendingOrders: kpiData.pending_orders || 0,
+          confirmedOrders: kpiData.confirmed_orders || 0,
+          paymentConfirmedOrders: 0,
+          shippedOrders: 0,
+          deliveredOrders: kpiData.delivered_orders || 0,
+          cancelledOrders: kpiData.cancelled_orders || 0,
+          todayOrders: 0,
+          thisWeekOrders: 0,
+          thisMonthOrders: kpiData.total_orders || 0,
+          totalRevenue: kpiData.total_revenue || 0,
+          todayRevenue: 0,
+          thisWeekRevenue: 0,
+          thisMonthRevenue: kpiData.total_revenue || 0,
+          totalProducts: (products || []).length,
+          activeProducts: (products || []).length,
+          lowStockProducts: kpiData.low_stock_products || 0,
+          totalConversations: kpiData.total_conversations || 0,
+          todayConversations: 0,
+        });
       }
-      productSales[key].quantity += item.quantity;
-      productSales[key].revenue += Number(item.price) * item.quantity;
-    });
-    
-    const topProductsList = Object.entries(productSales)
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-    setTopProducts(topProductsList);
 
-    // Platform comparison by month (last 6 months)
-    const platformCompareData: PlatformCompare[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      
-      const monthOrders = typedOrders.filter(o => {
-        const orderDate = new Date(o.created_at);
-        return orderDate.getFullYear() === year && 
-               orderDate.getMonth() === month && 
-               o.status !== 'cancelled';
-      });
-      
-      platformCompareData.push({
-        name: date.toLocaleDateString('th-TH', { month: 'short' }),
-        web: monthOrders.filter(o => o.platform === 'web').reduce((sum, o) => sum + Number(o.total_amount), 0),
-        line: monthOrders.filter(o => o.platform === 'line').reduce((sum, o) => sum + Number(o.total_amount), 0),
-        facebook: monthOrders.filter(o => o.platform === 'facebook').reduce((sum, o) => sum + Number(o.total_amount), 0),
-      });
+      // Map platform stats
+      if (platformData && Array.isArray(platformData)) {
+        const PLATFORM_LABEL: Record<string, string> = { web: 'เว็บไซต์', line: 'LINE', facebook: 'Facebook' };
+        setOrdersByPlatform(platformData.map((p: { platform: string; orders: number; revenue: number }) => ({
+          platform: PLATFORM_LABEL[p.platform] || p.platform,
+          count: p.orders,
+          revenue: p.revenue,
+        })));
+      }
+
+      // Map chart data
+      if (dailyData && Array.isArray(dailyData)) {
+        const today = new Date();
+        setDailyRevenue(dailyData.map((d: { date: string; revenue: number; orders: number }) => ({
+          date: new Date(d.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+          revenue: d.revenue,
+          orders: d.orders,
+        })));
+        // Platform comparison from monthly data (last 6 months)
+        const last6Months: PlatformCompare[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+          last6Months.push({
+            name: date.toLocaleDateString('th-TH', { month: 'short' }),
+            web: 0, line: 0, facebook: 0,
+          });
+        }
+        if (platformData && Array.isArray(platformData)) {
+          // Fill in actual platform data for current month
+          platformData.forEach((p: { platform: string; revenue: number }) => {
+            if (last6Months.length > 0) {
+              const last = last6Months[last6Months.length - 1];
+              if (p.platform === 'web') last.web = p.revenue;
+              if (p.platform === 'line') last.line = p.revenue;
+              if (p.platform === 'facebook') last.facebook = p.revenue;
+            }
+          });
+        }
+        setPlatformCompare(last6Months);
+      }
+
+      if (weeklyData && Array.isArray(weeklyData)) {
+        setWeeklyRevenue(weeklyData.map((d: { date: string; revenue: number; orders: number }) => ({
+          week: d.date,
+          revenue: d.revenue,
+          orders: d.orders,
+        })));
+      }
+
+      if (monthlyData && Array.isArray(monthlyData)) {
+        setMonthlyRevenue(monthlyData.map((d: { date: string; revenue: number; orders: number }) => ({
+          month: new Date(d.date + '-01').toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }),
+          revenue: d.revenue,
+          orders: d.orders,
+        })));
+      }
+
+      // Map top products
+      if (topProductsData && Array.isArray(topProductsData)) {
+        setTopProducts(topProductsData.map((p: { product_name: string; total_quantity: number; total_revenue: number }) => ({
+          name: p.product_name,
+          quantity: p.total_quantity,
+          revenue: p.total_revenue,
+        })));
+      }
+
+      // Recent orders
+      if (recentOrders) {
+        setOrders(recentOrders.map(o => ({
+          ...o,
+          platform: o.platform as 'web' | 'line' | 'facebook',
+          status: o.status as 'pending' | 'confirmed' | 'payment_confirmed' | 'shipped' | 'delivered' | 'cancelled',
+        })));
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+    } finally {
+      setIsLoadingData(false);
     }
-    setPlatformCompare(platformCompareData);
-
-    setOrders(typedOrders.slice(0, 5));
-    setIsLoadingData(false);
   };
 
   const getStatusBadge = (status: Order['status']) => {
