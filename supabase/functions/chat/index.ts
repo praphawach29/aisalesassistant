@@ -842,13 +842,36 @@ serve(async (req) => {
 
   try {
     const { messages, conversationId, webUserId, isAdminMessage, adminUserId, hasImage } = await req.json();
-    
+
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // ============= Message Quota Enforcement =============
+    if (!isAdminMessage) {
+      try {
+        const { data: quotaResult } = await supabase.rpc('check_message_quota');
+        if (quotaResult && quotaResult.allowed === false) {
+          console.log(`[Chat] Message quota exceeded: ${quotaResult.messages_used}/${quotaResult.max_messages}`);
+          return new Response(
+            JSON.stringify({
+              error: 'Quota Exceeded',
+              message: 'โควต้าข้อความหมดแล้ว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ',
+              quota: quotaResult
+            }),
+            {
+              status: 402,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+      } catch (quotaError) {
+        console.warn('[Chat] Quota check failed, allowing request:', quotaError);
+      }
+    }
 
     // ============= Check Human Takeover Mode =============
     // If this conversation is in human takeover mode and it's not an admin message,
@@ -1365,6 +1388,15 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ============= Increment Message Usage on Success =============
+    if (!isAdminMessage) {
+      try {
+        await supabase.rpc('increment_message_usage', { p_count: 1 });
+      } catch (usageError) {
+        console.warn('[Chat] Failed to increment message usage:', usageError);
+      }
     }
 
     return new Response(response.body, {

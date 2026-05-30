@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/hooks/useSubscription";
+import { ProtectedRoute } from "@/components/admin/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
@@ -58,45 +59,51 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              {/* Public routes */}
               <Route path="/" element={<Index />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/products/:id" element={<ProductDetail />} />
               <Route path="/admin" element={<AdminLogin />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/products" element={<AdminProducts />} />
-              <Route path="/admin/product-faqs" element={<AdminProductFAQs />} />
-              <Route path="/admin/orders" element={<AdminOrders />} />
-              <Route path="/admin/payment-slips" element={<AdminPaymentSlips />} />
-              <Route path="/admin/chats" element={<AdminChats />} />
-              <Route path="/admin/faqs" element={<AdminFAQs />} />
-              <Route path="/admin/integrations" element={<AdminIntegrations />} />
-              <Route path="/admin/settings" element={<AdminSettings />} />
-              <Route path="/admin/notifications" element={<AdminNotifications />} />
-              <Route path="/admin/templates" element={<AdminTemplates />} />
-              <Route path="/admin/ai-settings" element={<AdminAISettings />} />
-              <Route path="/admin/category-expertise" element={<AdminCategoryExpertise />} />
-              <Route path="/admin/coupons" element={<AdminCoupons />} />
-              <Route path="/admin/addresses" element={<AdminAddresses />} />
-              <Route path="/admin/broadcast" element={<AdminBroadcast />} />
-              <Route path="/admin/embed-code" element={<AdminEmbedCode />} />
-              <Route path="/admin/web-scraping" element={<AdminWebScraping />} />
-              <Route path="/admin/knowledge-base" element={<AdminKnowledgeBase />} />
-              <Route path="/admin/related-products" element={<AdminRelatedProducts />} />
-              <Route path="/admin/backup-reset" element={<AdminBackupReset />} />
-              <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
-              <Route path="/admin/error-logs" element={<AdminErrorLogs />} />
-              <Route path="/admin/analytics" element={<AdminAnalytics />} />
-              <Route path="/admin/subscription" element={<AdminSubscription />} />
-              <Route path="/admin/bookings" element={<AdminBookings />} />
               <Route path="/widget-demo" element={<WidgetDemo />} />
               <Route path="/embed" element={<Embed />} />
               <Route path="/embed-widget" element={<EmbedWidget />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
-              <Route path="/admin/guide" element={<AdminGuide />} />
-              <Route path="/admin/api-usage" element={<AdminAPIUsage />} />
               <Route path="/track" element={<TrackOrder />} />
               <Route path="/track/:orderNumber" element={<TrackOrder />} />
+
+              {/* Protected admin routes - core */}
+              <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/admin/products" element={<ProtectedRoute><AdminProducts /></ProtectedRoute>} />
+              <Route path="/admin/orders" element={<ProtectedRoute><AdminOrders /></ProtectedRoute>} />
+              <Route path="/admin/chats" element={<ProtectedRoute><AdminChats /></ProtectedRoute>} />
+              <Route path="/admin/faqs" element={<ProtectedRoute><AdminFAQs /></ProtectedRoute>} />
+              <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
+              <Route path="/admin/notifications" element={<ProtectedRoute><AdminNotifications /></ProtectedRoute>} />
+              <Route path="/admin/ai-settings" element={<ProtectedRoute><AdminAISettings /></ProtectedRoute>} />
+              <Route path="/admin/addresses" element={<ProtectedRoute><AdminAddresses /></ProtectedRoute>} />
+              <Route path="/admin/guide" element={<ProtectedRoute><AdminGuide /></ProtectedRoute>} />
+              <Route path="/admin/subscription" element={<ProtectedRoute><AdminSubscription /></ProtectedRoute>} />
+
+              {/* Protected admin routes - with subscription feature check */}
+              <Route path="/admin/product-faqs" element={<ProtectedRoute requireSubscriptionFeature="product_faqs"><AdminProductFAQs /></ProtectedRoute>} />
+              <Route path="/admin/payment-slips" element={<ProtectedRoute requireSubscriptionFeature="ai_slip_verification"><AdminPaymentSlips /></ProtectedRoute>} />
+              <Route path="/admin/integrations" element={<ProtectedRoute requireSubscriptionFeature="line_integration"><AdminIntegrations /></ProtectedRoute>} />
+              <Route path="/admin/templates" element={<ProtectedRoute requireSubscriptionFeature="templates"><AdminTemplates /></ProtectedRoute>} />
+              <Route path="/admin/category-expertise" element={<ProtectedRoute requireSubscriptionFeature="category_expertise"><AdminCategoryExpertise /></ProtectedRoute>} />
+              <Route path="/admin/coupons" element={<ProtectedRoute requireSubscriptionFeature="coupons"><AdminCoupons /></ProtectedRoute>} />
+              <Route path="/admin/broadcast" element={<ProtectedRoute requireSubscriptionFeature="broadcast"><AdminBroadcast /></ProtectedRoute>} />
+              <Route path="/admin/embed-code" element={<ProtectedRoute requireSubscriptionFeature="embed_widget"><AdminEmbedCode /></ProtectedRoute>} />
+              <Route path="/admin/web-scraping" element={<ProtectedRoute requireSubscriptionFeature="web_scraping"><AdminWebScraping /></ProtectedRoute>} />
+              <Route path="/admin/knowledge-base" element={<ProtectedRoute requireSubscriptionFeature="knowledge_base"><AdminKnowledgeBase /></ProtectedRoute>} />
+              <Route path="/admin/related-products" element={<ProtectedRoute requireSubscriptionFeature="related_products"><AdminRelatedProducts /></ProtectedRoute>} />
+              <Route path="/admin/backup-reset" element={<ProtectedRoute requireSubscriptionFeature="backup_restore"><AdminBackupReset /></ProtectedRoute>} />
+              <Route path="/admin/audit-logs" element={<ProtectedRoute requireSubscriptionFeature="audit_logs"><AdminAuditLogs /></ProtectedRoute>} />
+              <Route path="/admin/error-logs" element={<ProtectedRoute requireSubscriptionFeature="error_logs"><AdminErrorLogs /></ProtectedRoute>} />
+              <Route path="/admin/analytics" element={<ProtectedRoute requireSubscriptionFeature="analytics"><AdminAnalytics /></ProtectedRoute>} />
+              <Route path="/admin/bookings" element={<ProtectedRoute requireSubscriptionFeature="booking_system"><AdminBookings /></ProtectedRoute>} />
+              <Route path="/admin/api-usage" element={<ProtectedRoute requireSubscriptionFeature="analytics"><AdminAPIUsage /></ProtectedRoute>} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

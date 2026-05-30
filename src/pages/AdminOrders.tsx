@@ -72,6 +72,22 @@ const statusOptions: { value: OrderStatus; label: string; color: string }[] = [
   { value: 'cancelled', label: 'ยกเลิก', color: 'bg-red-500' },
 ];
 
+const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['payment_confirmed', 'cancelled'],
+  payment_confirmed: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: [],
+  cancelled: [],
+};
+
+function getAvailableStatusOptions(currentStatus: OrderStatus) {
+  const allowed = validTransitions[currentStatus] || [];
+  return statusOptions.filter(
+    opt => opt.value === currentStatus || allowed.includes(opt.value)
+  );
+}
+
 interface MessageTemplate {
   id: string;
   name: string;
@@ -861,7 +877,7 @@ export default function AdminOrders() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusOptions.map(option => (
+                  {getAvailableStatusOptions(selectedOrder?.status || 'pending').map(option => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

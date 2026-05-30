@@ -66,7 +66,7 @@ function parseAddressCommands(text: string): { cleanText: string; addressAction?
 
 // Parse order creation command from AI response
 interface OrderData {
-  items: { name: string; quantity: number; price: number }[];
+  items: { name: string; quantity: number; price: number; productId?: string }[];
   customerName: string;
   customerPhone: string;
   customerAddress: string;
@@ -422,6 +422,26 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
   // Create order in database
   const createOrder = useCallback(async (orderData: OrderData): Promise<{ orderNumber: string; orderId: string } | null> => {
     try {
+      // Validate stock before creating order
+      const stockCheckItems = orderData.items
+        .filter(item => item.productId)
+        .map(item => ({ product_id: item.productId, quantity: item.quantity }));
+
+      if (stockCheckItems.length > 0) {
+        const { data: stockResult } = await supabase.rpc('validate_order_stock', {
+          p_items: stockCheckItems
+        });
+
+        if (stockResult && !stockResult.valid) {
+          const errors = stockResult.errors || [];
+          const errorMsgs = errors.map((e: { product_name?: string; available?: number; requested?: number }) =>
+            `${e.product_name}: มีเหลือ ${e.available} ชิ้น (ต้องการ ${e.requested})`
+          );
+          console.error('Stock validation failed:', errorMsgs.join(', '));
+          return null;
+        }
+      }
+
       const { data: orderResult, error: orderError } = await supabase
         .from('orders')
         .insert([{
@@ -443,9 +463,10 @@ export function useChat(options: UseChatOptions = { autoLoadHistory: true }) {
       const createdOrderId = orderResult?.id;
       const orderNumber = orderResult?.order_number || `ORD-${Date.now()}`;
 
-      // Insert order items
+      // Insert order items with product_id when available
       const orderItems = orderData.items.map(item => ({
         order_id: createdOrderId,
+        product_id: item.productId || null,
         product_name: item.name,
         quantity: item.quantity,
         price: item.price

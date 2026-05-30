@@ -160,16 +160,30 @@ serve(async (req) => {
           updateData.status = 'confirmed';
           updateData.confirmed_at = new Date().toISOString();
           updateData.admin_notes = `ยืนยันอัตโนมัติ: AI อ่านยอด ฿${result.analyzed_amount?.toLocaleString()} (คาดหวัง ฿${expected_amount?.toLocaleString()}) ความมั่นใจ ${result.confidence_score}%`;
-          
+
           console.log(`Auto-verified: analyzed=${result.analyzed_amount}, expected=${expected_amount}, diff=${amountDiff}`);
-          
-          // Also update order status if order_id is provided
+
+          // Update order status to payment_confirmed (not just confirmed)
           if (order_id) {
+            // First confirm the order, then confirm payment (valid transition path)
+            const { data: currentOrder } = await supabase
+              .from('orders')
+              .select('status')
+              .eq('id', order_id)
+              .single();
+
+            if (currentOrder?.status === 'pending') {
+              await supabase
+                .from('orders')
+                .update({ status: 'confirmed' })
+                .eq('id', order_id);
+            }
+            // Now set to payment_confirmed
             await supabase
               .from('orders')
-              .update({ status: 'confirmed' })
+              .update({ status: 'payment_confirmed' })
               .eq('id', order_id);
-            console.log(`Order ${order_id} status updated to confirmed`);
+            console.log(`Order ${order_id} status updated to payment_confirmed`);
           }
         }
       }
